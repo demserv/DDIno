@@ -3,10 +3,7 @@
 #include "global_state.h"
 #include "param_catalog.h"
 #include "services/config_manager.h"
-#include "esp_log.h"
 #include "lvgl.h"
-
-static const char *TAG = "screen_calibration";
 
 static lv_obj_t *calib_labels[14];
 

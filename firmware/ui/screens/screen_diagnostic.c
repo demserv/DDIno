@@ -8,11 +8,8 @@
 #include "driver_ds18b20.h"
 
 #include "esp_system.h"
-#include "esp_log.h"
 #include "esp_timer.h"
 #include "lvgl.h"
-
-static const char *TAG = "screen_diagnostic";
 
 #define DIAG_LABEL_COUNT 14
 
