@@ -23,6 +23,7 @@ typedef struct {
     char              action_hint[64];
     uint16_t          related_plug_id;
     bool              state_associated;
+    uint64_t          silenced_until;
 } alert_slot_t;
 
 void         alert_manager_init(void);
@@ -33,9 +34,12 @@ bool         alert_manager_raise(int16_t alm_id, bool ack_req, uint64_t ts);
 bool         alert_manager_ack(int16_t alm_id, uint64_t ts);
 bool         alert_manager_is_active(int16_t alm_id);
 void         alert_manager_clear(int16_t alm_id);
+void         alert_manager_check_ack_timeout(uint64_t now_s, uint32_t timeout_s);
 uint16_t     alert_manager_active_count(void);
 uint16_t     alert_manager_critical_count(void);
 const alert_slot_t* alert_manager_get_slot(int16_t alm_id);
 void         alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t max);
+void         alert_manager_set_silenced(int16_t alm_id, uint64_t until_ts);
+bool         alert_manager_is_silenced(int16_t alm_id, uint64_t now_ts);
 
 #endif

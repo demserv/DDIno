@@ -1,5 +1,7 @@
 #include "ui_screens.h"
+#include "hardware_config.h"
 #include "ui_state_badge.h"
+#include "ui_status_bar.h"
 #include "global_state.h"
 #include "alert_manager.h"
 
@@ -38,7 +40,37 @@ static lv_obj_t *wizard_msg = NULL;
 static lv_obj_t *mute_icon = NULL;
 static bool s_muted = false;
 
+// Carousel auto-rotation
+static bool s_carousel_enabled = true;
+static uint32_t s_carousel_interval_ms = HW_UI_CAROUSEL_INTERVAL_MS;
+static uint64_t s_last_carousel_ms = 0;
+static uint64_t s_last_interaction_ms = 0;
+
+static const screen_id_t s_carousel_screens[] = {
+    SCREEN_DASHBOARD, SCREEN_DEVICES1, SCREEN_DEVICES2,
+    SCREEN_ENERGY, SCREEN_DIAGNOSTIC
+};
+#define CAROUSEL_SCREEN_COUNT (sizeof(s_carousel_screens) / sizeof(s_carousel_screens[0]))
+
 extern global_state_t g_gs;
+
+static void carousel_advance(void)
+{
+    screen_id_t current = (screen_id_t)current_idx;
+    int found = -1;
+    for (int i = 0; i < (int)CAROUSEL_SCREEN_COUNT; i++) {
+        if (s_carousel_screens[i] == current) {
+            found = i;
+            break;
+        }
+    }
+    if (found < 0) {
+        found = 0;
+    } else {
+        found = (found + 1) % (int)CAROUSEL_SCREEN_COUNT;
+    }
+    ui_screen_show(s_carousel_screens[found]);
+}
 
 static void on_screen_timeout(void *arg)
 {
@@ -56,6 +88,7 @@ static void restart_timeout(void)
 void ui_screen_notify_activity(void)
 {
     restart_timeout();
+    s_last_interaction_ms = esp_timer_get_time() / 1000;
 }
 
 void ui_screen_register(screen_id_t id, screen_init_fn_t init, screen_update_fn_t update)
@@ -120,6 +153,8 @@ esp_err_t ui_screens_init(void)
             init_fns[i](screens[i]);
         }
     }
+
+    ui_status_bar_init();
 
     esp_timer_create_args_t timeout_args = {
         .callback = on_screen_timeout,
@@ -265,7 +300,7 @@ void ui_screen_update_all(void)
         }
     }
 
-    ui_state_badge_update();
+    ui_status_bar_update();
 
     if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
         lv_obj_clear_flag(emergency_overlay, LV_OBJ_FLAG_HIDDEN);
@@ -334,4 +369,25 @@ void ui_screen_update_all(void)
     } else {
         lv_obj_add_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
     }
+
+    if (s_carousel_enabled) {
+        if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) return;
+        if (!g_gs.wizard_completed) return;
+        uint64_t now_ms = esp_timer_get_time() / 1000;
+        if (now_ms - s_last_interaction_ms < HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS) return;
+        if (now_ms - s_last_carousel_ms > s_carousel_interval_ms) {
+            carousel_advance();
+            s_last_carousel_ms = now_ms;
+        }
+    }
+}
+
+void ui_carousel_enable(bool en)
+{
+    s_carousel_enabled = en;
+}
+
+void ui_carousel_set_interval(uint32_t interval_ms)
+{
+    s_carousel_interval_ms = interval_ms;
 }

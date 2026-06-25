@@ -111,6 +111,22 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
         return;
     }
 
+    /* Power factor monitoring */
+    if (in->pf > 0.01f && in->pf < fsm->cfg.pf_min) {
+        if (fsm->pf_low_start_ms == 0) {
+            fsm->pf_low_start_ms = in->now_ms;
+        }
+        uint64_t elapsed = (in->now_ms - fsm->pf_low_start_ms) / 1000ULL;
+        if (elapsed >= fsm->cfg.pf_time_s) {
+            fsm->out.state = ELECTRIC_STATE_SENSOR_FAIL;
+            fsm->out.suggested_alm = ALM_058;
+            /* PF warning only, no SAFE_OFF */
+            return;
+        }
+    } else {
+        fsm->pf_low_start_ms = 0;
+    }
+
     /* High consumption warning zone (hysteresis-based) */
     if (in->total_power_w > (fsm->cfg.total_power_limit_w - fsm->cfg.hysteresis_w)) {
         fsm->out.state = ELECTRIC_STATE_HIGH_CONSUMPTION;

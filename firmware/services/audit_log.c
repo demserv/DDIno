@@ -17,6 +17,7 @@ static const char *event_type_str(audit_event_type_t type)
         case AUDIT_LOGIN:         return "LOGIN";
         case AUDIT_WIZARD:        return "WIZARD";
         case AUDIT_MAINTENANCE:   return "MAINT";
+        case AUDIT_FACTORY_RESET: return "FACTORY_RESET";
         default:                  return "UNKNOWN";
     }
 }

@@ -47,6 +47,8 @@ set(MAIN_SRCS
     "../fsm/feed_fsm.c"
     "../ui/screens/screen_diagnostic.c"
     "../ui/screens/screen_calibration.c"
+    "../services/reset_handler.c"
+    "../ui/ui_status_bar.c"
 )
 
 set(MAIN_INCLUDE_DIRS

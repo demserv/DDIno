@@ -19,6 +19,7 @@
 #include "fsm/feed_fsm.h"
 #include "fsm/restart_fsm.h"
 #include "services/plug_manager.h"
+#include "services/reset_handler.h"
 #include "pin_map.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
@@ -711,6 +712,95 @@ static esp_err_t wizard_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static esp_err_t reset_api_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+
+    if (req->method == HTTP_GET) {
+        cJSON *json = cJSON_CreateObject();
+        cJSON_AddBoolToObject(json, "pending", reset_handler_is_pending());
+        cJSON_AddNumberToObject(json, "remaining_s", reset_handler_remaining_s());
+        const char *phase = "idle";
+        switch (reset_handler_get_state()) {
+            case RESET_STATE_IDLE:      phase = "idle";      break;
+            case RESET_STATE_CONFIRM1:  phase = "confirm1";  break;
+            case RESET_STATE_CONFIRM2:  phase = "confirm2";  break;
+            case RESET_STATE_COUNTDOWN: phase = "countdown"; break;
+            case RESET_STATE_ERASING:   phase = "erasing";   break;
+            case RESET_STATE_REBOOTING: phase = "rebooting"; break;
+        }
+        cJSON_AddStringToObject(json, "phase", phase);
+        return send_json_resp(req, json, "200 OK");
+    }
+
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *action_item = cJSON_GetObjectItem(json, "action");
+    if (!cJSON_IsString(action_item)) {
+        cJSON_Delete(json);
+        return send_error(req, "missing_action", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+    const char *action = action_item->valuestring;
+    cJSON_Delete(json);
+
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+    const char *status_msg = "unknown_action";
+
+    if (strcmp(action, "factory") == 0) {
+        if (reset_handler_get_state() == RESET_STATE_CONFIRM1) {
+            err = reset_handler_confirm();
+            status_msg = "confirmed";
+        } else {
+            err = reset_handler_start();
+            status_msg = "initiated";
+        }
+    } else if (strcmp(action, "confirm") == 0) {
+        err = reset_handler_confirm();
+        status_msg = "confirmed";
+    } else if (strcmp(action, "abort") == 0) {
+        err = reset_handler_abort();
+        status_msg = "aborted";
+    }
+
+    if (err != ESP_OK) {
+        return send_error(req, "action_failed", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", status_msg);
+    cJSON_AddStringToObject(resp, "action", action);
+    return send_json_resp(req, resp, "200 OK");
+}
+
+static esp_err_t config_monitor_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *mo = cJSON_GetObjectItem(json, "monitor_only");
+    if (!cJSON_IsBool(mo)) {
+        cJSON_Delete(json);
+        return send_error(req, "missing_monitor_only", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+    bool val = cJSON_IsTrue(mo);
+    g_gs.monitor_only_mode = val;
+    config_set_monitor_only(val);
+    cJSON_Delete(json);
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", "monitor_updated");
+    cJSON_AddBoolToObject(resp, "monitor_only", val);
+    return send_json_resp(req, resp, "200 OK");
+}
+
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
@@ -729,8 +819,9 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/energy",        .method = HTTP_GET,  .handler = energy_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/alerts",        .method = HTTP_GET,  .handler = alerts_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/alerts",        .method = HTTP_POST, .handler = alert_ack_handler,     .user_ctx = NULL },
-    { .uri = "/api/v1/config",        .method = HTTP_GET,  .handler = config_get_handler,    .user_ctx = NULL },
-    { .uri = "/api/v1/config",        .method = HTTP_POST, .handler = config_set_handler,    .user_ctx = NULL },
+    { .uri = "/api/v1/config",        .method = HTTP_GET,  .handler = config_get_handler,         .user_ctx = NULL },
+    { .uri = "/api/v1/config",        .method = HTTP_POST, .handler = config_set_handler,         .user_ctx = NULL },
+    { .uri = "/api/v1/config/monitor", .method = HTTP_POST, .handler = config_monitor_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/command",       .method = HTTP_POST, .handler = command_handler,       .user_ctx = NULL },
     { .uri = "/api/v1/calibrate",     .method = HTTP_GET,  .handler = calibrate_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/calibrate",     .method = HTTP_POST, .handler = calibrate_handler,     .user_ctx = NULL },
@@ -739,6 +830,8 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/log",           .method = HTTP_GET,  .handler = log_handler,           .user_ctx = NULL },
     { .uri = "/api/v1/wizard",        .method = HTTP_GET,  .handler = wizard_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/wizard",        .method = HTTP_POST, .handler = wizard_handler,        .user_ctx = NULL },
+    { .uri = "/api/v1/reset",         .method = HTTP_GET,  .handler = reset_api_handler,     .user_ctx = NULL },
+    { .uri = "/api/v1/reset",         .method = HTTP_POST, .handler = reset_api_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_GET,  .handler = catch_all_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_POST, .handler = catch_all_handler,     .user_ctx = NULL },
 };

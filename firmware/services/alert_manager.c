@@ -32,12 +32,18 @@ void alert_manager_init(void)
     }
 }
 
+static bool slot_is_silenced(const alert_slot_t *slot, uint64_t now_ts)
+{
+    return (slot->silenced_until > 0 && now_ts < slot->silenced_until);
+}
+
 bool alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_category_t cat,
                                const char *msg, float val, const char *hint,
                                uint16_t related_plug, bool ack_req, bool state_associated, uint64_t ts)
 {
     int idx = find_slot(alm_id);
     if (idx >= 0) {
+        if (slot_is_silenced(&s_slots[idx], ts)) return false;
         s_slots[idx].last_seen_ts = ts;
         s_slots[idx].value = val;
         return true;
@@ -109,6 +115,22 @@ uint16_t alert_manager_active_count(void)
     return c;
 }
 
+void alert_manager_check_ack_timeout(uint64_t now_s, uint32_t timeout_s)
+{
+    for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
+        alert_slot_t *slot = &s_slots[i];
+        if (slot->active && slot->ack_req && !slot->acked) {
+            if ((now_s - slot->first_seen_ts) > timeout_s) {
+                if (slot->severity == ALERT_SEVERITY_CRITICAL || slot->severity == ALERT_SEVERITY_HIGH) {
+                    alert_manager_raise_full(ALM_046, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_PROCESS,
+                                             "ACK timeout escalation", 0.0f, NULL,
+                                             0, true, false, now_s);
+                }
+            }
+        }
+    }
+}
+
 static bool is_critical_alm(int16_t alm_id)
 {
     switch (alm_id) {
@@ -143,10 +165,25 @@ void alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t
 {
     uint16_t written = 0;
     for (int i = 0; i < ALERT_SLOTS_MAX && written < max; i++) {
-        if (s_slots[i].active) {
+        if (s_slots[i].active && !slot_is_silenced(&s_slots[i], 0)) {
             out[written] = s_slots[i];
             written++;
         }
     }
     *count = written;
+}
+
+void alert_manager_set_silenced(int16_t alm_id, uint64_t until_ts)
+{
+    int idx = find_slot(alm_id);
+    if (idx >= 0) {
+        s_slots[idx].silenced_until = until_ts;
+    }
+}
+
+bool alert_manager_is_silenced(int16_t alm_id, uint64_t now_ts)
+{
+    int idx = find_slot(alm_id);
+    if (idx < 0) return false;
+    return slot_is_silenced(&s_slots[idx], now_ts);
 }

@@ -1,4 +1,5 @@
 #include "ui_display.h"
+#include "hardware_config.h"
 #include "pin_map.h"
 
 #include "freertos/FreeRTOS.h"
@@ -11,6 +12,11 @@
 
 static const char *TAG = "ui_display";
 static spi_device_handle_t spi_dev = NULL;
+
+static uint8_t s_brightness_percent = HW_UI_BRIGHTNESS_DEFAULT;
+static uint8_t s_configured_brightness = HW_UI_BRIGHTNESS_DEFAULT;
+static bool s_dim_enabled = false;
+static uint32_t s_dim_timeout_s = 0;
 
 static void ili9488_send_cmd(uint8_t cmd)
 {
@@ -133,7 +139,7 @@ esp_err_t ui_display_init(void)
 
     ili9488_init();
 
-    gpio_set_level(PIN_TFT_BL_GPIO, 1);
+    gpio_set_level(PIN_TFT_BL_GPIO, s_brightness_percent > 0 ? 1 : 0);
 
     lv_init();
 
@@ -161,4 +167,27 @@ esp_err_t ui_display_init(void)
 
     ESP_LOGI(TAG, "Display initialized");
     return ESP_OK;
+}
+
+void ui_display_set_brightness(uint8_t percent)
+{
+    if (percent > 100) percent = 100;
+    s_configured_brightness = percent;
+    s_brightness_percent = percent;
+    gpio_set_level(PIN_TFT_BL_GPIO, percent > 0 ? 1 : 0);
+}
+
+uint8_t ui_display_get_brightness(void)
+{
+    return s_brightness_percent;
+}
+
+void ui_display_dim_on_inactivity(bool enable, uint32_t timeout_s)
+{
+    s_dim_enabled = enable;
+    s_dim_timeout_s = timeout_s;
+    if (!enable) {
+        s_brightness_percent = s_configured_brightness;
+        gpio_set_level(PIN_TFT_BL_GPIO, s_brightness_percent > 0 ? 1 : 0);
+    }
 }

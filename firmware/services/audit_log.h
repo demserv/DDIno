@@ -14,7 +14,8 @@ typedef enum {
     AUDIT_FEED_MODE,
     AUDIT_LOGIN,
     AUDIT_WIZARD,
-    AUDIT_MAINTENANCE
+    AUDIT_MAINTENANCE,
+    AUDIT_FACTORY_RESET
 } audit_event_type_t;
 
 esp_err_t audit_log_event(audit_event_type_t type, const char *msg);

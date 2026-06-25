@@ -1,6 +1,7 @@
 // @requirement RF-THERMAL-001 Leitura contínua com validação robusta (CRC + 85°C rejection)
 // @requirement RF-THERMAL-002 Sensor fail → SAFE_OFF
 // @requirement RF-THERMAL-003 Classificação térmica por parâmetros configuráveis
+// @requirement RF-THERMAL-005 Trend indicator (warming / cooling / stable)
 // @requirement RF-THERMAL-009 Exclusão mútua aquecedor e cooler
 // @requirement RF-FSM-THERMAL-001 FSM térmica e impacto sistêmico
 // @requirement RF-THERMAL-SA-001 Latching de OVER_TEMP com reset manual
@@ -51,6 +52,26 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
     }
 
     const float t = in->temp_c;
+    /* Compute trend: compare current temp to last temp, normalize to °C/min */
+    static float s_last_temp = 0;
+    static uint64_t s_last_trend_ms = 0;
+    if (s_last_trend_ms == 0) {
+        s_last_temp = t;
+        s_last_trend_ms = in->now_ms;
+    }
+    uint64_t dt_ms = in->now_ms - s_last_trend_ms;
+    if (dt_ms > 0) {
+        float dt_min = (float)dt_ms / 60000.0f;
+        if (dt_min > 0.001f) {
+            fsm->out.trend_c_per_min = (t - s_last_temp) / dt_min;
+        }
+        /* Update every 10s minimum */
+        if (dt_ms > 10000) {
+            s_last_temp = t;
+            s_last_trend_ms = in->now_ms;
+        }
+    }
+
     const float sp = fsm->cfg.temp_normal_c;
     const float h  = fsm->cfg.hysteresis_c;
 

@@ -36,5 +36,6 @@ esp_err_t config_reset_to_defaults(void);
 
 bool config_is_wizard_completed(void);
 void config_set_wizard_completed(bool val);
+void config_set_monitor_only(bool val);
 
 #endif

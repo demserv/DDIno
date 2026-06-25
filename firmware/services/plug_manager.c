@@ -1,13 +1,24 @@
-// @requirement RF-PLUG-001 Modos de operação por plugue
+// @requirement RF-PLUG-001 Modos de operacao por plugue
 // @requirement RF-PLUG-002 Tipo e criticidade do plugue
-// @requirement RF-PLUG-003 Proteção de corrente por plugue
+// @requirement RF-PLUG-003 Protecao de corrente por plugue
+// @requirement RF-PLUG-004 Bypass detection
 // @requirement RF-PLUG-007 Estados visuais
-// @requirement RF-PLUG-008 Tempo mínimo ON/OFF
+// @requirement RF-PLUG-008 Tempo minimo ON/OFF
+// @requirement RF-PLUG-012 Relocation AQUECEDOR/COOLER
+// @requirement RF-PLUG-013 max_energy_wh_day monitoring
 // @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
 #include "services/plug_manager.h"
+#include "services/alert_manager.h"
+#include "services/config_manager.h"
+#include "services/audit_log.h"
 #include "driver_relay.h"
+#include "driver_acs712.h"
+#include "global_state.h"
 #include "esp_log.h"
 #include <string.h>
+#include <stdio.h>
+
+extern global_state_t g_gs;
 
 static const char *TAG = "plug_manager";
 
@@ -15,6 +26,7 @@ static plug_model_t s_plugs[PLUG_COUNT_TOTAL];
 static bool s_thermal_heater = false;
 static bool s_thermal_cooler = false;
 static uint64_t s_last_toggle_ms[PLUG_COUNT_TOTAL] = {0};
+static uint8_t s_bypass_sample_count[PLUG_COUNT_TOTAL] = {0};
 
 static const char *s_default_names[PLUG_COUNT_TOTAL] = {
     "Bomba ATO", "Aquecedor", "Cooler", "Filtro",
@@ -59,6 +71,7 @@ void plug_manager_init(void)
         p->fator_curto = 3.0f;
         p->tempo_deteccao_curto_ms = 500;
     }
+    memset(s_bypass_sample_count, 0, sizeof(s_bypass_sample_count));
     s_in_safe_off = false;
     ESP_LOGI(TAG, "Plug manager initialized, %d plugs", PLUG_COUNT_TOTAL);
 }
@@ -136,6 +149,38 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
 
         p->effective_state = target_on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
         p->command_allowed = !s_in_safe_off;
+
+        // RF-PLUG-004: Bypass detection
+        if (p->effective_state == PLUG_EFFECTIVE_STATE_OFF) {
+            if (p->current_a > p->current_limit_a * 0.1f) {
+                s_bypass_sample_count[i]++;
+                if (s_bypass_sample_count[i] >= 3 && !p->bypass_detected) {
+                    p->bypass_detected = true;
+                    char msg[64];
+                    snprintf(msg, sizeof(msg), "Bypass detected in %s", p->name);
+                    alert_manager_raise_full((int16_t)ALM_054, ALERT_SEVERITY_HIGH,
+                        ALERT_CATEGORY_PROCESS, msg, p->current_a,
+                        "Check relay and wiring", (uint16_t)p->id,
+                        true, true, now_s * 1000ULL);
+                }
+            } else {
+                s_bypass_sample_count[i] = 0;
+            }
+        } else {
+            s_bypass_sample_count[i] = 0;
+        }
+
+        // RF-PLUG-013: max_energy_wh_day monitoring
+        if (p->max_energy_wh_day > 0 && p->energy_wh_today > p->max_energy_wh_day) {
+            if (!alert_manager_is_active((int16_t)ALM_057)) {
+                char msg[64];
+                snprintf(msg, sizeof(msg), "Daily energy limit exceeded for %s", p->name);
+                alert_manager_raise_full((int16_t)ALM_057, ALERT_SEVERITY_WARNING,
+                    ALERT_CATEGORY_PROCESS, msg, p->energy_wh_today,
+                    "Check consumption", (uint16_t)p->id,
+                    true, false, now_s * 1000ULL);
+            }
+        }
     }
 }
 
@@ -167,12 +212,34 @@ bool plug_manager_get_effective_state(plug_id_t id)
 
 esp_err_t plug_manager_toggle(plug_id_t id, bool on)
 {
+    return plug_manager_toggle_ex(id, on, 0);
+}
+
+esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms)
+{
     if (id < 1 || id > PLUG_COUNT_TOTAL) return ESP_ERR_INVALID_ARG;
+    if (g_gs.monitor_only_mode) return ESP_ERR_INVALID_STATE;
     if (s_in_safe_off) return ESP_ERR_INVALID_STATE;
     if (s_plugs[id - 1].monitor_only_blocked) return ESP_ERR_INVALID_STATE;
 
+    plug_model_t *p = &s_plugs[id - 1];
+
+    if (now_ms > 0) {
+        uint64_t elapsed = now_ms - s_last_toggle_ms[id - 1];
+        if (on) {
+            if (elapsed < (uint64_t)p->min_off_time_s * 1000ULL)
+                return ESP_ERR_INVALID_STATE;
+        } else {
+            if (elapsed < (uint64_t)p->min_on_time_s * 1000ULL)
+                return ESP_ERR_INVALID_STATE;
+        }
+    }
+
     relay_set(id, on);
-    s_plugs[id - 1].effective_state = on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
+    if (now_ms > 0) {
+        s_last_toggle_ms[id - 1] = now_ms;
+    }
+    p->effective_state = on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
     return ESP_OK;
 }
 
@@ -206,4 +273,46 @@ void plug_manager_apply_safe_off(void)
 void plug_manager_set_restart_mask(uint16_t mask)
 {
     s_restart_energized_mask = mask;
+}
+
+// RF-PLUG-012: Relocation AQUECEDOR/COOLER
+esp_err_t plug_manager_relocate(plug_id_t src_id, plug_id_t dst_id)
+{
+    if (src_id != PLUG_ID_P01 && src_id != PLUG_ID_P02)
+        return ESP_ERR_INVALID_ARG;
+    if (dst_id < PLUG_ID_P03 || dst_id > PLUG_ID_P08)
+        return ESP_ERR_INVALID_ARG;
+
+    plug_model_t *src = &s_plugs[src_id - 1];
+    plug_model_t *dst = &s_plugs[dst_id - 1];
+
+    dst->type = src->type;
+    src->type = PLUG_TYPE_OUTRO;
+
+    src->role_override_source = (uint8_t)dst_id;
+    dst->role_override_source = (uint8_t)src_id;
+
+    src->is_critical = false;
+    dst->is_critical = true;
+
+    ESP_LOGI(TAG, "Relocated %s (P%02d) to P%02d", s_default_names[src_id - 1], src_id, dst_id);
+
+    char audit_msg[64];
+    snprintf(audit_msg, sizeof(audit_msg), "Relocated plug P%02d to P%02d", src_id, dst_id);
+    audit_log_event(AUDIT_CONFIG_CHANGE, audit_msg);
+
+    return ESP_OK;
+}
+
+bool plug_manager_is_relocated(plug_id_t id)
+{
+    if (id < 1 || id > PLUG_COUNT_TOTAL) return false;
+    return s_plugs[id - 1].role_override_source != 0;
+}
+
+// RF-PLUG-004: Set plug current from ACS712 reading
+void plug_manager_set_plug_current(plug_id_t id, float current_a)
+{
+    if (id < 1 || id > PLUG_COUNT_TOTAL) return;
+    s_plugs[id - 1].current_a = current_a;
 }

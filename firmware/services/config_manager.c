@@ -293,3 +293,9 @@ void config_set_wizard_completed(bool val)
     s_system.wizard_completed = val;
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
+
+void config_set_monitor_only(bool val)
+{
+    s_system.monitor_only_mode = val;
+    save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+}

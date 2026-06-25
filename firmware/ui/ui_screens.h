@@ -34,4 +34,7 @@ typedef void (*screen_update_fn_t)(void);
 
 void ui_screen_register(screen_id_t id, screen_init_fn_t init, screen_update_fn_t update);
 
+void ui_carousel_enable(bool en);
+void ui_carousel_set_interval(uint32_t interval_ms);
+
 #endif

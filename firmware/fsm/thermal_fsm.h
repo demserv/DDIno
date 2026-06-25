@@ -39,6 +39,7 @@ typedef struct {
     bool sensor_fault;
     safeoff_reason_t safeoff_reason;
     uint16_t suggested_alm;
+    float trend_c_per_min;  /* positive = warming, negative = cooling, 0 = stable */
 } thermal_output_t;
 
 typedef struct {

@@ -61,6 +61,7 @@ typedef struct {
     uint64_t overvoltage_start_ms;
     uint64_t undervoltage_start_ms;
     uint64_t total_overcurrent_start_ms;
+    uint64_t pf_low_start_ms;
 } electric_fsm_t;
 
 void electric_fsm_init(electric_fsm_t *fsm, const electric_params_t *cfg);

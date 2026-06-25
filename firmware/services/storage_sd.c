@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 
 extern global_state_t g_gs;
@@ -98,6 +99,52 @@ esp_err_t storage_sd_init(void)
 
     s_mounted = true;
     ensure_all_dirs();
+
+    const char *known_dirs[] = {
+        SD_MOUNT_POINT "/logs/events",
+        SD_MOUNT_POINT "/logs/alerts",
+        SD_MOUNT_POINT "/logs/energy",
+        SD_MOUNT_POINT "/logs/security",
+        SD_MOUNT_POINT "/config/backup",
+        SD_MOUNT_POINT "/config/profiles",
+        SD_MOUNT_POINT "/system"
+    };
+    for (int d = 0; d < (int)(sizeof(known_dirs) / sizeof(known_dirs[0])); d++) {
+        DIR *dir = opendir(known_dirs[d]);
+        if (!dir) continue;
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            if (entry->d_type != DT_REG) continue;
+            size_t nlen = strlen(entry->d_name);
+            if (nlen < 5) continue;
+            if (strcmp(entry->d_name + nlen - 4, ".tmp") != 0) continue;
+            char fullpath[320];
+            snprintf(fullpath, sizeof(fullpath), "%s/%s", known_dirs[d], entry->d_name);
+            char origpath[320];
+            snprintf(origpath, sizeof(origpath), "%s/%.*s", known_dirs[d], (int)(nlen - 4), entry->d_name);
+            FILE *f = fopen(fullpath, "r");
+            if (f) {
+                int c = fgetc(f);
+                fclose(f);
+                if (c == '{') {
+                    if (rename(fullpath, origpath) == 0) {
+                        ESP_LOGI(TAG, "Recovered .tmp file -> %s", origpath);
+                    } else {
+                        ESP_LOGW(TAG, "Could not rename .tmp file %s", fullpath);
+                        remove(fullpath);
+                    }
+                } else {
+                    remove(fullpath);
+                    ESP_LOGW(TAG, "Removed invalid .tmp file %s", fullpath);
+                }
+            } else {
+                remove(fullpath);
+                ESP_LOGW(TAG, "Removed unreadable .tmp file %s", fullpath);
+            }
+        }
+        closedir(dir);
+    }
+
     ESP_LOGI(TAG, "SD montado em %s, tamanho=%lluMB", SD_MOUNT_POINT,
              (unsigned long long)(card->csd.capacity) / 1024);
     return ESP_OK;

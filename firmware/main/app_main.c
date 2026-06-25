@@ -48,6 +48,7 @@
 #include "fsm/feed_fsm.h"
 #include "fsm/restart_fsm.h"
 #include "services/feed_snapshot.h"
+#include "services/reset_handler.h"
 
 static const char *TAG = "app_main";
 
@@ -370,6 +371,8 @@ void app_main(void)
 
     ESP_LOGI(TAG, "FASE 7 - Circuit Breaker, Self-test, WDT avancado ativos");
 
+    reset_handler_init();
+
     system_state_t prev_state = g_gs.system_state;
 
     while (1) {
@@ -377,6 +380,13 @@ void app_main(void)
         wdt_advanced_reset(WDT_TASK_MAIN_LOOP);
         const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
         const uint64_t now_s = now_ms / 1000ULL;
+
+        reset_handler_tick(now_ms);
+        if (reset_handler_is_pending()) {
+            wdt_advanced_reset(WDT_TASK_MAIN_LOOP);
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
 
         if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
             handle_emergency_exit(now_s);
