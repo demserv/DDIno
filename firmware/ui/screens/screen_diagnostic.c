@@ -1,3 +1,4 @@
+// @requirement RF-UI-DIAG-001 Tela de diagnóstico
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "system_types.h"

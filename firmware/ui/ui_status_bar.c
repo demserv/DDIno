@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Barra de status persistente
 #include "ui_status_bar.h"
 #include "ui_screens.h"
 #include "global_state.h"

@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Barra de status persistente
 #ifndef FIRMWARE_UI_STATUS_BAR_H
 #define FIRMWARE_UI_STATUS_BAR_H
 #include "esp_err.h"

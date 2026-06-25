@@ -1,3 +1,5 @@
+// @requirement RF-FLOW-BOOT-004 .tmp orphan handling
+// @requirement RF-STORAGE-003 Escrita atômica
 #include "services/storage_sd.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"

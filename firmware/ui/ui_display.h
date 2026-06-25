@@ -1,3 +1,4 @@
+// @requirement RF-UI-DISPLAY-001 Brilho configurável
 #ifndef FIRMWARE_UI_DISPLAY_H
 #define FIRMWARE_UI_DISPLAY_H
 

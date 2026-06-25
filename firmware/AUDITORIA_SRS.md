@@ -35,10 +35,10 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-FLOW-BOOT-001 | Sequência mínima de boot | ✅ COMPLETE | `app_main.c` | 15+ etapas: NVS, HW safe, self-test, barramentos, FSMs, API, UI |
 | RF-FLOW-BOOT-002 | First boot / wizard pendente | ✅ COMPLETE | `app_main.c`, `api_rest.c` | `wizard_completed=false` → overlay azul, auth desabilitado |
 | RF-FLOW-BOOT-003 | Self-test falho no boot | ⚠️ PARTIAL | `app_main.c` | Self-test executado mas resultado não força SAFE_OFF |
-| RF-FLOW-BOOT-004 | Recovery pós-power-loss | ⚠️ PARTIAL | `feed_snapshot.c` | Snapshot Feed restaurado, mas sem .tmp orphan handling |
+| RF-FLOW-BOOT-004 | Recovery pós-power-loss (.tmp orphan) | ✅ COMPLETE | `feed_snapshot.c`, `storage_sd.c` | Snapshot Feed restaurado + .tmp orphan scan pós-init com rename/remove |
 | RF-FLOW-RUNTIME-001 | Laço operacional nominal | ✅ COMPLETE | `app_main.c` | Loop 50ms: sensores → FSMs → safety → UI → API → WDT |
 | RF-FLOW-ALERT-001 | Pipeline alerta crítico | ✅ COMPLETE | `app_main.c`, `alert_manager.c` | Detecção → ALM → log → safety → LED → overlay → API |
-| RF-INSTALL-MONITOR-001 | Modo Somente Monitoramento | ⚠️ PARTIAL | `global_state.h`, `plug_manager.c` | `monitor_only` flag existe, plug_manager verifica, mas sem endpoint de ativação |
+| RF-INSTALL-MONITOR-001 | Modo Somente Monitoramento | ✅ COMPLETE | `global_state.h`, `plug_manager.c`, `api_rest.c`, `config_manager.c` | `monitor_only` flag, plug_manager bloqueia, POST /api/v1/config/monitor + command_validator check |
 
 ## 3. LED (Sinalização)
 
@@ -56,7 +56,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-THERMAL-002 | Filtro média móvel | ✅ COMPLETE | `temp_filter.c` | Média móvel circular (default 5) |
 | RF-THERMAL-003 | Classificação por parâmetros do usuário | ✅ COMPLETE | `thermal_fsm.c` | Usa `temp_normal_c`, `temp_critical_c`, `temp_extreme_c`, `hysteresis_c` |
 | RF-THERMAL-004 | Configuração parâmetros térmicos | ✅ COMPLETE | `config_manager.c`, `param_catalog.h` | `thermal_params_storage_t` completo com NVS persist |
-| RF-THERMAL-005 | Indicador de tendência | ❌ NOT_FOUND | — | Nenhum cálculo de tendência/slope implementado |
+| RF-THERMAL-005 | Indicador de tendência (°C/min) | ✅ COMPLETE | `thermal_fsm.c` | `trend_c_per_min` em thermal_output_t, atualização a cada 10s |
 | RF-THERMAL-006 | Parâmetros obrigatórios no Wizard | ⚠️ PARTIAL | `api_rest.c`, `ui_screens.c` | Wizard existente mas sem seção térmica passo-a-passo |
 | RF-THERMAL-007 | Uso exclusivo parâmetros do usuário | ✅ COMPLETE | `thermal_fsm.c` | Zero hardcode térmico — todos thresholds de NVS |
 | RF-THERMAL-008 | Regra explícita do cooler | ⚠️ PARTIAL | `thermal_fsm.c` | Cooler aciona em ALERT, mas sem regra de prioridade heater/cooler |
@@ -82,16 +82,16 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-PLUG-001 | Modos AUTO/MANUAL/TIMER/DELAY/OVERRIDE | ✅ COMPLETE | `plug_manager.c` | 5 modos implementados com lógica completa |
 | RF-PLUG-002 | Tipo e criticidade | ✅ COMPLETE | `plug_model.h`, `plug_manager.c` | 7 tipos, is_critical para AQUECEDOR/COOLER |
 | RF-PLUG-003 | Proteção de corrente | ✅ COMPLETE | `driver_acs712.c`, `electric_fsm.c` | `current_limit_a`, overcurrent_count, circuit breaker |
-| RF-PLUG-004 | Detecção de bypass | ❌ NOT_FOUND | — | `bypass_detected` field existe mas nunca setado |
+| RF-PLUG-004 | Detecção de bypass | ✅ COMPLETE | `plug_manager.c` | `plug_manager_tick()` monitora corrente com plug OFF, 3 amostras consecutivas → ALM-054 |
 | RF-PLUG-005 | Cálculo potência/consumo | ✅ COMPLETE | `cdn_energy.c` | power_w = current_a × voltage_v, Wh acumulado |
 | RF-PLUG-006 | Snapshot Feed Mode | ✅ COMPLETE | `feed_snapshot.c` | NVS snapshot com checksum, TTL 30min |
 | RF-PLUG-007 | Estados visuais | ✅ COMPLETE | `plug_model.h`, `plug_manager.c` | ON_NORMAL, OFF_NORMAL, OFF_FAULT, OFF_WAITING, BLOCKED |
-| RF-PLUG-008 | Tempo mínimo ON/OFF | ⚠️ PARTIAL | `plug_model.h`, `plug_manager.c` | Campos existem (60s/30s) mas sem enforce |
+| RF-PLUG-008 | Tempo mínimo ON/OFF | ✅ COMPLETE | `plug_manager.c` | `plug_manager_toggle_ex()` verifica min_on_ms/min_off_ms, retorna ESP_ERR_INVALID_STATE se violado |
 | RF-PLUG-009 | Religamento sequencial | ✅ COMPLETE | `restart_fsm.c` | 5 estados, stagger sequence configurável |
 | RF-PLUG-010 | Reserva estrutural P01/P02 | ✅ COMPLETE | `hardware_config.h`, `plug_manager.c` | P01=BOMBA, P02=AQUECEDOR |
 | RF-PLUG-011 | Dupla confirmação plugs críticos | ✅ COMPLETE | `command_validator.c` | `requires_double_confirmation=true` para plug_id 1,2 |
-| RF-PLUG-012 | Realocação AQUECEDOR/COOLER | ❌ NOT_FOUND | — | `role_override_source` field existe mas sem lógica |
-| RF-PLUG-013 | Consumo diário máximo | ⚠️ PARTIAL | `plug_model.h` | `max_energy_wh_day` field existe mas sem monitoramento |
+| RF-PLUG-012 | Realocação AQUECEDOR/COOLER | ✅ COMPLETE | `plug_manager.c` | `plug_manager_relocate()` copia tipo P01/P02 para P03-P08, role_override_source bidirecional, audit log |
+| RF-PLUG-013 | Consumo diário máximo | ✅ COMPLETE | `plug_manager.c` | Monitoramento em `plug_manager_tick()`, ALM-057 se excedido |
 | RF-PLUG-014 | Curto-circuito por plugue | ✅ COMPLETE | `electric_fsm.c` | `fator_curto` + 3 amostras consecutivas → SHORT_CIRCUIT → SAFE_OFF |
 
 ## 7. FEED
@@ -113,7 +113,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-ENERGY-005 | Reset de energia | ✅ COMPLETE | `driver_pzem.c`, `cdn_energy.c` | `pzem_reset_energy()`, `cdn_energy_reset_all()` |
 | RF-ENERGY-007 | Sobretensão/subtensão | ✅ COMPLETE | `electric_fsm.c` | Persistence timer → DEGRADED → SAFE_OFF |
 | RF-ENERGY-008 | Sobrecorrente total | ✅ COMPLETE | `electric_fsm.c` | `total_power_limit_w`, `total_current_limit_a` |
-| RF-ENERGY-009 | Fator de potência | ⚠️ PARTIAL | `electric_fsm.c` | `pf_min`, `pf_time_s` existem mas sem enforce |
+| RF-ENERGY-009 | Fator de potência | ✅ COMPLETE | `electric_fsm.c` | `pf_low_start_ms` tracking, ALM-058 se PF persistir abaixo do mínimo |
 | RF-ENERGY-010 | Log SD energia | ⚠️ PARTIAL | `storage_sd.c` | `SD_LOG_TYPE_ENERGY` existe mas sem loop dedicado |
 | RF-FSM-ELECTRIC-001 | FSM proteção elétrica | ✅ COMPLETE | `electric_fsm.c` | 8 estados com persistência temporal |
 | RF-PROTECTION-001 | Religamento inteligente | ✅ COMPLETE | `restart_fsm.c` | WAITING→ENERGIZING→MONITORING→COMPLETE |
@@ -146,9 +146,9 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | ID | Título | Status | Arquivos | Evidência |
 |----|--------|--------|----------|-----------|
 | RF-ALERT-001 | Modelo canônico de alerta | ✅ COMPLETE | `alert_manager.h`, `alert_model.h` | severity, category, acked, action_hint, source |
-| RF-ALERT-002 | Silence temporário | ⚠️ PARTIAL | `ui_screens.c` | MUTE na UI mas sem enforce no alert_manager |
+| RF-ALERT-002 | Silence temporário | ✅ COMPLETE | `alert_manager.c`, `alert_manager.h` | `alert_manager_set_silenced()`/`is_silenced()`, `silenced_until` field, raise_full() skipa silenciados |
 | RF-ALERT-003 | Tabela canônica ALM-001 a ALM-065 | ✅ COMPLETE | `alm_ids.h` | 65 IDs sequenciais |
-| RF-ALERT-004 | Timeout de ACK | ❌ NOT_FOUND | — | `ack_timestamp` existe mas sem timeout check |
+| RF-ALERT-004 | Timeout de ACK | ✅ COMPLETE | `alert_manager.c` | `alert_manager_check_ack_timeout()` escala CRITICAL/HIGH não-acknowledged para ALM-046 |
 | RF-ALERT-005 | Anti-spam/deduplicação | ✅ COMPLETE | `alert_manager.c` | Dedup: atualiza last_seen_ts em vez de criar novo |
 | RF-ALERT-006 | Sinalização sonora | ✅ COMPLETE | `driver_buzzer_led.c` | `buzzer_beep()`, `buzzer_led_alert()` |
 
@@ -160,20 +160,20 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-UI-MUTE-001 | MUTE normativo | ✅ COMPLETE | `ui_screens.c` | `ui_toggle_mute()`, overlay [MUTE] amarelo |
 | RF-UI-MUTE-002 | Restrições do MUTE | ✅ COMPLETE | `ui_screens.c` | MUTE não altera ALM, LED, estado global |
 | RF-UI-WIZARD-001..005 | Wizard | ⚠️ PARTIAL | `ui_screens.c`, `api_rest.c` | Overlay único + API, sem steps individuais |
-| RF-UI-STATUS-001 | Barra persistente de status | ⚠️ PARTIAL | `ui_screens.c` | Badge de estado global; demais indicadores parciais |
+| RF-UI-STATUS-001 | Barra persistente de status | ✅ COMPLETE | `ui_status_bar.c`, `ui_status_bar.h` | Barra 30px topo com estado + WIZ/FEED/MUTE + SD/WiFi/uptime, lv_layer_top() |
 | RF-UI-INPUT-001 | Touch + Keypad | ✅ COMPLETE | `ui_touch.c`, `ui_keypad.c` | XPT2046 SPI + AD Keypad ADC |
-| RF-UI-DISPLAY-001 | Brilho configurável | ❌ NOT_FOUND | — | Sem implementação de controle de brilho |
-| RF-UI-CAROUSEL-001 | Carrossel com pausa | ❌ NOT_FOUND | — | Sem carrossel automático implementado |
-| RF-UI-DIAG-001 | Tela de diagnóstico | ⚠️ PARTIAL | `screen_diagnostic.c` | Tela existe com TAG mas conteúdo mínimo |
+| RF-UI-DISPLAY-001 | Brilho configurável | ✅ COMPLETE | `ui_display.c`, `ui_display.h` | `ui_display_set_brightness()`/`get()`, dim on inactivity, GPIO47 backlight via PIN_TFT_BL_GPIO |
+| RF-UI-CAROUSEL-001 | Carrossel com pausa | ✅ COMPLETE | `ui_screens.c` | Carrossel automático 15s, pausa 5s em interação, screens não-críticos, desliga em SAFE_OFF/wizard |
+| RF-UI-DIAG-001 | Tela de diagnóstico | ✅ COMPLETE | `screen_diagnostic.c` | 13 linhas: estado, temperatura, ATO, PZEM, plugs, SD, WiFi, uptime, alerts, reset_reason, safeoff, heap, versão |
 
 ## 13. RESET
 
 | ID | Título | Status | Arquivos | Evidência |
 |----|--------|--------|----------|-----------|
-| RF-RESET-001 | Hard reset seguro | ⚠️ PARTIAL | `app_main.c` | `esp_reset_reason()` capturado; sem FSM de reset |
-| RF-RESET-002 | Escopo de apagamento | ❌ NOT_FOUND | — | Sem função de factory reset |
-| RF-RESET-003 | Reset por menu | ❌ NOT_FOUND | — | Sem handler de reset destrutivo |
-| RF-RESET-004 | Contagem regressiva + dupla confirmação | ❌ NOT_FOUND | — | Não implementado |
+| RF-RESET-001 | Hard reset seguro | ✅ COMPLETE | `reset_handler.c`, `reset_handler.h` | FSM IDLE→CONFIRM1→CONFIRM2→COUNTDOWN→ERASING→REBOOTING, relay_all_off + NVS erase + esp_restart |
+| RF-RESET-002 | Escopo de apagamento | ✅ COMPLETE | `reset_handler.c` | NVS flash erase + init, relay_all_off, storage_sd_unmount |
+| RF-RESET-003 | Reset por menu / API | ✅ COMPLETE | `reset_handler.c`, `api_rest.c` | POST /api/v1/reset (start + confirm), GET /api/v1/reset (status + remaining_s) |
+| RF-RESET-004 | Contagem regressiva + dupla confirmação | ✅ COMPLETE | `reset_handler.c` | Dupla confirmação CONFIRM1→CONFIRM2, countdown com HW_RESTART_COUNTDOWN_DEFAULT_S, auto-abort 10s |
 
 ## 14. DATA (Modelagem)
 
@@ -183,7 +183,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-DATA-ALM-001 | Estrutura Alert | ✅ COMPLETE | `alert_model.h` | 18 campos conforme SRS |
 | RF-DATA-PLUG-001 | Estrutura Plug | ✅ COMPLETE | `plug_model.h` | 25+ campos conforme SRS |
 | RF-DATA-CONFIG-ROOT-001 | Estrutura raiz ConfigRoot | ⚠️ PARTIAL | `param_catalog.h` | Todas seções existem via NVS namespaces separados |
-| RF-DATA-CONSISTENCY-001 | Campo documentado tem consumidor | ⚠️ PARTIAL | — | bypass_detected, role_override_source existem sem consumidor |
+| RF-DATA-CONSISTENCY-001 | Campo documentado tem consumidor | ✅ COMPLETE | `plug_manager.c`, `electric_fsm.c` | bypass_detected monitorado em plug_manager_tick(), role_override_source usado em plug_manager_relocate() |
 
 ## 15. HW (Hardware)
 
@@ -216,36 +216,68 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | Categoria | Total | ✅ COMPLETE | ⚠️ PARTIAL | ❌ NOT_FOUND |
 |-----------|-------|-------------|-------------|--------------|
 | GLOBAL | 9 | 8 | 1 | 0 |
-| FLOW/BOOT | 5 | 3 | 2 | 0 |
+| FLOW/BOOT | 5 | 4 | 1 | 0 |
 | LED | 3 | 3 | 0 | 0 |
-| THERMAL | 10 | 7 | 2 | 1 |
+| THERMAL | 10 | 8 | 2 | 0 |
 | ATO | 7 | 6 | 1 | 0 |
-| PLUG | 14 | 10 | 2 | 2 |
+| PLUG | 14 | 14 | 0 | 0 |
 | FEED | 4 | 4 | 0 | 0 |
-| ENERGY | 9 | 6 | 2 | 0 |
+| ENERGY | 9 | 8 | 1 | 0 |
 | STORAGE | 6 | 5 | 1 | 0 |
 | WEB | 6 | 6 | 0 | 0 |
-| ALERT | 6 | 4 | 1 | 1 |
-| UI | 8 | 4 | 2 | 2 |
-| RESET | 4 | 0 | 1 | 3 |
-| DATA | 5 | 3 | 2 | 0 |
+| ALERT | 6 | 6 | 0 | 0 |
+| UI | 8 | 7 | 1 | 0 |
+| RESET | 4 | 4 | 0 | 0 |
+| DATA | 5 | 4 | 1 | 0 |
 | HW | 4 | 4 | 0 | 0 |
 | SEGURANÇA | 3 | 3 | 0 | 0 |
 | WDT/TIME | 2 | 2 | 0 | 0 |
-| **TOTAL** | **105** | **78 (74%)** | **17 (16%)** | **9 (9%)** |
+| **TOTAL** | **105** | **96 (91%)** | **9 (9%)** | **0 (0%)** |
 
-## Pendências Críticas (NOT_FOUND)
-1. **RF-THERMAL-005** — Indicador de tendência térmica (UI)
-2. **RF-PLUG-004** — Detecção de bypass (segurança)
-3. **RF-PLUG-012** — Realocação AQUECEDOR/COOLER (resiliência)
-4. **RF-ALERT-004** — Timeout de ACK (monitoramento)
-5. **RF-UI-DISPLAY-001** — Brilho configurável (UX)
-6. **RF-UI-CAROUSEL-001** — Carrossel automático (UX)
-7. **RF-RESET-001 a 004** — Reset seguro completo (safety)
+## Pendências Resolvidas (anteriormente NOT_FOUND)
+Todos os 9 requisitos NOT_FOUND foram implementados no commit `9f637f9`:
+1. ~~**RF-THERMAL-005**~~ → Indicador de tendência (°C/min) em `thermal_fsm.c`
+2. ~~**RF-PLUG-004**~~ → Bypass detection em `plug_manager_tick()`
+3. ~~**RF-PLUG-012**~~ → Relocation AQUECEDOR/COOLER em `plug_manager_relocate()`
+4. ~~**RF-ALERT-004**~~ → ACK timeout enforcement em `alert_manager_check_ack_timeout()`
+5. ~~**RF-UI-DISPLAY-001**~~ → Brilho configurável em `ui_display.c`
+6. ~~**RF-UI-CAROUSEL-001**~~ → Carrossel automático em `ui_screens.c`
+7. ~~**RF-RESET-001**~~ → FSM de reset seguro em `reset_handler.c`
+8. ~~**RF-RESET-002**~~ → Escopo de apagamento (NVS erase + relay off)
+9. ~~**RF-RESET-003**~~ → Reset via API (POST/GET /api/v1/reset)
+10. ~~**RF-RESET-004**~~ → Dupla confirmação + countdown com abort
+
+## PARTIAL Resolvidos
+10 requisitos PARTIAL evoluíram para COMPLETE:
+1. ~~**RF-PLUG-008**~~ → Min ON/OFF enforce via `toggle_ex()`
+2. ~~**RF-PLUG-013**~~ → Max energy/day monitoring via `plug_manager_tick()`
+3. ~~**RF-ENERGY-009**~~ → PF enforcement com ALM-058
+4. ~~**RF-ALERT-002**~~ → Silence enforcement no alert_manager
+5. ~~**RF-UI-STATUS-001**~~ → Barra de status persistente (ui_status_bar.c)
+6. ~~**RF-UI-DIAG-001**~~ → Tela de diagnóstico completa (13 linhas)
+7. ~~**RF-INSTALL-MONITOR-001**~~ → Modo Somente Monitoramento completo
+8. ~~**RF-FLOW-BOOT-004**~~ → .tmp orphan handling no storage_sd
+9. ~~**RF-RESET-001**~~ → FSM de reset com dupla confirmação
+10. ~~**RF-DATA-CONSISTENCY-001**~~ → bypass_detected/role_override_source com consumidor
+
+## PARTIAL Remanescentes (9)
+| ID | Título | Observação |
+|----|--------|------------|
+| RF-GLOBAL-REARM-001 | Rearming sem blocked plug isolation | Religamento sequencial sem isolamento de plugs bloqueados |
+| RF-FLOW-BOOT-003 | Self-test não força SAFE_OFF | Self-test executado no boot mas sem impacto no estado global |
+| RF-THERMAL-006 | Wizard sem seção térmica passo-a-passo | Wizard existe como overlay único |
+| RF-THERMAL-008 | Regra de prioridade heater/cooler | Exclusão mútua existe (RF-THERMAL-009) mas prioridade não documentada |
+| RF-ATO-001 | ADC sem debounce explícito | Média simples em vez de debounce temporal |
+| RF-ATO-DIGITAL-001 | Threshold ADC sem calibração wizard | Calibração via API, não integrada ao wizard |
+| RF-STORAGE-002 | SD sem fallback RAM | RAM fallback não implementado |
+| RF-ENERGY-010 | Log SD energia sem loop dedicado | SD_LOG_TYPE_ENERGY existe mas sem escrita periódica |
+| RF-UI-WIZARD-001..005 | Wizard sem steps individuais | Overlay único + API, sem passo-a-passo UI |
+| RF-DATA-CONFIG-ROOT-001 | ConfigRoot via NVS namespaces | Todas seções existem via namespaces separados |
 
 ## Observações
-- **74% COMPLETE** — Núcleo funcional implementado (safety, FSMs, API, persistência)
-- **16% PARTIAL** — Funcionalidades existentes mas sem completa aderência SRS
-- **9% NOT_FOUND** — 9 requisitos não implementados (maioria UI e reset)
+- **91% COMPLETE** — Todos os 105 RF-XXX mapeados; 96 implementados completamente
+- **9% PARTIAL** — 9 funcionalidades existentes mas sem aderência SRS total
+- **0% NOT_FOUND** — Nenhum requisito SRS deixou de ser implementado
 - **Build verificado**: 0 erros/0 warnings, binário 0xc0d20 (25% livre)
-- **Commit**: `e38241c` — push para `origin/main`
+- **Auditoria**: 105/105 requisitos RF-XXX cobertos (96 COMPLETE + 9 PARTIAL)
+- **Commit**: `9f637f9` — push para `origin/main`

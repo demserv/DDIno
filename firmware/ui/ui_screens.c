@@ -1,3 +1,5 @@
+// @requirement RF-UI-CAROUSEL-001 Carrossel automático com pausa
+// @requirement RF-UI-STATUS-001 Barra de status persistente
 #include "ui_screens.h"
 #include "hardware_config.h"
 #include "ui_state_badge.h"

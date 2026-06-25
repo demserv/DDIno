@@ -1,3 +1,4 @@
+// @requirement RF-UI-DISPLAY-001 Brilho configurável
 #include "ui_display.h"
 #include "hardware_config.h"
 #include "pin_map.h"

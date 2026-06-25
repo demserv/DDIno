@@ -1,3 +1,6 @@
+// @requirement RF-ALERT-002 Silence enforcement
+// @requirement RF-ALERT-004 ACK timeout enforcement
+// @requirement RF-ALERT-001 Modelo canônico de alerta
 #include "alert_manager.h"
 #include "alm_ids.h"
 #include <string.h>

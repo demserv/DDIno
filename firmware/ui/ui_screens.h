@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Carrossel automático
 #ifndef FIRMWARE_UI_SCREENS_H
 #define FIRMWARE_UI_SCREENS_H
 
