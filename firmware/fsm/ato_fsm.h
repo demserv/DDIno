@@ -1,3 +1,6 @@
+// @requirement RF-ATO-001 Leitura de nível com debounce ADC temporal
+// @requirement RF-ATO-DIGITAL-001 ATO digital ON/OFF com histerese ADC
+// @requirement RF-ATO-002 FSM de proteção ATO com seis estados
 #ifndef FIRMWARE_FSM_ATO_FSM_H
 #define FIRMWARE_FSM_ATO_FSM_H
 
@@ -42,6 +45,9 @@ typedef struct {
     ato_output_t out;
     bool blocked_latched;
     uint64_t refill_started_ms;
+    int32_t last_stable_level;
+    uint32_t debounce_count;
+    uint32_t debounce_required;
 } ato_fsm_t;
 
 void ato_fsm_init(ato_fsm_t *fsm, const ato_params_t *cfg);

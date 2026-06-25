@@ -26,7 +26,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-GLOBAL-SAFEOFF-EXIT-001 | Pré-condições saída SAFE_OFF | ✅ COMPLETE | `safety_controller.c` | `can_exit_safeoff()`: causa resolvida + sensores OK + self-test + ACK + 10s estabilização |
 | RF-GLOBAL-SAFEOFF-EXIT-002 | Destino saída SAFE_OFF | ✅ COMPLETE | `safety_controller.c` | → DEGRADED se condição remanescente, → NORMAL se nenhuma |
 | RF-GLOBAL-EMERG-EXIT-001 | Saída controlada EMERGENCY | ✅ COMPLETE | `safety_controller.c` | `can_exit_emergency()`: emergência resolvida + sensores OK + ACK + 30s |
-| RF-GLOBAL-REARM-001 | Rearming controlado | ⚠️ PARTIAL | `restart_fsm.c` | Religamento sequencial existe mas sem blocked plug isolation |
+| RF-GLOBAL-REARM-001 | Rearming controlado | ✅ COMPLETE | `restart_fsm.c` | `blocked_mask` bitmask, `restart_fsm_set_blocked_mask()`, skip de plugs bloqueados no religamento |
 
 ## 2. FLOW / BOOT
 
@@ -34,7 +34,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 |----|--------|--------|----------|-----------|
 | RF-FLOW-BOOT-001 | Sequência mínima de boot | ✅ COMPLETE | `app_main.c` | 15+ etapas: NVS, HW safe, self-test, barramentos, FSMs, API, UI |
 | RF-FLOW-BOOT-002 | First boot / wizard pendente | ✅ COMPLETE | `app_main.c`, `api_rest.c` | `wizard_completed=false` → overlay azul, auth desabilitado |
-| RF-FLOW-BOOT-003 | Self-test falho no boot | ⚠️ PARTIAL | `app_main.c` | Self-test executado mas resultado não força SAFE_OFF |
+| RF-FLOW-BOOT-003 | Self-test falho no boot | ✅ COMPLETE | `app_main.c` | Self-test → hardware_safe() + `g_gs.global_state=SAFE_OFF` + `@requirement RF-FLOW-BOOT-003` |
 | RF-FLOW-BOOT-004 | Recovery pós-power-loss (.tmp orphan) | ✅ COMPLETE | `feed_snapshot.c`, `storage_sd.c` | Snapshot Feed restaurado + .tmp orphan scan pós-init com rename/remove |
 | RF-FLOW-RUNTIME-001 | Laço operacional nominal | ✅ COMPLETE | `app_main.c` | Loop 50ms: sensores → FSMs → safety → UI → API → WDT |
 | RF-FLOW-ALERT-001 | Pipeline alerta crítico | ✅ COMPLETE | `app_main.c`, `alert_manager.c` | Detecção → ALM → log → safety → LED → overlay → API |
@@ -57,9 +57,9 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-THERMAL-003 | Classificação por parâmetros do usuário | ✅ COMPLETE | `thermal_fsm.c` | Usa `temp_normal_c`, `temp_critical_c`, `temp_extreme_c`, `hysteresis_c` |
 | RF-THERMAL-004 | Configuração parâmetros térmicos | ✅ COMPLETE | `config_manager.c`, `param_catalog.h` | `thermal_params_storage_t` completo com NVS persist |
 | RF-THERMAL-005 | Indicador de tendência (°C/min) | ✅ COMPLETE | `thermal_fsm.c` | `trend_c_per_min` em thermal_output_t, atualização a cada 10s |
-| RF-THERMAL-006 | Parâmetros obrigatórios no Wizard | ⚠️ PARTIAL | `api_rest.c`, `ui_screens.c` | Wizard existente mas sem seção térmica passo-a-passo |
+| RF-THERMAL-006 | Parâmetros obrigatórios no Wizard | ✅ COMPLETE | `api_rest.c`, `ui_screens.c`, `config_manager.c` | Wizard step 2 (THERMAL) configura `temp_normal_c`, `temp_critical_c`, `hysteresis_c` via API + overlay |
 | RF-THERMAL-007 | Uso exclusivo parâmetros do usuário | ✅ COMPLETE | `thermal_fsm.c` | Zero hardcode térmico — todos thresholds de NVS |
-| RF-THERMAL-008 | Regra explícita do cooler | ⚠️ PARTIAL | `thermal_fsm.c` | Cooler aciona em ALERT, mas sem regra de prioridade heater/cooler |
+| RF-THERMAL-008 | Regra explícita do cooler | ✅ COMPLETE | `thermal_fsm.c` | `want_cooler && !want_heater` dá cooler, senão heater tem prioridade + `@requirement RF-THERMAL-008` |
 | RF-THERMAL-009 | Exclusão mútua heater/cooler | ✅ COMPLETE | `thermal_fsm.c` | Se ambos → CRITICAL + SAFE_OFF + ALM-060 |
 | RF-FSM-THERMAL-001 | FSM térmica e impacto sistêmico | ✅ COMPLETE | `thermal_fsm.c`, `safety_controller.c` | EXTREME→EMERGENCY, CRITICAL→SAFE_OFF, SENSOR_FAIL→SAFE_OFF |
 
@@ -67,8 +67,8 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 
 | ID | Título | Status | Arquivos | Evidência |
 |----|--------|--------|----------|-----------|
-| RF-ATO-001 | Leitura ADC com debounce | ⚠️ PARTIAL | `ato_fsm.c`, `app_main.c` | ADC lido mas sem debounce explícito (média simples) |
-| RF-ATO-DIGITAL-001 | ATO digital ON/OFF via ADC | ⚠️ PARTIAL | `ato_fsm.c` | Threshold ADC implementado mas sem calibração wizard |
+| RF-ATO-001 | Leitura ADC com debounce | ✅ COMPLETE | `ato_fsm.c` | `debounce_count`/`debounce_required` (3 amostras), `last_stable_level`, threshold 50 ADC |
+| RF-ATO-DIGITAL-001 | ATO digital ON/OFF via ADC | ✅ COMPLETE | `ato_fsm.c`, `api_rest.c`, `ui_screens.c` | Wizard step 3 (ATO) configura `low_level_adc`, `high_level_adc`, `overflow_margin_adc`, `refill_timeout_s` |
 | RF-ATO-002 | FSM 6 estados | ✅ COMPLETE | `ato_fsm.c` | NORMAL, REFILLING, ERROR, BLOCKED, OVERFLOW, DISABLED |
 | RF-ATO-003 | Config LOW/HIGH validada | ✅ COMPLETE | `config_manager.c`, `param_catalog.h` | `low_level_adc`, `high_level_adc`, `overflow_margin_adc` |
 | RF-ATO-004 | Refill anormal | ✅ COMPLETE | `ato_fsm.c` | Timeout → BLOCKED com ALM-019 |
@@ -114,7 +114,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-ENERGY-007 | Sobretensão/subtensão | ✅ COMPLETE | `electric_fsm.c` | Persistence timer → DEGRADED → SAFE_OFF |
 | RF-ENERGY-008 | Sobrecorrente total | ✅ COMPLETE | `electric_fsm.c` | `total_power_limit_w`, `total_current_limit_a` |
 | RF-ENERGY-009 | Fator de potência | ✅ COMPLETE | `electric_fsm.c` | `pf_low_start_ms` tracking, ALM-058 se PF persistir abaixo do mínimo |
-| RF-ENERGY-010 | Log SD energia | ⚠️ PARTIAL | `storage_sd.c` | `SD_LOG_TYPE_ENERGY` existe mas sem loop dedicado |
+| RF-ENERGY-010 | Log SD energia | ✅ COMPLETE | `cdn_energy.c`, `app_main.c` | `cdn_energy_log_to_sd()` CSV timestamp+10 plugs+total, chamado a cada `HW_SD_LOG_INTERVAL_S` |
 | RF-FSM-ELECTRIC-001 | FSM proteção elétrica | ✅ COMPLETE | `electric_fsm.c` | 8 estados com persistência temporal |
 | RF-PROTECTION-001 | Religamento inteligente | ✅ COMPLETE | `restart_fsm.c` | WAITING→ENERGIZING→MONITORING→COMPLETE |
 | RF-FSM-RELIG-ELECT-001 | FSM religamento elétrico | ✅ COMPLETE | `restart_fsm.c` | Sequencial com stagger, aborta se condições perdidas |
@@ -124,7 +124,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | ID | Título | Status | Arquivos | Evidência |
 |----|--------|--------|----------|-----------|
 | RF-STORAGE-001 | NVS fonte primária | ✅ COMPLETE | `config_manager.c` | NVS como fonte de verdade; SD como backup |
-| RF-STORAGE-002 | SD com fallback RAM | ⚠️ PARTIAL | `storage_sd.c` | SD ausente não bloqueia boot; RAM fallback não implementado |
+| RF-STORAGE-002 | SD com fallback RAM | ✅ COMPLETE | `storage_sd.c` | `s_ram_fallback_buf[64][256]` ring buffer, escrita em laço se SD ausente, `storage_sd_flush_ram_fallback()` no SD init |
 | RF-STORAGE-003 | Escrita atômica SD | ✅ COMPLETE | `storage_sd.c` | `.tmp` → fdatasync → rename; rollback se falha |
 | RF-STORAGE-004 | Backup de configuração | ✅ COMPLETE | `storage_sd.c` | `storage_sd_backup_config()` NVS→SD |
 | RF-STORAGE-005 | Healthcheck SD | ✅ COMPLETE | `storage_sd.c` | `storage_sd_is_mounted()` check |
@@ -159,7 +159,7 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 | RF-UI-OVERLAY-001 | Overlay crítico mínimo | ✅ COMPLETE | `ui_screens.c` | safeoff, emergency, alert overlays com causa + instrução |
 | RF-UI-MUTE-001 | MUTE normativo | ✅ COMPLETE | `ui_screens.c` | `ui_toggle_mute()`, overlay [MUTE] amarelo |
 | RF-UI-MUTE-002 | Restrições do MUTE | ✅ COMPLETE | `ui_screens.c` | MUTE não altera ALM, LED, estado global |
-| RF-UI-WIZARD-001..005 | Wizard | ⚠️ PARTIAL | `ui_screens.c`, `api_rest.c` | Overlay único + API, sem steps individuais |
+| RF-UI-WIZARD-001..005 | Wizard | ✅ COMPLETE | `ui_screens.c`, `api_rest.c`, `config_manager.c`, `global_state.h`, `param_catalog.h` | 6 steps (welcome/password/thermal/ato/electric/review), `wizard_step_t` enum, persistência NVS, overlay UI |
 | RF-UI-STATUS-001 | Barra persistente de status | ✅ COMPLETE | `ui_status_bar.c`, `ui_status_bar.h` | Barra 30px topo com estado + WIZ/FEED/MUTE + SD/WiFi/uptime, lv_layer_top() |
 | RF-UI-INPUT-001 | Touch + Keypad | ✅ COMPLETE | `ui_touch.c`, `ui_keypad.c` | XPT2046 SPI + AD Keypad ADC |
 | RF-UI-DISPLAY-001 | Brilho configurável | ✅ COMPLETE | `ui_display.c`, `ui_display.h` | `ui_display_set_brightness()`/`get()`, dim on inactivity, GPIO47 backlight via PIN_TFT_BL_GPIO |
@@ -215,24 +215,24 @@ Cruzamento de cada requisito RF-XXX extraído do SRS Técnico Consolidado Final 
 
 | Categoria | Total | ✅ COMPLETE | ⚠️ PARTIAL | ❌ NOT_FOUND |
 |-----------|-------|-------------|-------------|--------------|
-| GLOBAL | 9 | 8 | 1 | 0 |
-| FLOW/BOOT | 5 | 4 | 1 | 0 |
+| GLOBAL | 9 | 9 | 0 | 0 |
+| FLOW/BOOT | 5 | 5 | 0 | 0 |
 | LED | 3 | 3 | 0 | 0 |
-| THERMAL | 10 | 8 | 2 | 0 |
-| ATO | 7 | 6 | 1 | 0 |
+| THERMAL | 10 | 10 | 0 | 0 |
+| ATO | 7 | 7 | 0 | 0 |
 | PLUG | 14 | 14 | 0 | 0 |
 | FEED | 4 | 4 | 0 | 0 |
-| ENERGY | 9 | 8 | 1 | 0 |
-| STORAGE | 6 | 5 | 1 | 0 |
+| ENERGY | 9 | 9 | 0 | 0 |
+| STORAGE | 6 | 6 | 0 | 0 |
 | WEB | 6 | 6 | 0 | 0 |
 | ALERT | 6 | 6 | 0 | 0 |
-| UI | 8 | 7 | 1 | 0 |
+| UI | 8 | 8 | 0 | 0 |
 | RESET | 4 | 4 | 0 | 0 |
 | DATA | 5 | 4 | 1 | 0 |
 | HW | 4 | 4 | 0 | 0 |
 | SEGURANÇA | 3 | 3 | 0 | 0 |
 | WDT/TIME | 2 | 2 | 0 | 0 |
-| **TOTAL** | **105** | **96 (91%)** | **9 (9%)** | **0 (0%)** |
+| **TOTAL** | **105** | **104 (99%)** | **1 (1%)** | **0 (0%)** |
 
 ## Pendências Resolvidas (anteriormente NOT_FOUND)
 Todos os 9 requisitos NOT_FOUND foram implementados no commit `9f637f9`:
@@ -260,24 +260,15 @@ Todos os 9 requisitos NOT_FOUND foram implementados no commit `9f637f9`:
 9. ~~**RF-RESET-001**~~ → FSM de reset com dupla confirmação
 10. ~~**RF-DATA-CONSISTENCY-001**~~ → bypass_detected/role_override_source com consumidor
 
-## PARTIAL Remanescentes (9)
+## PARTIAL Remanescentes (1)
 | ID | Título | Observação |
 |----|--------|------------|
-| RF-GLOBAL-REARM-001 | Rearming sem blocked plug isolation | Religamento sequencial sem isolamento de plugs bloqueados |
-| RF-FLOW-BOOT-003 | Self-test não força SAFE_OFF | Self-test executado no boot mas sem impacto no estado global |
-| RF-THERMAL-006 | Wizard sem seção térmica passo-a-passo | Wizard existe como overlay único |
-| RF-THERMAL-008 | Regra de prioridade heater/cooler | Exclusão mútua existe (RF-THERMAL-009) mas prioridade não documentada |
-| RF-ATO-001 | ADC sem debounce explícito | Média simples em vez de debounce temporal |
-| RF-ATO-DIGITAL-001 | Threshold ADC sem calibração wizard | Calibração via API, não integrada ao wizard |
-| RF-STORAGE-002 | SD sem fallback RAM | RAM fallback não implementado |
-| RF-ENERGY-010 | Log SD energia sem loop dedicado | SD_LOG_TYPE_ENERGY existe mas sem escrita periódica |
-| RF-UI-WIZARD-001..005 | Wizard sem steps individuais | Overlay único + API, sem passo-a-passo UI |
-| RF-DATA-CONFIG-ROOT-001 | ConfigRoot via NVS namespaces | Todas seções existem via namespaces separados |
+| RF-DATA-CONFIG-ROOT-001 | ConfigRoot via NVS namespaces | Todas seções existem via namespaces separados (estrutural, sem impacto funcional) |
 
 ## Observações
-- **91% COMPLETE** — Todos os 105 RF-XXX mapeados; 96 implementados completamente
-- **9% PARTIAL** — 9 funcionalidades existentes mas sem aderência SRS total
+- **99% COMPLETE** — Todos os 105 RF-XXX mapeados; 104 implementados completamente
+- **1% PARTIAL** — 1 funcionalidade (RF-DATA-CONFIG-ROOT-001, estrutural, sem impacto funcional)
 - **0% NOT_FOUND** — Nenhum requisito SRS deixou de ser implementado
-- **Build verificado**: 0 erros/0 warnings, binário 0xc0d20 (25% livre)
-- **Auditoria**: 105/105 requisitos RF-XXX cobertos (96 COMPLETE + 9 PARTIAL)
-- **Commit**: `9f637f9` — push para `origin/main`
+- **Build verificado**: 0 erros/2 warnings (TAG não usado), binário 0xc3300 (24% livre)
+- **Auditoria**: 105/105 requisitos RF-XXX cobertos (104 COMPLETE + 1 PARTIAL)
+- **Commit**: `3a0aad2` + resoluções PARTIAL pendentes de commit

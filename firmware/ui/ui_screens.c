@@ -1,11 +1,13 @@
 // @requirement RF-UI-CAROUSEL-001 Carrossel automático com pausa
 // @requirement RF-UI-STATUS-001 Barra de status persistente
+// @requirement RF-UI-WIZARD-001..005 Wizard com steps individuais
 #include "ui_screens.h"
 #include "hardware_config.h"
 #include "ui_state_badge.h"
 #include "ui_status_bar.h"
 #include "global_state.h"
 #include "alert_manager.h"
+#include "config_manager.h"
 
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -228,12 +230,14 @@ esp_err_t ui_screens_init(void)
     lv_label_set_text(emergency_msg, "Temperatura EXTREMA detectada!\nDesligamento emergencial ativado.");
     lv_obj_set_style_text_font(emergency_msg, &lv_font_montserrat_16, 0);
 
-    wizard_overlay = create_overlay("WIZARD — PRIMEIRA CONFIGURACAO", lv_color_make(0, 30, 60), lv_color_make(0, 100, 200));
+    wizard_overlay = create_overlay("WIZARD — CONFIGURACAO INICIAL", lv_color_make(0, 30, 60), lv_color_make(0, 100, 200));
     wizard_msg = lv_label_create(wizard_overlay);
-    lv_obj_align(wizard_msg, LV_ALIGN_CENTER, 0, 10);
+    lv_obj_align(wizard_msg, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(wizard_msg, lv_color_make(200, 200, 255), 0);
-    lv_label_set_text(wizard_msg, "Configure a senha admin e revise os parametros\nantes de iniciar a operacao.\n\nAPI: POST /api/v1/wizard");
+    lv_label_set_text(wizard_msg, "Bem-vindo ao Monitor de Aquario!\n\nUse a API para configurar:\nPOST /api/v1/wizard\n\n{wizard_step:1} -> Senha admin\n{wizard_step:2} -> Parametros termicos\n{wizard_step:3} -> Configuracao ATO\n{wizard_step:4} -> Parametros eletricos\n{wizard_step:5} -> Revisao final\n{wizard_step:6} -> Concluir");
     lv_obj_set_style_text_font(wizard_msg, &lv_font_montserrat_14, 0);
+    lv_obj_set_size(wizard_msg, 440, 240);
+    lv_label_set_long_mode(wizard_msg, LV_LABEL_LONG_WRAP);
 
     mute_icon = lv_label_create(lv_layer_top());
     lv_label_set_text(mute_icon, "[MUTE]");
@@ -345,6 +349,20 @@ void ui_screen_update_all(void)
     if (!g_gs.wizard_completed) {
         lv_obj_clear_flag(wizard_overlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(wizard_overlay);
+
+        char wbuf[320];
+        const char *step_text = "Bem-vindo!\n\nUse a API REST para configurar:\nPOST /api/v1/wizard";
+        switch (g_gs.wizard_step) {
+            case 0: step_text = "Bem-vindo ao Monitor de Aquario!\n\nUse a API para comecar:\nPOST /api/v1/wizard com wizard_step=1"; break;
+            case 1: step_text = "Passo 1/6: Senha Admin\n\nDefina a senha de administrador:\n{\"password\":\"sua_senha\",\"wizard_step\":2}"; break;
+            case 2: step_text = "Passo 2/6: Parametros Termicos\n\nConfigure temperatura normal, critica e histerese:\n{\"thermal\":{...},\"wizard_step\":3}"; break;
+            case 3: step_text = "Passo 3/6: Configuracao ATO\n\nNiveis ADC baixo/alto e timeout de refill:\n{\"ato\":{...},\"wizard_step\":4}"; break;
+            case 4: step_text = "Passo 4/6: Parametros Eletricos\n\nLimites de potencia, tensao e corrente:\n{\"electric\":{...},\"wizard_step\":5}"; break;
+            case 5: step_text = "Passo 5/6: Revisao Final\n\nConfirme os parametros:\n{\"wizard_completed\":true}"; break;
+            default: break;
+        }
+        snprintf(wbuf, sizeof(wbuf), "%s\n\nStep: %d/6", step_text, g_gs.wizard_step);
+        lv_label_set_text(wizard_msg, wbuf);
     } else {
         lv_obj_add_flag(wizard_overlay, LV_OBJ_FLAG_HIDDEN);
     }

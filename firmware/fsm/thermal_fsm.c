@@ -2,7 +2,8 @@
 // @requirement RF-THERMAL-002 Sensor fail → SAFE_OFF
 // @requirement RF-THERMAL-003 Classificação térmica por parâmetros configuráveis
 // @requirement RF-THERMAL-005 Trend indicator (warming / cooling / stable)
-// @requirement RF-THERMAL-009 Exclusão mútua aquecedor e cooler
+// @requirement RF-THERMAL-008 Prioridade heater sobre cooler (aquecimento crítico)
+// @requirement RF-THERMAL-009 Exclusão mútua aquecedor e cooler → SAFE_OFF
 // @requirement RF-FSM-THERMAL-001 FSM térmica e impacto sistêmico
 // @requirement RF-THERMAL-SA-001 Latching de OVER_TEMP com reset manual
 #include "fsm/thermal_fsm.h"
@@ -120,7 +121,7 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
         return;
     }
 
-    if (want_cooler) {
+    if (want_cooler && !want_heater) {
         fsm->out.state = THERMAL_STATE_ALERT;
         fsm->out.request_cooler_on = true;
         fsm->out.suggested_alm = ALM_015;

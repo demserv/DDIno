@@ -1,3 +1,4 @@
+// @requirement RF-UI-WIZARD-001..005 Wizard com steps individuais
 #ifndef FIRMWARE_INCLUDE_GLOBAL_STATE_H
 #define FIRMWARE_INCLUDE_GLOBAL_STATE_H
 
@@ -5,6 +6,17 @@
 #include <stdint.h>
 #include "system_types.h"
 #include "fsm/feed_fsm.h"
+
+typedef enum {
+    WIZARD_STEP_NONE = 0,
+    WIZARD_STEP_WELCOME,
+    WIZARD_STEP_PASSWORD,
+    WIZARD_STEP_THERMAL,
+    WIZARD_STEP_ATO,
+    WIZARD_STEP_ELECTRIC,
+    WIZARD_STEP_REVIEW,
+    WIZARD_STEP_COMPLETE
+} wizard_step_t;
 
 typedef struct {
     system_state_t       system_state;
@@ -41,6 +53,7 @@ typedef struct {
     uint64_t             health_check_interval_s;
     float                temp_filtered_c;
     bool                 restart_in_progress;
+    wizard_step_t        wizard_step;
 } global_state_t;
 
 #endif

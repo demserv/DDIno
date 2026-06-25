@@ -692,6 +692,7 @@ static esp_err_t wizard_handler(httpd_req_t *req)
         cJSON *json = cJSON_CreateObject();
         cJSON_AddBoolToObject(json, "wizard_completed", g_gs.wizard_completed);
         cJSON_AddBoolToObject(json, "password_set", api_auth_has_password());
+        cJSON_AddNumberToObject(json, "wizard_step", g_gs.wizard_step);
         return send_json_resp(req, json, "200 OK");
     }
 
@@ -701,14 +702,60 @@ static esp_err_t wizard_handler(httpd_req_t *req)
     free(body);
     if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
 
+    cJSON *step = cJSON_GetObjectItem(json, "wizard_step");
+    if (cJSON_IsNumber(step)) {
+        int new_step = (int)(step->valueint);
+        if (new_step >= 0 && new_step <= 6) {
+            g_gs.wizard_step = (uint8_t)new_step;
+            config_set_wizard_step((uint8_t)new_step);
+        }
+    }
+
     cJSON *wiz = cJSON_GetObjectItem(json, "wizard_completed");
     if (cJSON_IsBool(wiz) && cJSON_IsTrue(wiz)) {
         g_gs.wizard_completed = true;
+        g_gs.wizard_step = 6;
+        config_set_wizard_completed(true);
+        config_set_wizard_step(6);
     }
+
+    cJSON *t = cJSON_GetObjectItem(json, "thermal");
+    if (cJSON_IsObject(t)) {
+        thermal_params_storage_t tp = *config_get_thermal();
+        cJSON *v;
+        v = cJSON_GetObjectItem(t, "temp_normal_c"); if (cJSON_IsNumber(v)) tp.temp_normal_c = (float)(v->valuedouble);
+        v = cJSON_GetObjectItem(t, "temp_critical_c"); if (cJSON_IsNumber(v)) tp.temp_critical_c = (float)(v->valuedouble);
+        v = cJSON_GetObjectItem(t, "hysteresis_c"); if (cJSON_IsNumber(v)) tp.hysteresis_c = (float)(v->valuedouble);
+        config_set_thermal(&tp);
+    }
+
+    cJSON *a = cJSON_GetObjectItem(json, "ato");
+    if (cJSON_IsObject(a)) {
+        ato_params_storage_t ap = *config_get_ato();
+        cJSON *v;
+        v = cJSON_GetObjectItem(a, "low_level_adc"); if (cJSON_IsNumber(v)) ap.low_level_adc = v->valueint;
+        v = cJSON_GetObjectItem(a, "high_level_adc"); if (cJSON_IsNumber(v)) ap.high_level_adc = v->valueint;
+        v = cJSON_GetObjectItem(a, "overflow_margin_adc"); if (cJSON_IsNumber(v)) ap.overflow_margin_adc = v->valueint;
+        v = cJSON_GetObjectItem(a, "refill_timeout_s"); if (cJSON_IsNumber(v)) ap.refill_timeout_s = (uint32_t)(v->valueint);
+        config_set_ato(&ap);
+    }
+
+    cJSON *e = cJSON_GetObjectItem(json, "electric");
+    if (cJSON_IsObject(e)) {
+        electric_params_storage_t ep = *config_get_electric();
+        cJSON *v;
+        v = cJSON_GetObjectItem(e, "total_power_limit_w"); if (cJSON_IsNumber(v)) ep.total_power_limit_w = (float)(v->valuedouble);
+        v = cJSON_GetObjectItem(e, "overvoltage_limit_v"); if (cJSON_IsNumber(v)) ep.overvoltage_limit_v = (float)(v->valuedouble);
+        v = cJSON_GetObjectItem(e, "undervoltage_limit_v"); if (cJSON_IsNumber(v)) ep.undervoltage_limit_v = (float)(v->valuedouble);
+        v = cJSON_GetObjectItem(e, "per_plug_current_limit_a"); if (cJSON_IsNumber(v)) ep.per_plug_current_limit_a = (float)(v->valuedouble);
+        config_set_electric(&ep);
+    }
+
     cJSON_Delete(json);
 
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddBoolToObject(resp, "wizard_completed", g_gs.wizard_completed);
+    cJSON_AddNumberToObject(resp, "wizard_step", g_gs.wizard_step);
     return send_json_resp(req, resp, "200 OK");
 }
 

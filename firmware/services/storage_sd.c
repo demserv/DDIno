@@ -1,4 +1,5 @@
 // @requirement RF-FLOW-BOOT-004 .tmp orphan handling
+// @requirement RF-STORAGE-002 RAM fallback quando SD ausente
 // @requirement RF-STORAGE-003 Escrita atômica
 #include "services/storage_sd.h"
 #include "driver/sdmmc_host.h"
@@ -23,6 +24,10 @@ static const char *TAG = "storage_sd";
 #define SD_SPI_HOST    SPI2_HOST
 
 static bool s_mounted = false;
+
+static char s_ram_fallback_buf[SD_RAM_FALLBACK_COUNT][SD_LOG_LINE_MAX_LEN];
+static uint32_t s_ram_fallback_head = 0;
+static uint32_t s_ram_fallback_count = 0;
 
 static const char *log_type_to_dir(sd_log_type_t type)
 {
@@ -149,6 +154,9 @@ esp_err_t storage_sd_init(void)
 
     ESP_LOGI(TAG, "SD montado em %s, tamanho=%lluMB", SD_MOUNT_POINT,
              (unsigned long long)(card->csd.capacity) / 1024);
+
+    storage_sd_flush_ram_fallback();
+
     return ESP_OK;
 }
 
@@ -159,7 +167,18 @@ bool storage_sd_is_mounted(void)
 
 esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
 {
-    if (!s_mounted || !line) return ESP_ERR_INVALID_STATE;
+    if (!line) return ESP_ERR_INVALID_STATE;
+
+    if (!s_mounted) {
+        uint32_t idx = s_ram_fallback_head % SD_RAM_FALLBACK_COUNT;
+        strncpy(s_ram_fallback_buf[idx], line, SD_LOG_LINE_MAX_LEN - 1);
+        s_ram_fallback_buf[idx][SD_LOG_LINE_MAX_LEN - 1] = '\0';
+        s_ram_fallback_head++;
+        if (s_ram_fallback_count < SD_RAM_FALLBACK_COUNT) {
+            s_ram_fallback_count++;
+        }
+        return ESP_OK;
+    }
 
     char full_dir[64];
     snprintf(full_dir, sizeof(full_dir), "%s/%s", SD_MOUNT_POINT, log_type_to_dir(type));
@@ -175,6 +194,29 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
 
     fprintf(f, "%s\n", line);
     return atomic_write_and_rename(path, tmp_path, f);
+}
+
+void storage_sd_flush_ram_fallback(void)
+{
+    if (!s_mounted || s_ram_fallback_count == 0) return;
+
+    uint32_t start = (s_ram_fallback_head >= s_ram_fallback_count)
+        ? (s_ram_fallback_head - s_ram_fallback_count) : 0;
+    ESP_LOGI(TAG, "Flushing %lu RAM fallback entries to SD", (unsigned long)s_ram_fallback_count);
+
+    for (uint32_t i = 0; i < s_ram_fallback_count; i++) {
+        uint32_t idx = (start + i) % SD_RAM_FALLBACK_COUNT;
+        if (s_ram_fallback_buf[idx][0] == '\0') continue;
+        storage_sd_write_log(SD_LOG_TYPE_EVENT, s_ram_fallback_buf[idx]);
+        s_ram_fallback_buf[idx][0] = '\0';
+    }
+    s_ram_fallback_head = 0;
+    s_ram_fallback_count = 0;
+}
+
+uint32_t storage_sd_ram_fallback_count(void)
+{
+    return s_ram_fallback_count;
 }
 
 esp_err_t storage_sd_write_json_atomic(const char *filename, const char *json_content)

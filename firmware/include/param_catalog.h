@@ -1,3 +1,4 @@
+// @requirement RF-UI-WIZARD-001..005 Wizard step persistence
 #ifndef FIRMWARE_INCLUDE_PARAM_CATALOG_H
 #define FIRMWARE_INCLUDE_PARAM_CATALOG_H
 
@@ -77,6 +78,7 @@ typedef struct {
     uint16_t mains_voltage;
     bool     monitor_only_mode;
     bool     maintenance_mode;
+    uint8_t  wizard_step;
 } system_params_storage_t;
 
 #define PARAM_THERMAL_DEFAULT_TEMP_NORMAL_C      25.0f

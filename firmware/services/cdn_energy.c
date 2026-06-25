@@ -1,4 +1,7 @@
+// @requirement RF-ENERGY-003 Acumuladores de energia
+// @requirement RF-ENERGY-010 Log periódico SD
 #include "cdn_energy.h"
+#include "storage_sd.h"
 #include "esp_timer.h"
 #include <string.h>
 
@@ -64,4 +67,26 @@ void cdn_energy_reset_all(void)
     {
         s_entries[i].last_update_ms = now_ms;
     }
+}
+
+void cdn_energy_log_to_sd(void)
+{
+    if (!storage_sd_is_mounted()) return;
+    char line[256];
+    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    float total = cdn_energy_get_total_wh();
+    snprintf(line, sizeof(line), "%llu,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+        (unsigned long long)(now_ms / 1000ULL),
+        (double)s_entries[0].energy_wh,
+        (double)s_entries[1].energy_wh,
+        (double)s_entries[2].energy_wh,
+        (double)s_entries[3].energy_wh,
+        (double)s_entries[4].energy_wh,
+        (double)s_entries[5].energy_wh,
+        (double)s_entries[6].energy_wh,
+        (double)s_entries[7].energy_wh,
+        (double)s_entries[8].energy_wh,
+        (double)s_entries[9].energy_wh,
+        (double)total);
+    storage_sd_write_log(SD_LOG_TYPE_ENERGY, line);
 }

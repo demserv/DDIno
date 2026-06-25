@@ -1,6 +1,7 @@
 // @requirement RF-PLUG-009 Religamento sequencial
 // @requirement RF-PROTECTION-001 Religamento inteligente pós-SAFE_OFF
 // @requirement RF-FSM-RELIG-ELECT-001 FSM de religamento elétrico inteligente
+// @requirement RF-GLOBAL-REARM-001 Blocked plug isolation
 #include "fsm/restart_fsm.h"
 #include <string.h>
 
@@ -21,6 +22,7 @@ void restart_fsm_init(restart_fsm_t *fsm, const restart_cfg_t *cfg)
     }
     fsm->state = RESTART_STATE_IDLE;
     fsm->complete = false;
+    fsm->blocked_mask = 0;
 }
 
 void restart_fsm_start(restart_fsm_t *fsm, uint64_t now_ms)
@@ -30,6 +32,7 @@ void restart_fsm_start(restart_fsm_t *fsm, uint64_t now_ms)
     fsm->state_entered_ms = now_ms;
     fsm->next_relay_idx = 0;
     fsm->complete = false;
+    fsm->blocked_mask = 0;
 }
 
 void restart_fsm_update(restart_fsm_t *fsm, uint64_t now_ms)
@@ -56,6 +59,11 @@ void restart_fsm_update(restart_fsm_t *fsm, uint64_t now_ms)
                 uint64_t since_last = elapsed - fsm->next_relay_idx * fsm->cfg.stagger_interval_ms;
                 if (since_last >= fsm->cfg.stagger_interval_ms) {
                     fsm->next_relay_idx++;
+                    while (fsm->next_relay_idx < PLUG_COUNT_TOTAL) {
+                        uint8_t plug_idx = RELAY_ENERGIZE_ORDER[fsm->next_relay_idx];
+                        if (!(fsm->blocked_mask & (uint16_t)(1U << plug_idx))) break;
+                        fsm->next_relay_idx++;
+                    }
                 }
             }
             break;
@@ -104,6 +112,12 @@ bool restart_fsm_should_energize(const restart_fsm_t *fsm, plug_id_t plug)
     return false;
 }
 
+void restart_fsm_set_blocked_mask(restart_fsm_t *fsm, uint16_t mask)
+{
+    if (!fsm) return;
+    fsm->blocked_mask = mask;
+}
+
 uint16_t restart_fsm_energized_mask(const restart_fsm_t *fsm)
 {
     if (!fsm) return 0;
@@ -117,6 +131,7 @@ uint16_t restart_fsm_energized_mask(const restart_fsm_t *fsm)
     }
     for (uint8_t i = 0; i < count; i++) {
         uint8_t plug_idx = RELAY_ENERGIZE_ORDER[i];
+        if (fsm->blocked_mask & (uint16_t)(1U << plug_idx)) continue;
         mask |= (uint16_t)(1U << plug_idx);
     }
     return mask;

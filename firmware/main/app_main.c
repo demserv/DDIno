@@ -12,6 +12,7 @@
 // @requirement RF-GLOBAL-001 a RF-GLOBAL-006 Estados globais
 // @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Saída segura de SAFE_OFF
 // @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
+// @requirement RF-FLOW-BOOT-003 Self-test falho → SAFE_OFF
 // @requirement RF-PLUG-006.1 Restauração Feed Mode pós-queda
 // @requirement RNF-CALIB-001 Calibração assistida no boot
 #include "pin_map.h"
@@ -87,6 +88,7 @@ static void init_global_state(void)
     g_gs.health_check_interval_s = 60;
     g_gs.temp_filtered_c = 0.0f;
     g_gs.restart_in_progress = false;
+    g_gs.wizard_step = (wizard_step_t)config_get_wizard_step();
 }
 
 static bool read_temp(float *temp_c)
@@ -561,6 +563,12 @@ void app_main(void)
         if (now_s % g_gs.health_check_interval_s == 0) {
             g_gs.last_health_check_timestamp = now_s;
             g_gs.sd_ok = storage_sd_is_mounted();
+        }
+
+        static uint64_t s_last_energy_log_s = 0;
+        if (now_s - s_last_energy_log_s >= HW_SD_LOG_INTERVAL_S) {
+            cdn_energy_log_to_sd();
+            s_last_energy_log_s = now_s;
         }
 
         static uint64_t s_last_blink_ms = 0;

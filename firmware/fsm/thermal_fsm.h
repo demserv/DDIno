@@ -1,3 +1,6 @@
+// @requirement RF-THERMAL-001 Leitura contínua com validação robusta (CRC + 85°C rejection)
+// @requirement RF-THERMAL-002 Sensor fail → SAFE_OFF
+// @requirement RF-THERMAL-008 Prioridade heater sobre cooler
 #ifndef FIRMWARE_FSM_THERMAL_FSM_H
 #define FIRMWARE_FSM_THERMAL_FSM_H
 

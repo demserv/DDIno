@@ -17,7 +17,7 @@
 | PA-011 | hardware_config.h canonical | COMPLETED | `include/hardware_config.h` | HW_PLATFORM_NAME, HW_I2C_*, HW_RELAY_*, HW_ADC_*, HW_TEMP_*, HW_DS3231_*, HW_PZEM_*, HW_NVS_*, HW_WDT_*, HW_TASK_*, HW_SD_*, HW_HTTP_*, HW_UI_*, HW_SENSOR_*, HW_ENERGY_*, HW_ANTIFLAP_*, HW_SAFEOFF_*, HW_EMERGENCY_* |
 | PA-012 | UI/HMI overlays | COMPLETED | `ui/ui_screens.c`, `.h` | SAFE_OVERLAY, EMERGENCY_OVERLAY, WIZARD_OVERLAY, MUTE_ICON, `ui_toggle_mute()`, `ui_is_muted()` |
 
-## Features Implemented (Commit 9f637f9)
+## Features Implemented (Commit 9f637f9 + PARTIAL resolutions)
 
 | RF | Feature | Files | Status |
 |----|---------|-------|--------|
@@ -37,11 +37,20 @@
 | RF-INSTALL-MONITOR-001 | Modo Somente Monitoramento | `services/config_manager.c/h`, `web/api_rest.c` | COMPLETED |
 | RF-FLOW-BOOT-004 | .tmp orphan scan pós-init | `services/storage_sd.c` | COMPLETED |
 | RF-DATA-CONSISTENCY-001 | bypass_detected/role_override_source com consumidor | `services/plug_manager.c`, `services/electric_fsm.c` | COMPLETED |
+| **RF-GLOBAL-REARM-001** | Blocked plug isolation (bitmask, skip religamento) | `fsm/restart_fsm.c/h` | COMPLETED |
+| **RF-ATO-001** | Debounce temporal ADC (3 amostras, threshold 50) | `fsm/ato_fsm.c/h` | COMPLETED |
+| **RF-THERMAL-008** | Heater priority sobre cooler | `fsm/thermal_fsm.c/h` | COMPLETED |
+| **RF-STORAGE-002** | RAM fallback (buf ring 64 entradas) | `services/storage_sd.c/h` | COMPLETED |
+| **RF-ENERGY-010** | Log SD energia periódico (CSV, HW_SD_LOG_INTERVAL_S) | `services/cdn_energy.c/h`, `main/app_main.c` | COMPLETED |
+| **RF-FLOW-BOOT-003** | Self-test→SAFE_OFF com @requirement tag | `main/app_main.c` | COMPLETED |
+| **RF-UI-WIZARD-001..005** | Wizard 6 steps (NVS persist, API, overlay) | `services/config_manager.c/h`, `include/global_state.h`, `include/param_catalog.h`, `web/api_rest.c`, `ui/ui_screens.c` | COMPLETED |
+| **RF-THERMAL-006** | Parâmetros térmicos no wizard step 2 | `web/api_rest.c`, `ui/ui_screens.c`, `services/config_manager.c/h` | COMPLETED |
+| **RF-ATO-DIGITAL-001** | Calibração ATO no wizard step 3 | `web/api_rest.c`, `ui/ui_screens.c`, `fsm/ato_fsm.c` | COMPLETED |
 
 ## Build Status
 - **Errors**: 0
-- **Warnings**: 0
-- **Binary size**: 0xc0d20 bytes (25% free, 0x100000 partition)
+- **Warnings**: 2 (TAG unused in screen_calibration.c, screen_diagnostic.c)
+- **Binary size**: 0xc3300 bytes (24% free, 0x100000 partition)
 - **Toolchain**: xtensa-esp-elf gcc 13.2.0, ESP-IDF v5.3.1
 
 ## Known HW Gaps (non-fatal)

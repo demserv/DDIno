@@ -1,4 +1,5 @@
 // @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
+// @requirement RF-UI-WIZARD-001..005 Wizard step persistence
 // @requirement RNF-CALIB-001 Calibração assistida de sensores
 // @requirement RF-ATO-003 Configuração ATO com validação LOW/HIGH
 #include "config_manager.h"
@@ -297,5 +298,16 @@ void config_set_wizard_completed(bool val)
 void config_set_monitor_only(bool val)
 {
     s_system.monitor_only_mode = val;
+    save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+}
+
+uint8_t config_get_wizard_step(void)
+{
+    return s_system.wizard_step;
+}
+
+void config_set_wizard_step(uint8_t step)
+{
+    s_system.wizard_step = step;
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
