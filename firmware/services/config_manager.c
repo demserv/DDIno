@@ -1,6 +1,10 @@
+// @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
+// @requirement RNF-CALIB-001 Calibração assistida de sensores
+// @requirement RF-ATO-003 Configuração ATO com validação LOW/HIGH
 #include "config_manager.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "driver_acs712.h"
 #include <string.h>
 
 static const char *TAG = "config_mgr";
@@ -15,6 +19,7 @@ static const char *TAG = "config_mgr";
 #define NVS_NS_ANTIFLAP  "cfg_aflap"
 #define NVS_NS_SELFTEST  "cfg_stest"
 #define NVS_NS_SYSTEM    "cfg_sys"
+#define NVS_NS_CALIB     "cfg_calib"
 
 #define NVS_KEY_BLOB     "blob"
 
@@ -28,6 +33,7 @@ static security_params_storage_t s_security;
 static antiflap_params_storage_t s_antiflap;
 static selftest_params_storage_t s_selftest;
 static system_params_storage_t   s_system;
+static calibration_params_storage_t s_calibration;
 
 static void set_defaults(void)
 {
@@ -83,6 +89,13 @@ static void set_defaults(void)
     s_system.mains_voltage        = PARAM_SYSTEM_DEFAULT_MAINS_VOLTAGE;
     s_system.monitor_only_mode    = PARAM_SYSTEM_DEFAULT_MONITOR_ONLY;
     s_system.maintenance_mode     = PARAM_SYSTEM_DEFAULT_MAINTENANCE_MODE;
+
+    memset(&s_calibration, 0, sizeof(s_calibration));
+    for (int i = 0; i < 10; i++) {
+        s_calibration.acs712_zero_offset_mv[i] = ACS712_ZERO_OFFSET_MV;
+    }
+    s_calibration.ato_zero_offset_adc = PARAM_CALIB_DEFAULT_ATO_ZERO_ADC;
+    s_calibration.temp_offset_c = PARAM_CALIB_DEFAULT_TEMP_OFFSET_C;
 }
 
 static esp_err_t load_nvs_blob(const char *ns, void *blob, size_t sz)
@@ -130,6 +143,7 @@ const security_params_storage_t* config_get_security(void) { return &s_security;
 const antiflap_params_storage_t* config_get_antiflap(void) { return &s_antiflap; }
 const selftest_params_storage_t* config_get_selftest(void) { return &s_selftest; }
 const system_params_storage_t* config_get_system(void) { return &s_system; }
+const calibration_params_storage_t* config_get_calibration(void) { return &s_calibration; }
 
 esp_err_t config_set_thermal(const thermal_params_storage_t *p)
 {
@@ -201,6 +215,13 @@ esp_err_t config_set_system(const system_params_storage_t *p)
     return save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
+esp_err_t config_set_calibration(const calibration_params_storage_t *p)
+{
+    if (!p) return ESP_ERR_INVALID_ARG;
+    s_calibration = *p;
+    return save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+}
+
 esp_err_t config_load_all(void)
 {
     esp_err_t e;
@@ -223,6 +244,8 @@ esp_err_t config_load_all(void)
     e = load_nvs_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
     if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
     e = load_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
+    e = load_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
     if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
     return ESP_OK;
 }
@@ -249,6 +272,8 @@ esp_err_t config_save_all(void)
     e = save_nvs_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
     if (e != ESP_OK) return e;
     e = save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (e != ESP_OK) return e;
+    e = save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
     return e;
 }
 

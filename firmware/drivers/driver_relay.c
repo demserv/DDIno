@@ -1,3 +1,5 @@
+// @requirement RF-PLUG-001 Modos de operação por plugue
+// @requirement RF-PLUG-009 Religamento sequencial
 #include "driver_relay.h"
 #include "driver/gpio.h"
 #include "driver_mcp23017.h"

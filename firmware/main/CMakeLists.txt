@@ -19,6 +19,7 @@ set(MAIN_SRCS
     "../services/storage_sd.c"
     "../fsm/thermal_fsm.c"
     "../fsm/ato_fsm.c"
+    "../fsm/restart_fsm.c"
     "../web/api_rest.c"
     "../web/api_auth.c"
     "../web/api_rate_limit.c"
@@ -42,8 +43,10 @@ set(MAIN_SRCS
     "../services/temp_filter.c"
     "../services/audit_log.c"
     "../services/plug_manager.c"
+    "../services/feed_snapshot.c"
     "../fsm/feed_fsm.c"
     "../ui/screens/screen_diagnostic.c"
+    "../ui/screens/screen_calibration.c"
 )
 
 set(MAIN_INCLUDE_DIRS

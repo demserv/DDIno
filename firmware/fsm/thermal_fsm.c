@@ -1,3 +1,7 @@
+// @requirement RF-THERMAL-001 Leitura contínua com validação robusta
+// @requirement RF-THERMAL-003 Classificação térmica por parâmetros
+// @requirement RF-THERMAL-009 Exclusão mútua aquecedor e cooler
+// @requirement RF-FSM-THERMAL-001 FSM térmica e impacto sistêmico
 #include "fsm/thermal_fsm.h"
 #include <string.h>
 

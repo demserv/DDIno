@@ -133,4 +133,13 @@ typedef struct {
 #define PARAM_SYSTEM_DEFAULT_MONITOR_ONLY        false
 #define PARAM_SYSTEM_DEFAULT_MAINTENANCE_MODE    false
 
+typedef struct {
+    float acs712_zero_offset_mv[10];
+    int32_t ato_zero_offset_adc;
+    float temp_offset_c;
+} calibration_params_storage_t;
+
+#define PARAM_CALIB_DEFAULT_ATO_ZERO_ADC     0
+#define PARAM_CALIB_DEFAULT_TEMP_OFFSET_C    0.0f
+
 #endif

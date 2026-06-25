@@ -16,6 +16,7 @@ const security_params_storage_t*  config_get_security(void);
 const antiflap_params_storage_t*  config_get_antiflap(void);
 const selftest_params_storage_t*  config_get_selftest(void);
 const system_params_storage_t*    config_get_system(void);
+const calibration_params_storage_t* config_get_calibration(void);
 
 esp_err_t config_set_thermal(const thermal_params_storage_t *p);
 esp_err_t config_set_ato(const ato_params_storage_t *p);
@@ -27,6 +28,7 @@ esp_err_t config_set_security(const security_params_storage_t *p);
 esp_err_t config_set_antiflap(const antiflap_params_storage_t *p);
 esp_err_t config_set_selftest(const selftest_params_storage_t *p);
 esp_err_t config_set_system(const system_params_storage_t *p);
+esp_err_t config_set_calibration(const calibration_params_storage_t *p);
 
 esp_err_t config_save_all(void);
 esp_err_t config_load_all(void);

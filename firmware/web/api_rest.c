@@ -1,3 +1,5 @@
+// @requirement RF-WEB-001 a RF-WEB-008 (API REST)
+// @requirement RNF-CALIB-001 Calibração assistida via API
 #include "api_rest.h"
 #include "api_auth.h"
 #include "api_rate_limit.h"
@@ -12,6 +14,7 @@
 #include "services/alert_manager.h"
 #include "services/command_validator.h"
 #include "services/relay_safety_service.h"
+#include "services/config_manager.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include "esp_system.h"
@@ -424,6 +427,64 @@ static esp_err_t logout_handler(httpd_req_t *req)
     return send_json_resp(req, json, "200 OK");
 }
 
+static esp_err_t calibrate_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *sensor = cJSON_GetObjectItem(json, "sensor");
+    if (!cJSON_IsString(sensor)) {
+        cJSON_Delete(json);
+        return send_error(req, "missing_sensor", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    const char *sensor_name = sensor->valuestring;
+    calibration_params_storage_t cal = *config_get_calibration();
+    bool updated = false;
+
+    if (strcmp(sensor_name, "ato_zero") == 0) {
+        uint16_t adc = 0;
+        esp_err_t err = mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_ATO, &adc);
+        if (err != ESP_OK) {
+            cJSON_Delete(json);
+            return send_error(req, "read_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+        }
+        cal.ato_zero_offset_adc = (int32_t)adc;
+        updated = true;
+    } else if (strcmp(sensor_name, "plug_zero") == 0) {
+        cJSON *plug = cJSON_GetObjectItem(json, "plug_id");
+        int plug_id = cJSON_IsNumber(plug) ? plug->valueint : 0;
+        if (plug_id < 1 || plug_id > 10) {
+            cJSON_Delete(json);
+            return send_error(req, "invalid_plug_id", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+        }
+        esp_err_t err = acs712_calibrate_zero((uint8_t)plug_id);
+        if (err != ESP_OK) {
+            cJSON_Delete(json);
+            return send_error(req, "calibrate_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+        }
+        cal.acs712_zero_offset_mv[plug_id - 1] = acs712_get_zero_offset((uint8_t)plug_id);
+        updated = true;
+    } else {
+        cJSON_Delete(json);
+        return send_error(req, "unknown_sensor", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    if (updated) {
+        config_set_calibration(&cal);
+    }
+
+    cJSON_Delete(json);
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", "calibrated");
+    cJSON_AddStringToObject(resp, "sensor", sensor_name);
+    return send_json_resp(req, resp, "200 OK");
+}
+
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
@@ -443,6 +504,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/config",        .method = HTTP_GET,  .handler = config_get_handler,.user_ctx = NULL },
     { .uri = "/api/v1/config",        .method = HTTP_POST, .handler = config_set_handler,.user_ctx = NULL },
     { .uri = "/api/v1/command",       .method = HTTP_POST, .handler = command_handler,  .user_ctx = NULL },
+    { .uri = "/api/v1/calibrate",     .method = HTTP_POST, .handler = calibrate_handler,.user_ctx = NULL },
     { .uri = "/api/v1/log",           .method = HTTP_GET,  .handler = log_handler,      .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_GET,  .handler = catch_all_handler, .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_POST, .handler = catch_all_handler, .user_ctx = NULL },

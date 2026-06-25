@@ -1,3 +1,8 @@
+// @requirement RF-ATO-001 Leitura de nível com debounce ADC
+// @requirement RF-ATO-002 FSM de proteção ATO com seis estados
+// @requirement RF-ATO-004 Detecção de padrão anormal de refill
+// @requirement RF-ATO-005 Detecção de reservatório vazio ou bloqueio
+// @requirement RF-FSM-ATO-001 Impacto dos estados ATO no estado global
 #include "fsm/ato_fsm.h"
 #include <string.h>
 

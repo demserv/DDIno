@@ -15,5 +15,6 @@ uint8_t plug_manager_active_count(void);
 plug_model_t *plug_manager_get(plug_id_t id);
 void plug_manager_apply_safe_off(void);
 void plug_manager_set_thermal_request(plug_id_t id, bool heater_on, bool cooler_on);
+void plug_manager_set_restart_mask(uint16_t mask);
 
 #endif

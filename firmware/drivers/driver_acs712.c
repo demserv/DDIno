@@ -1,3 +1,6 @@
+// @requirement RF-PLUG-003 Proteção de corrente por plugue
+// @requirement RF-PLUG-014 Curto-circuito e sobrecarga extrema por plugue
+// @requirement RNF-CALIB-001 Calibração assistida de sensores
 #include "driver_acs712.h"
 #include "driver_mcp3208.h"
 #include "pin_map.h"
@@ -87,4 +90,11 @@ void acs712_set_zero_offset(uint8_t plug_id, float offset_mv)
     int idx = plug_to_index(plug_id);
     if (idx < 0) return;
     s_acs712[idx].zero_offset_mv = offset_mv;
+}
+
+float acs712_get_zero_offset(uint8_t plug_id)
+{
+    int idx = plug_to_index(plug_id);
+    if (idx < 0) return ACS712_ZERO_OFFSET_MV;
+    return s_acs712[idx].zero_offset_mv;
 }

@@ -1,3 +1,8 @@
+// @requirement RF-GLOBAL-001 Definição de estados globais
+// @requirement RF-GLOBAL-002 Transições de estado global
+// @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Pré-condições saída de SAFE_OFF
+// @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
+// @requirement RNF-GLOBAL-ANTIFLAP-001 Estabilização de retorno
 #include "safety_controller.h"
 #include <string.h>
 #include <stdio.h>
@@ -64,6 +69,14 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     }
 
     if (next == prev) return;
+
+    if (gs->system_state == SYSTEM_STATE_SAFE_OFF && gs->restart_in_progress) {
+        if (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED) {
+            ESP_LOGV(TAG, "RESTART: bloqueada transicao %s->%s durante religamento",
+                     state_to_str(prev), state_to_str(next));
+            return;
+        }
+    }
 
     if (!check_antiflap(next, now_s * 1000ULL)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (muitas transicoes)",

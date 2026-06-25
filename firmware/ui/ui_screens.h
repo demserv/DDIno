@@ -5,7 +5,7 @@
 #include "lvgl.h"
 #include "system_types.h"
 
-#define SCREEN_COUNT 8
+#define SCREEN_COUNT 9
 
 typedef enum {
     SCREEN_DASHBOARD = 0,
@@ -15,7 +15,8 @@ typedef enum {
     SCREEN_MENU,
     SCREEN_SUBMENU,
     SCREEN_ALERTS,
-    SCREEN_DIAGNOSTIC
+    SCREEN_DIAGNOSTIC,
+    SCREEN_CALIBRATION
 } screen_id_t;
 
 esp_err_t ui_screens_init(void);

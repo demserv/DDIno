@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-001 Leitura contínua com validação robusta
 #include "driver_ds18b20.h"
 #include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"

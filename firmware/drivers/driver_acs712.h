@@ -23,5 +23,6 @@ esp_err_t acs712_init(void);
 esp_err_t acs712_read_plug(uint8_t plug_id, float *current_a);
 esp_err_t acs712_calibrate_zero(uint8_t plug_id);
 void      acs712_set_zero_offset(uint8_t plug_id, float offset_mv);
+float     acs712_get_zero_offset(uint8_t plug_id);
 
 #endif

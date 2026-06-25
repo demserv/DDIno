@@ -40,6 +40,7 @@ typedef struct {
     feed_state_t         feed_state;
     uint64_t             health_check_interval_s;
     float                temp_filtered_c;
+    bool                 restart_in_progress;
 } global_state_t;
 
 #endif

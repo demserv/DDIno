@@ -9,6 +9,11 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 
+// @requirement RF-GLOBAL-001 a RF-GLOBAL-006 Estados globais
+// @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Saída segura de SAFE_OFF
+// @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
+// @requirement RF-PLUG-006.1 Restauração Feed Mode pós-queda
+// @requirement RNF-CALIB-001 Calibração assistida no boot
 #include "pin_map.h"
 #include "global_state.h"
 #include "hardware_config.h"
@@ -41,12 +46,15 @@
 #include "services/audit_log.h"
 #include "services/plug_manager.h"
 #include "fsm/feed_fsm.h"
+#include "fsm/restart_fsm.h"
+#include "services/feed_snapshot.h"
 
 static const char *TAG = "app_main";
 
 global_state_t g_gs;
 pzem_data_t g_pzem;
 bool g_feed_request = false;
+restart_fsm_t g_restart_fsm;
 
 static esp_err_t init_nvs_safe(void)
 {
@@ -77,6 +85,7 @@ static void init_global_state(void)
     g_gs.feed_state = FEED_STATE_IDLE;
     g_gs.health_check_interval_s = 60;
     g_gs.temp_filtered_c = 0.0f;
+    g_gs.restart_in_progress = false;
 }
 
 static bool read_temp(float *temp_c)
@@ -142,7 +151,7 @@ static bool safeoff_cause_is_resolved(void)
     }
 }
 
-static void handle_safeoff_exit(uint64_t now_s)
+static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
 {
     safety_inputs_t sin;
     memset(&sin, 0, sizeof(sin));
@@ -152,10 +161,39 @@ static void handle_safeoff_exit(uint64_t now_s)
     sin.manual_ack_received = true;
     sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
 
-    if (safety_controller_can_exit_safeoff(&g_gs, &sin, now_s)) {
-        ESP_LOGW(TAG, "SAFE_OFF exit conditions met -> DEGRADED");
-        g_gs.system_state = SYSTEM_STATE_DEGRADED;
+    if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
+        ESP_LOGW(TAG, "RESTART: sequencia completa -> NORMAL");
+        g_gs.system_state = SYSTEM_STATE_NORMAL;
         g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
+        g_gs.restart_in_progress = false;
+        g_gs.safeoff_source_alm[0] = '\0';
+        plug_manager_set_restart_mask(0);
+        audit_log_event(AUDIT_SAFE_OFF, "Restart sequence complete -> NORMAL");
+        restart_fsm_abort(&g_restart_fsm);
+        return;
+    }
+
+    if (g_gs.restart_in_progress && (!sin.safeoff_cause_resolved || !sin.all_sensors_valid)) {
+        ESP_LOGW(TAG, "RESTART: condicoes perdidas, abortando religamento");
+        g_gs.restart_in_progress = false;
+        plug_manager_set_restart_mask(0);
+        relay_all_off();
+        audit_log_event(AUDIT_SAFE_OFF, "Restart aborted - conditions lost");
+        restart_fsm_abort(&g_restart_fsm);
+        return;
+    }
+
+    if (g_gs.restart_in_progress) {
+        restart_fsm_update(&g_restart_fsm, now_ms);
+        plug_manager_set_restart_mask(restart_fsm_energized_mask(&g_restart_fsm));
+        return;
+    }
+
+    if (safety_controller_can_exit_safeoff(&g_gs, &sin, now_s)) {
+        ESP_LOGW(TAG, "RESTART: condicoes de saida SAFE_OFF atendidas, religando");
+        g_gs.restart_in_progress = true;
+        audit_log_event(AUDIT_SAFE_OFF, "Restart sequence started");
+        restart_fsm_start(&g_restart_fsm, now_ms);
     }
 }
 
@@ -187,6 +225,15 @@ void app_main(void)
     ESP_ERROR_CHECK(config_manager_init());
     init_global_state();
     safety_controller_init(&g_gs);
+    {
+        const restart_params_storage_t *rp = config_get_restart();
+        restart_cfg_t rcfg = {
+            .wait_time_ms = rp->tempo_espera_religamento_s * 1000U,
+            .stagger_interval_ms = rp->intervalo_religamento_s * 1000U,
+            .monitor_time_ms = rp->tempo_monitoramento_pos_relig_s * 1000U
+        };
+        restart_fsm_init(&g_restart_fsm, &rcfg);
+    }
     alert_manager_init();
     self_test_init();
 
@@ -202,6 +249,13 @@ void app_main(void)
 
     ESP_ERROR_CHECK_WITHOUT_ABORT(mcp3208_init(PIN_ADC1_CS_GPIO));
     acs712_init();
+    {
+        const calibration_params_storage_t *cp = config_get_calibration();
+        for (uint8_t p = 1; p <= 10; p++) {
+            acs712_set_zero_offset(p, cp->acs712_zero_offset_mv[p - 1]);
+        }
+        ESP_LOGI(TAG, "Calibracao: offsets ACS712 aplicados da NVS");
+    }
     ad_keypad_init(NULL);
     esp_err_t pzem_err = pzem_init();
     if (pzem_err != ESP_OK) {
@@ -262,6 +316,14 @@ void app_main(void)
     plug_manager_init();
     const feed_params_storage_t *fp = config_get_feed();
     feed_fsm_init(&feed_fsm, fp->feed_duration_min * 60, 120);
+    {
+        uint64_t boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        esp_err_t snap_err = feed_snapshot_restore(&feed_fsm, 0, boot_ms, g_gs.time_valid);
+        if (snap_err == ESP_OK && feed_fsm.state != FEED_STATE_IDLE) {
+            ESP_LOGW(TAG, "Feed snapshot restored (state=%d)", (int)feed_fsm.state);
+            audit_log_event(AUDIT_FEED_MODE, "Feed state restored from NVS snapshot");
+        }
+    }
 
     esp_err_t ui_err = ui_display_init();
     if (ui_err != ESP_OK) {
@@ -320,7 +382,7 @@ void app_main(void)
             handle_emergency_exit(now_s);
         }
         if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
-            handle_safeoff_exit(now_s);
+            handle_safeoff_exit(now_s, now_ms);
         }
 
         float temp_c = 25.0f;
@@ -455,6 +517,19 @@ void app_main(void)
         g_pzem.energy_wh = (float)total_wh;
 
         feed_fsm_update(&feed_fsm, now_ms);
+
+        {
+            static uint64_t s_last_feed_snap_ms = 0;
+            feed_state_t fst = feed_fsm_get_state(&feed_fsm);
+            if ((fst == FEED_STATE_ACTIVE || fst == FEED_STATE_COOLDOWN) &&
+                (now_ms - s_last_feed_snap_ms > 5000)) {
+                feed_snapshot_save(&feed_fsm, now_s, g_gs.time_valid);
+                s_last_feed_snap_ms = now_ms;
+            } else if (fst == FEED_STATE_IDLE && s_last_feed_snap_ms != 0) {
+                feed_snapshot_clear();
+                s_last_feed_snap_ms = 0;
+            }
+        }
 
         if (g_feed_request && g_gs.system_state == SYSTEM_STATE_NORMAL) {
             if (feed_fsm_start(&feed_fsm, now_ms)) {

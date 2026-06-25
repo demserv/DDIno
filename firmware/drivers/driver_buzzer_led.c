@@ -1,3 +1,7 @@
+// @requirement RF-LED-001 LED Verde (sistema OK)
+// @requirement RF-LED-002 LED Amarelo (atenção/feed mode)
+// @requirement RF-LED-003 LED Vermelho e padrão crítico
+// @requirement RF-GLOBAL-003 Badge de estado sempre visível
 #include "driver_buzzer_led.h"
 #include "driver_mcp23017.h"
 #include "driver/i2c.h"

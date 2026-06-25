@@ -1,3 +1,9 @@
+// @requirement RF-PLUG-001 Modos de operação por plugue
+// @requirement RF-PLUG-002 Tipo e criticidade do plugue
+// @requirement RF-PLUG-003 Proteção de corrente por plugue
+// @requirement RF-PLUG-007 Estados visuais
+// @requirement RF-PLUG-008 Tempo mínimo ON/OFF
+// @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
 #include "services/plug_manager.h"
 #include "driver_relay.h"
 #include "esp_log.h"
@@ -22,6 +28,7 @@ static plug_type_t s_default_types[PLUG_COUNT_TOTAL] = {
 };
 
 static bool s_in_safe_off = false;
+static uint16_t s_restart_energized_mask = 0;
 
 void plug_manager_init(void)
 {
@@ -65,8 +72,13 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
         bool target_on = false;
 
         if (s_in_safe_off) {
-            target_on = false;
-            p->blocked_by_safe_state = true;
+            if (s_restart_energized_mask & (1U << i)) {
+                target_on = true;
+                p->blocked_by_safe_state = false;
+            } else {
+                target_on = false;
+                p->blocked_by_safe_state = true;
+            }
         } else if (feed_active && i < 4) {
             target_on = false;
         } else {
@@ -182,10 +194,16 @@ plug_model_t *plug_manager_get(plug_id_t id)
 void plug_manager_apply_safe_off(void)
 {
     s_in_safe_off = true;
+    s_restart_energized_mask = 0;
     relay_all_off();
     for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         s_plugs[i].effective_state = PLUG_EFFECTIVE_STATE_OFF;
         s_plugs[i].visual_state = PLUG_VISUAL_STATE_OFF_FAULT;
         s_plugs[i].blocked_by_safe_state = true;
     }
+}
+
+void plug_manager_set_restart_mask(uint16_t mask)
+{
+    s_restart_energized_mask = mask;
 }

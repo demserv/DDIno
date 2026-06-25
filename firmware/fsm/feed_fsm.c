@@ -1,3 +1,7 @@
+// @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
+// @requirement RF-FEED-002 Interface obrigatória do Feed Mode
+// @requirement RF-FEED-003 Sinalização visual do Feed Mode
+// @requirement RF-FSM-FEED-001 Feed Mode como camada ortogonal
 #include "fsm/feed_fsm.h"
 
 #define MAX_FEEDS_PER_HOUR 2
