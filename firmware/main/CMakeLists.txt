@@ -48,7 +48,8 @@ set(MAIN_SRCS
     "../ui/screens/screen_diagnostic.c"
     "../ui/screens/screen_calibration.c"
     "../services/reset_handler.c"
-    "../ui/ui_status_bar.c"
+    "../ui/ui_header.c"
+    "../ui/ui_footer.c"
 )
 
 set(MAIN_INCLUDE_DIRS

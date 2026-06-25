@@ -1,10 +1,11 @@
 // @requirement RF-UI-CAROUSEL-001 Carrossel automático com pausa
-// @requirement RF-UI-STATUS-001 Barra de status persistente
+// @requirement RF-UI-STATUS-001 Header e footer graficos persistentes
 // @requirement RF-UI-WIZARD-001..005 Wizard com steps individuais
 #include "ui_screens.h"
 #include "hardware_config.h"
 #include "ui_state_badge.h"
-#include "ui_status_bar.h"
+#include "ui_header.h"
+#include "ui_footer.h"
 #include "global_state.h"
 #include "alert_manager.h"
 #include "config_manager.h"
@@ -158,7 +159,8 @@ esp_err_t ui_screens_init(void)
         }
     }
 
-    ui_status_bar_init();
+    ui_header_init();
+    ui_footer_init();
 
     esp_timer_create_args_t timeout_args = {
         .callback = on_screen_timeout,
@@ -306,7 +308,8 @@ void ui_screen_update_all(void)
         }
     }
 
-    ui_status_bar_update();
+    ui_header_update();
+    ui_footer_update();
 
     if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
         lv_obj_clear_flag(emergency_overlay, LV_OBJ_FLAG_HIDDEN);
