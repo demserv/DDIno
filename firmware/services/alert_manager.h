@@ -1,0 +1,41 @@
+#ifndef FIRMWARE_SERVICES_ALERT_MANAGER_H
+#define FIRMWARE_SERVICES_ALERT_MANAGER_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "system_types.h"
+#include "alert_model.h"
+
+#define ALERT_SLOTS_MAX 80
+
+typedef struct {
+    int16_t           alm_id;
+    bool              active;
+    bool              ack_req;
+    bool              acked;
+    uint64_t          first_seen_ts;
+    uint64_t          last_seen_ts;
+    uint64_t          ack_timestamp;
+    alert_severity_t  severity;
+    alert_category_t  category;
+    char              message[128];
+    float             value;
+    char              action_hint[64];
+    uint16_t          related_plug_id;
+    bool              state_associated;
+} alert_slot_t;
+
+void         alert_manager_init(void);
+bool         alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_category_t cat,
+                                      const char *msg, float val, const char *hint,
+                                      uint16_t related_plug, bool ack_req, bool state_associated, uint64_t ts);
+bool         alert_manager_raise(int16_t alm_id, bool ack_req, uint64_t ts);
+bool         alert_manager_ack(int16_t alm_id, uint64_t ts);
+bool         alert_manager_is_active(int16_t alm_id);
+void         alert_manager_clear(int16_t alm_id);
+uint16_t     alert_manager_active_count(void);
+uint16_t     alert_manager_critical_count(void);
+const alert_slot_t* alert_manager_get_slot(int16_t alm_id);
+void         alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t max);
+
+#endif
