@@ -57,6 +57,20 @@ static esp_err_t ensure_all_dirs(void)
     return ESP_OK;
 }
 
+static esp_err_t atomic_write_and_rename(const char *final_path, const char *tmp_path, FILE *f)
+{
+    if (!f) return ESP_ERR_INVALID_ARG;
+    fclose(f);
+
+    if (rename(tmp_path, final_path) != 0) {
+        ESP_LOGE(TAG, "Falha ao renomear %s -> %s", tmp_path, final_path);
+        remove(tmp_path);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t storage_sd_init(void)
 {
     if (s_mounted) return ESP_OK;
@@ -111,10 +125,7 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
     if (!f) return ESP_ERR_NOT_FOUND;
 
     fprintf(f, "%s\n", line);
-    fclose(f);
-
-    rename(tmp_path, path);
-    return ESP_OK;
+    return atomic_write_and_rename(path, tmp_path, f);
 }
 
 esp_err_t storage_sd_write_json_atomic(const char *filename, const char *json_content)
@@ -131,10 +142,7 @@ esp_err_t storage_sd_write_json_atomic(const char *filename, const char *json_co
     if (!f) return ESP_ERR_NOT_FOUND;
 
     fprintf(f, "%s\n", json_content);
-    fclose(f);
-
-    rename(tmp_path, path);
-    return ESP_OK;
+    return atomic_write_and_rename(path, tmp_path, f);
 }
 
 esp_err_t storage_sd_backup_config(void)
@@ -153,14 +161,11 @@ esp_err_t storage_sd_backup_config(void)
     fprintf(f, "{\"type\":\"config_backup\",\"ts\":%llu,\"state\":%d,\"alerts\":%d}\n",
         (unsigned long long)(esp_timer_get_time() / 1000ULL),
         g_gs.system_state, g_gs.active_alerts_count);
-    fclose(f);
 
     char final_path[128];
     snprintf(final_path, sizeof(final_path), "%s/config/backup/config_backup.json", SD_MOUNT_POINT);
-    rename(tmp_path, final_path);
 
-    ESP_LOGI(TAG, "Config backup salvo atomicamente");
-    return ESP_OK;
+    return atomic_write_and_rename(final_path, tmp_path, f);
 }
 
 esp_err_t storage_sd_unmount(void)

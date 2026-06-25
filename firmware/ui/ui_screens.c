@@ -24,6 +24,20 @@ static lv_obj_t *alert_severity_label = NULL;
 static lv_obj_t *alert_action_label = NULL;
 static lv_obj_t *alert_ack_label = NULL;
 
+static lv_obj_t *safeoff_overlay = NULL;
+static lv_obj_t *safeoff_title = NULL;
+static lv_obj_t *safeoff_reason_label = NULL;
+static lv_obj_t *safeoff_restart_label = NULL;
+
+static lv_obj_t *emergency_overlay = NULL;
+static lv_obj_t *emergency_msg = NULL;
+
+static lv_obj_t *wizard_overlay = NULL;
+static lv_obj_t *wizard_msg = NULL;
+
+static lv_obj_t *mute_icon = NULL;
+static bool s_muted = false;
+
 extern global_state_t g_gs;
 
 static void on_screen_timeout(void *arg)
@@ -50,6 +64,46 @@ void ui_screen_register(screen_id_t id, screen_init_fn_t init, screen_update_fn_
         init_fns[id] = init;
         update_fns[id] = update;
     }
+}
+
+void ui_toggle_mute(void)
+{
+    s_muted = !s_muted;
+    if (mute_icon) {
+        if (s_muted) {
+            lv_label_set_text(mute_icon, "[MUTE]");
+            lv_obj_clear_flag(mute_icon, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(mute_icon, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+bool ui_is_muted(void)
+{
+    return s_muted;
+}
+
+static lv_obj_t* create_overlay(const char *title, lv_color_t bg, lv_color_t border)
+{
+    lv_obj_t *ov = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ov, 480, 320);
+    lv_obj_center(ov);
+    lv_obj_set_style_bg_color(ov, bg, 0);
+    lv_obj_set_style_border_color(ov, border, 0);
+    lv_obj_set_style_border_width(ov, 3, 0);
+    lv_obj_set_style_radius(ov, 0, 0);
+    lv_obj_set_style_pad_all(ov, 10, 0);
+    lv_obj_add_flag(ov, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ov);
+
+    lv_obj_t *title_lbl = lv_label_create(ov);
+    lv_label_set_text(title_lbl, title);
+    lv_obj_set_style_text_color(title_lbl, lv_color_make(255, 255, 255), 0);
+    lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, 15);
+
+    return ov;
 }
 
 esp_err_t ui_screens_init(void)
@@ -83,6 +137,7 @@ esp_err_t ui_screens_init(void)
     lv_obj_set_style_radius(alert_overlay, 8, 0);
     lv_obj_set_style_pad_all(alert_overlay, 10, 0);
     lv_obj_add_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(alert_overlay);
 
     alert_title_label = lv_label_create(alert_overlay);
     lv_label_set_text(alert_title_label, "ALERTA CRITICO");
@@ -112,6 +167,43 @@ esp_err_t ui_screens_init(void)
     lv_label_set_text(alert_ack_label, "ACK: Enter ou toque para reconhecer");
     lv_obj_set_style_text_color(alert_ack_label, lv_color_make(200, 200, 200), 0);
     lv_obj_align(alert_ack_label, LV_ALIGN_BOTTOM_MID, 0, -10);
+
+    safeoff_overlay = create_overlay("MODO SAFE_OFF", lv_color_make(80, 0, 0), lv_color_make(255, 50, 0));
+    safeoff_title = lv_label_create(safeoff_overlay);
+    lv_obj_align(safeoff_title, LV_ALIGN_TOP_MID, 0, 55);
+    lv_obj_set_style_text_color(safeoff_title, lv_color_make(255, 200, 0), 0);
+
+    safeoff_reason_label = lv_label_create(safeoff_overlay);
+    lv_obj_align(safeoff_reason_label, LV_ALIGN_TOP_LEFT, 20, 90);
+    lv_obj_set_style_text_color(safeoff_reason_label, lv_color_make(255, 255, 255), 0);
+    lv_obj_set_size(safeoff_reason_label, 440, 100);
+    lv_label_set_long_mode(safeoff_reason_label, LV_LABEL_LONG_WRAP);
+
+    safeoff_restart_label = lv_label_create(safeoff_overlay);
+    lv_obj_align(safeoff_restart_label, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_set_style_text_color(safeoff_restart_label, lv_color_make(200, 200, 200), 0);
+    lv_label_set_text(safeoff_restart_label, "Religamento automatico em andamento...");
+
+    emergency_overlay = create_overlay("EMERGENCIA", lv_color_make(120, 0, 0), lv_color_make(255, 0, 0));
+    emergency_msg = lv_label_create(emergency_overlay);
+    lv_obj_align(emergency_msg, LV_ALIGN_CENTER, 0, 20);
+    lv_obj_set_style_text_color(emergency_msg, lv_color_make(255, 255, 255), 0);
+    lv_label_set_text(emergency_msg, "Temperatura EXTREMA detectada!\nDesligamento emergencial ativado.");
+    lv_obj_set_style_text_font(emergency_msg, &lv_font_montserrat_16, 0);
+
+    wizard_overlay = create_overlay("WIZARD — PRIMEIRA CONFIGURACAO", lv_color_make(0, 30, 60), lv_color_make(0, 100, 200));
+    wizard_msg = lv_label_create(wizard_overlay);
+    lv_obj_align(wizard_msg, LV_ALIGN_CENTER, 0, 10);
+    lv_obj_set_style_text_color(wizard_msg, lv_color_make(200, 200, 255), 0);
+    lv_label_set_text(wizard_msg, "Configure a senha admin e revise os parametros\nantes de iniciar a operacao.\n\nAPI: POST /api/v1/wizard");
+    lv_obj_set_style_text_font(wizard_msg, &lv_font_montserrat_14, 0);
+
+    mute_icon = lv_label_create(lv_layer_top());
+    lv_label_set_text(mute_icon, "[MUTE]");
+    lv_obj_set_style_text_color(mute_icon, lv_color_make(255, 200, 0), 0);
+    lv_obj_align(mute_icon, LV_ALIGN_TOP_RIGHT, -10, 10);
+    lv_obj_add_flag(mute_icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(mute_icon);
 
     lv_scr_load(screens[SCREEN_DASHBOARD]);
     restart_timeout();
@@ -175,7 +267,52 @@ void ui_screen_update_all(void)
 
     ui_state_badge_update();
 
-    if (g_gs.critical_alerts_count > 0) {
+    if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
+        lv_obj_clear_flag(emergency_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(emergency_overlay);
+    } else {
+        lv_obj_add_flag(emergency_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
+        lv_obj_clear_flag(safeoff_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(safeoff_overlay);
+
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Causa: %s", g_gs.safeoff_source_alm);
+        lv_label_set_text(safeoff_title, buf);
+
+        const char *reason_str = "Motivo desconhecido";
+        switch (g_gs.safeoff_reason) {
+            case SAFEOFF_REASON_THERMAL_CRITICAL: reason_str = "Temperatura critica atingida"; break;
+            case SAFEOFF_REASON_THERMAL_EXTREME: reason_str = "Temperatura extrema! Emergencia!"; break;
+            case SAFEOFF_REASON_ATO_OVERFLOW: reason_str = "Overflow do reservatorio ATO"; break;
+            case SAFEOFF_REASON_ELECTRIC_TOTAL: reason_str = "Sobrecarga eletrica total"; break;
+            case SAFEOFF_REASON_PLUG_SHORT: reason_str = "Curto-circuito detectado"; break;
+            case SAFEOFF_REASON_SELFTEST_FAIL: reason_str = "Self-test de inicializacao falhou"; break;
+            case SAFEOFF_REASON_MCP23017_FAIL: reason_str = "Falha no expansor MCP23017"; break;
+            default: break;
+        }
+        lv_label_set_text(safeoff_reason_label, reason_str);
+
+        if (g_gs.restart_in_progress) {
+            lv_label_set_text(safeoff_restart_label, "Religamento automatico em andamento...");
+            lv_obj_clear_flag(safeoff_restart_label, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(safeoff_restart_label, LV_OBJ_FLAG_HIDDEN);
+        }
+    } else {
+        lv_obj_add_flag(safeoff_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (!g_gs.wizard_completed) {
+        lv_obj_clear_flag(wizard_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(wizard_overlay);
+    } else {
+        lv_obj_add_flag(wizard_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (g_gs.critical_alerts_count > 0 && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
         lv_obj_clear_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(alert_overlay);
 

@@ -26,6 +26,8 @@ void ui_screen_next(void);
 void ui_screen_prev(void);
 void ui_screen_update_all(void);
 void ui_screen_notify_activity(void);
+void ui_toggle_mute(void);
+bool ui_is_muted(void);
 
 typedef void (*screen_init_fn_t)(lv_obj_t *);
 typedef void (*screen_update_fn_t)(void);

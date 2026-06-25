@@ -1,4 +1,5 @@
 #include "api_auth.h"
+#include "api_rate_limit.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -11,10 +12,7 @@ static const char *TAG = "api_auth";
 
 #define AUTH_NVS_NS "api_auth"
 #define NVS_KEY_PW_HASH "admin_pw"
-#define DEFAULT_PASSWORD "admin123"
 #define TOKEN_EXPIRY_MS (3600000ULL)
-#define MAX_FAILED_ATTEMPTS 5
-#define FAIL_WINDOW_MS (60000ULL)
 
 typedef struct {
     uint32_t ip;
@@ -25,6 +23,7 @@ typedef struct {
 static api_auth_token_t s_tokens[API_AUTH_MAX_TOKENS];
 static uint8_t s_admin_hash[32];
 static bool s_initialized = false;
+static bool s_has_password = false;
 static fail_tracker_t s_fail_trackers[8];
 
 static void hash_password(const char *password, uint8_t *out)
@@ -80,7 +79,6 @@ static int find_token_slot(void)
             return i;
         }
     }
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
     uint64_t oldest = UINT64_MAX;
     int slot = 0;
     for (int i = 0; i < API_AUTH_MAX_TOKENS; i++) {
@@ -116,12 +114,12 @@ static bool check_fail_limit(uint32_t ip)
         f->window_start_ms = now_ms;
     }
 
-    if ((now_ms - f->window_start_ms) > FAIL_WINDOW_MS) {
+    if ((now_ms - f->window_start_ms) > 60000ULL) {
         f->attempts = 0;
         f->window_start_ms = now_ms;
     }
 
-    return (f->attempts < MAX_FAILED_ATTEMPTS);
+    return (f->attempts < 5);
 }
 
 static void record_fail(uint32_t ip)
@@ -152,18 +150,42 @@ esp_err_t api_auth_init(void)
     size_t hash_len = 32;
     err = nvs_get_blob(nvs, NVS_KEY_PW_HASH, s_admin_hash, &hash_len);
     if (err != ESP_OK || hash_len != 32) {
-        ESP_LOGW(TAG, "No admin hash found, creating default");
-        hash_password(DEFAULT_PASSWORD, s_admin_hash);
-        err = nvs_set_blob(nvs, NVS_KEY_PW_HASH, s_admin_hash, 32);
-        if (err == ESP_OK) {
-            nvs_commit(nvs);
-        }
+        ESP_LOGW(TAG, "No admin password set in NVS — auth disabled until wizard completes");
+        s_has_password = false;
+    } else {
+        s_has_password = true;
     }
 
     nvs_close(nvs);
     s_initialized = true;
-    ESP_LOGI(TAG, "Auth initialized");
+    ESP_LOGI(TAG, "Auth initialized (password_set=%d)", s_has_password);
     return ESP_OK;
+}
+
+bool api_auth_has_password(void)
+{
+    return s_has_password;
+}
+
+esp_err_t api_auth_set_password(const char *password)
+{
+    if (!password || strlen(password) < 4) return ESP_ERR_INVALID_ARG;
+
+    uint8_t hash[32];
+    hash_password(password, hash);
+
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(AUTH_NVS_NS, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) return err;
+
+    err = nvs_set_blob(nvs, NVS_KEY_PW_HASH, hash, 32);
+    if (err == ESP_OK) {
+        nvs_commit(nvs);
+        memcpy(s_admin_hash, hash, 32);
+        s_has_password = true;
+    }
+    nvs_close(nvs);
+    return err;
 }
 
 bool api_auth_validate(const char *token)
@@ -175,6 +197,7 @@ const char* api_auth_login(const char *user, const char *password)
 {
     uint32_t ip = 0;
     if (!s_initialized) return NULL;
+    if (!s_has_password) return NULL;
     if (!user || !password) return NULL;
     if (strcmp(user, "admin") != 0) return NULL;
 

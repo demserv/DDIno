@@ -18,6 +18,8 @@ typedef struct {
 } api_auth_token_t;
 
 esp_err_t api_auth_init(void);
+bool api_auth_has_password(void);
+esp_err_t api_auth_set_password(const char *password);
 bool api_auth_validate(const char *token);
 const char* api_auth_login(const char *user, const char *password);
 esp_err_t api_auth_logout(const char *token);

@@ -311,7 +311,54 @@ Navegação: touch/teclas avança/volta, timeout 60s volta ao Dashboard.
 - Em caso de hung > 10s, WDT força reset do SoC
 - Tarefas UI e Web podem ser registradas no WDT individualmente
 
-## 14. Tratamento de Falhas
+## 14. Mapa de Tarefas FreeRTOS
+
+O firmware executa majoritariamente em uma única task (`app_main`), que implementa o loop principal de 50ms. O servidor HTTP cria tasks internas via `esp_http_server`.
+
+| Task | Função | Prioridade | Stack | Período | Criação |
+|------|--------|------------|-------|---------|---------|
+| `main` | Loop principal (leitura sensores + FSMs + UI) | 1 (configurable) | 8192 | 50ms | `app_main()` |
+| `httpd` | Servidor HTTP (`esp_http_server`) | 5 (default) | 4096 | event-driven | `api_rest_init()` |
+| `httpd_tx` | Transmissão HTTP | 6 (default) | 4096 | event-driven | `esp_http_server` |
+| `Tmr Svc` | FreeRTOS timer service | 1 | 2048 | 100ms tick | FreeRTOS |
+| `esp_timer` | ESP32 high-res timer | 22 | 2048 | 1ms | `esp_timer` |
+| `IDLE` | FreeRTOS idle + WDT | 0 | 1024 | — | FreeRTOS |
+
+### Política de Stack
+- Task `main`: stack 8192 atual — se expandir funcionalidades, monitorar com `uxTaskGetStackHighWaterMark()`
+- LVGL: renderização ocorre na task `main` (sem task dedicada)
+- SD card: opera via SPI na task `main` (sem task dedicada)
+
+### WDT por Task
+- `main`: resetado a cada iteração (timeout 2000ms)
+- Demais tasks: retidas por `wdt_advanced_register()` conforme necessidade
+- `IDLE`: WDT global 10s com panic
+
+## 15. Novas Rotas API (v2)
+
+Implementadas conforme PA-002:
+
+```
+POST /api/v1/auth/password → define senha admin (primeiro uso)
+GET  /api/v1/calibrate     → valores atuais de calibração
+POST /api/v1/feed          → dispara Feed Mode
+POST /api/v1/plugs/mode    → define modo do plug (auto/manual/timer/delay/override)
+GET  /api/v1/system        → informações de sistema (heap, versão, uptime)
+GET  /api/v1/wizard        → status do wizard
+POST /api/v1/wizard        → completa wizard
+```
+
+## 16. Overlays de Estado (UI/HMI)
+
+| Overlay | Estado | Cor de Fundo | Ação |
+|---------|--------|-------------|------|
+| SAFE_OFF | `SYSTEM_STATE_SAFE_OFF` | Vermelho escuro (80,0,0) | Mostra causa + restart status |
+| EMERGENCY | `SYSTEM_STATE_EMERGENCY` | Vermelho intenso (120,0,0) | Mensagem de emergência |
+| Wizard | `!wizard_completed` | Azul escuro (0,30,60) | Instruções de configuração |
+| Alert | `critical_alerts_count > 0` | Preto (30,0,0) | Causa + ação sugerida |
+| MUTE | toggle key | Amarelo (255,200,0) | "[MUTE]" no canto superior direito |
+
+## 17. Tratamento de Falhas
 
 | Falha | Ação | Recuperação |
 |-------|------|-------------|

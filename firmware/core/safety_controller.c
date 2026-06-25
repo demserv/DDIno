@@ -1,9 +1,12 @@
 // @requirement RF-GLOBAL-001 Definição de estados globais
-// @requirement RF-GLOBAL-002 Transições de estado global
+// @requirement RF-GLOBAL-002 Transições de estado global com anti-flap
+// @requirement RF-GLOBAL-003 Sinais sonoros/visuais em estado crítico
+// @requirement RF-GLOBAL-004 Rastreamento de causa de SAFE_OFF
 // @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Pré-condições saída de SAFE_OFF
 // @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
 // @requirement RNF-GLOBAL-ANTIFLAP-001 Estabilização de retorno
 #include "safety_controller.h"
+#include "hardware_config.h"
 #include <string.h>
 #include <stdio.h>
 #include "esp_log.h"
@@ -30,24 +33,26 @@ void safety_controller_init(global_state_t *gs)
     gs->safeoff_reason = SAFEOFF_REASON_NONE;
     gs->safeoff_entered_at[0] = '\0';
     gs->safeoff_source_alm[0] = '\0';
+    gs->electric_ok = true;
 }
 
 static bool check_antiflap(system_state_t next, uint64_t now_ms)
 {
+    (void)next;
     if (s_ctx.last_transition_ms == 0) return true;
     uint64_t elapsed = now_ms - s_ctx.last_transition_ms;
-    if (elapsed < 3000) return false;
+    if (elapsed < HW_ANTIFLAP_COOLDOWN_MS) return false;
 
     if (s_ctx.flap_window_start_ms == 0) {
         s_ctx.flap_window_start_ms = now_ms;
         s_ctx.transition_count_in_window = 0;
     }
-    if ((now_ms - s_ctx.flap_window_start_ms) > 60000) {
+    if ((now_ms - s_ctx.flap_window_start_ms) > HW_ANTIFLAP_WINDOW_MS) {
         s_ctx.flap_window_start_ms = now_ms;
         s_ctx.transition_count_in_window = 0;
     }
     s_ctx.transition_count_in_window++;
-    if (s_ctx.transition_count_in_window > 3) return false;
+    if (s_ctx.transition_count_in_window > HW_ANTIFLAP_MAX_TRANSITIONS) return false;
     return true;
 }
 
@@ -79,8 +84,9 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     }
 
     if (!check_antiflap(next, now_s * 1000ULL)) {
-        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (muitas transicoes)",
-                 state_to_str(prev), state_to_str(next));
+        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
+                 state_to_str(prev), state_to_str(next),
+                 HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
         return;
     }
 
@@ -93,11 +99,26 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
         } else {
             gs->safeoff_source_alm[0] = '\0';
         }
+        gs->electric_ok = false;
+        ESP_LOGE(TAG, "SAFE_OFF: reason=%d source=%s entered_at=%s",
+                 (int)gs->safeoff_reason, gs->safeoff_source_alm, gs->safeoff_entered_at);
     }
 
-    if (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED) {
+    if (next == SYSTEM_STATE_EMERGENCY) {
+        gs->electric_ok = false;
+    }
+
+    if (next == SYSTEM_STATE_NORMAL) {
         gs->safeoff_reason = SAFEOFF_REASON_NONE;
         gs->safeoff_source_alm[0] = '\0';
+        gs->electric_ok = true;
+    }
+
+    if (next == SYSTEM_STATE_DEGRADED) {
+        if (prev == SYSTEM_STATE_SAFE_OFF || prev == SYSTEM_STATE_EMERGENCY) {
+            gs->safeoff_reason = SAFEOFF_REASON_NONE;
+            gs->safeoff_source_alm[0] = '\0';
+        }
     }
 
     gs->system_state = next;
@@ -120,7 +141,7 @@ bool safety_controller_can_exit_safeoff(const global_state_t *gs, const safety_i
 
     if (in->cause_resolved_at_ms > 0) {
         uint64_t elapsed = (now_s * 1000ULL) - in->cause_resolved_at_ms;
-        if (elapsed < 10000) return false;
+        if (elapsed < (HW_SAFEOFF_CAUSE_STABLE_S * 1000ULL)) return false;
     }
 
     return true;
@@ -136,7 +157,7 @@ bool safety_controller_can_exit_emergency(const global_state_t *gs, const safety
 
     if (in->cause_resolved_at_ms > 0) {
         uint64_t elapsed = (now_s * 1000ULL) - in->cause_resolved_at_ms;
-        if (elapsed < 30000) return false;
+        if (elapsed < (HW_EMERGENCY_CAUSE_STABLE_S * 1000ULL)) return false;
     }
 
     return true;
