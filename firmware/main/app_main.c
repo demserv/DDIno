@@ -41,6 +41,7 @@
 #include "web/api_rest.h"
 #include "ui/ui_display.h"
 #include "ui/ui_screens.h"
+#include "ui/hmi/ui_app.h"
 #include "core/circuit_breaker.h"
 #include "services/self_test.h"
 #include "services/wdt_advanced.h"
@@ -334,6 +335,7 @@ void app_main(void)
         ESP_LOGW(TAG, "Display LVGL nao disponivel (sistema continua sem UI)");
     }
     ui_screens_init();
+    ui_app_init();
 
     esp_netif_init();
     esp_err_t api_err = api_rest_init();
@@ -666,6 +668,7 @@ void app_main(void)
         }
 
         ui_screen_update_all();
+        ui_app_tick();
         lv_timer_handler();
 
         vTaskDelay(pdMS_TO_TICKS(50));

@@ -50,6 +50,38 @@ set(MAIN_SRCS
     "../services/reset_handler.c"
     "../ui/ui_header.c"
     "../ui/ui_footer.c"
+
+    # HMI refatorada
+    "ui/hmi/ui_theme.c"
+    "ui/hmi/ui_view_model.c"
+    "ui/hmi/ui_events.c"
+    "ui/hmi/ui_state_machine.c"
+    "ui/hmi/ui_screen_manager.c"
+    "ui/hmi/ui_app.c"
+    "ui/hmi/components/ui_topbar.c"
+    "ui/hmi/components/ui_footer.c"
+    "ui/hmi/components/ui_page_indicator.c"
+    "ui/hmi/components/ui_status_badge.c"
+    "ui/hmi/components/ui_metric_card.c"
+    "ui/hmi/components/ui_device_row.c"
+    "ui/hmi/components/ui_alert_row.c"
+    "ui/hmi/components/ui_menu_tile.c"
+    "ui/hmi/components/ui_confirm_dialog.c"
+    "ui/hmi/components/ui_bar_chart.c"
+    "ui/hmi/components/ui_focus.c"
+    "ui/hmi/components/ui_critical_overlay.c"
+    "ui/hmi/screens/ui_screen_dashboard.c"
+    "ui/hmi/screens/ui_screen_devices_page1.c"
+    "ui/hmi/screens/ui_screen_devices_page2.c"
+    "ui/hmi/screens/ui_screen_energy.c"
+    "ui/hmi/screens/ui_screen_main_menu.c"
+    "ui/hmi/screens/ui_screen_config_temperature.c"
+    "ui/hmi/screens/ui_screen_alerts.c"
+    "ui/hmi/screens/ui_screen_feed_active.c"
+    "ui/hmi/screens/ui_screen_diagnostics.c"
+    "ui/hmi/screens/ui_screen_system.c"
+    "ui/hmi/screens/ui_screen_logs.c"
+    "ui/hmi/screens/ui_screen_wizard.c"
 )
 
 set(MAIN_INCLUDE_DIRS
@@ -63,6 +95,9 @@ set(MAIN_INCLUDE_DIRS
     "../fsm"
     "../web"
     "../ui"
+    "ui/hmi"
+    "ui/hmi/components"
+    "ui/hmi/screens"
 )
 
 idf_component_register(
