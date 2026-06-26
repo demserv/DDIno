@@ -353,22 +353,18 @@ void app_main(void)
     g_gs.selftest_passed = self_test_all_passed();
     g_gs.hw_ok = self_test_critical_passed();
 
-    if (!g_gs.selftest_passed) {
-        ESP_LOGE(TAG, "SELF-TEST FALHOU! Entrando em SAFE_OFF");
-        g_gs.system_state = SYSTEM_STATE_SAFE_OFF;
-        g_gs.safeoff_reason = SAFEOFF_REASON_SELFTEST_FAIL;
-        relay_all_off();
-        alert_manager_raise(ALM_063, true, 0);
-        audit_log_event(AUDIT_SELF_TEST, "Self-test falhou -> SAFE_OFF");
-    }
-
-    if (!g_gs.hw_ok) {
-        ESP_LOGE(TAG, "CRITICAL HARDWARE SELF-TEST FALHOU! SAFE_FF");
-        g_gs.system_state = SYSTEM_STATE_SAFE_OFF;
-        g_gs.safeoff_reason = SAFEOFF_REASON_SELFTEST_FAIL;
-        relay_all_off();
-        alert_manager_raise(ALM_063, true, 0);
-        audit_log_event(AUDIT_SELF_TEST, "Hardware critico falhou -> SAFE_OFF");
+    if (!g_gs.selftest_passed || !g_gs.hw_ok) {
+        ESP_LOGE(TAG, "SELF-TEST FALHOU! Hardware com problemas -> DEGRADED + alerta");
+        g_gs.system_state = SYSTEM_STATE_DEGRADED;
+        g_gs.hw_alert_pending = true;
+        g_gs.hw_alert_alm_id = ALM_063;
+        snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
+                 "Falha de hardware na inicializacao. Toque para continuar em modo degradado.");
+        alert_manager_raise_full(ALM_063, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                                 g_gs.hw_alert_msg, 0.0f,
+                                 "Hardware nao detectado. Sistema operara sem protecoes.",
+                                 0, true, false, 0);
+        audit_log_event(AUDIT_SELF_TEST, "Self-test falhou -> DEGRADED (hw alert)");
     }
 
     ESP_LOGI(TAG, "FASE 7 - Circuit Breaker, Self-test, WDT avancado ativos");
@@ -402,6 +398,11 @@ void app_main(void)
         float plug_currents[10] = {0};
 
         bool temp_valid = read_temp(&temp_c);
+        static bool s_temp_was_valid = true;
+        if (temp_valid && !s_temp_was_valid) {
+            alert_manager_clear(ALM_013);
+        }
+        s_temp_was_valid = temp_valid;
         g_gs.temp_ok = temp_valid;
 
         if (temp_valid) {
@@ -469,19 +470,21 @@ void app_main(void)
         const ato_output_t *aout = ato_fsm_get_output(&ato_fsm);
         const electric_output_t *eout = electric_fsm_get_output(&electric_fsm);
 
+        bool thermal_sensor_fault = (tout && tout->sensor_fault);
+
         safety_inputs_t sin;
         memset(&sin, 0, sizeof(sin));
         sin.emergency_condition = (tout && tout->force_emergency);
-        sin.safeoff_condition = (tout && tout->force_safe_off)
+        sin.safeoff_condition = ((tout && tout->force_safe_off && !thermal_sensor_fault)
                              || (aout && aout->force_safe_off)
-                             || (eout && eout->force_safe_off);
+                             || (eout && eout->force_safe_off));
         sin.degraded_condition = false;
         sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
         sin.selftest_passed = g_gs.selftest_passed;
         sin.emergency_resolved = !sin.emergency_condition;
         sin.safeoff_cause_resolved = !sin.safeoff_condition;
 
-        if (tout && tout->force_safe_off) {
+        if (tout && tout->force_safe_off && !thermal_sensor_fault) {
             sin.safeoff_reason_if_any = tout->safeoff_reason;
         } else if (aout && aout->force_safe_off) {
             sin.safeoff_reason_if_any = aout->safeoff_reason;
@@ -493,7 +496,7 @@ void app_main(void)
         sin.transition_cause = "runtime_tick";
 
         if (tout && tout->force_emergency) sin.safeoff_source_alm = "ALM-028";
-        else if (tout && tout->force_safe_off) sin.safeoff_source_alm = "ALM-026";
+        else if (tout && tout->force_safe_off && !thermal_sensor_fault) sin.safeoff_source_alm = "ALM-026";
         else if (aout && aout->force_safe_off) sin.safeoff_source_alm = "ALM-037";
         else if (eout && eout->force_safe_off) {
             sin.safeoff_source_alm = (eout->suggested_alm == ALM_052) ? "ALM-052" : "ALM-055";
@@ -513,6 +516,23 @@ void app_main(void)
             int16_t alm = safeoff_reason_to_alm_id(g_gs.safeoff_reason);
             if (alm > 0) {
                 alert_manager_raise(alm, true, now_s);
+            }
+        }
+
+        if (thermal_sensor_fault && !g_gs.hw_alert_pending
+            && g_gs.system_state < SYSTEM_STATE_SAFE_OFF
+            && g_gs.system_state != SYSTEM_STATE_EMERGENCY) {
+            const alert_slot_t *slot = alert_manager_get_slot(ALM_013);
+            if (!slot) {
+                g_gs.hw_alert_pending = true;
+                g_gs.hw_alert_alm_id = ALM_013;
+                snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
+                         "Sensor de temperatura sem comunicacao. Toque para continuar.");
+                alert_manager_raise_full(ALM_013, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_PROCESS,
+                                         g_gs.hw_alert_msg, 0.0f,
+                                         "Verificar sensor DS18B20",
+                                         0, true, false, now_s);
+                audit_log_event(AUDIT_SAFE_OFF, "Temp sensor fail -> alerta critico (hw_alert)");
             }
         }
 

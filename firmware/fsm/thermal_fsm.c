@@ -1,5 +1,5 @@
 // @requirement RF-THERMAL-001 Leitura contínua com validação robusta (CRC + 85°C rejection)
-// @requirement RF-THERMAL-002 Sensor fail → SAFE_OFF
+// @requirement RF-THERMAL-002 Sensor fail → alerta crítico + DEGRADED (ACK usuario)
 // @requirement RF-THERMAL-003 Classificação térmica por parâmetros configuráveis
 // @requirement RF-THERMAL-005 Trend indicator (warming / cooling / stable)
 // @requirement RF-THERMAL-008 Prioridade heater sobre cooler (aquecimento crítico)

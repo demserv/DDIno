@@ -54,6 +54,9 @@ typedef struct {
     float                temp_filtered_c;
     bool                 restart_in_progress;
     wizard_step_t        wizard_step;
+    bool                 hw_alert_pending;
+    uint16_t             hw_alert_alm_id;
+    char                 hw_alert_msg[128];
 } global_state_t;
 
 #endif

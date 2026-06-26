@@ -8,6 +8,7 @@
 #include "ui_footer.h"
 #include "global_state.h"
 #include "alert_manager.h"
+#include "audit_log.h"
 #include "config_manager.h"
 
 #include "esp_timer.h"
@@ -75,6 +76,17 @@ static void carousel_advance(void)
         found = (found + 1) % (int)CAROUSEL_SCREEN_COUNT;
     }
     ui_screen_show(s_carousel_screens[found]);
+}
+
+static void alert_ack_event_cb(lv_event_t *e)
+{
+    if (!e) return;
+    if (g_gs.hw_alert_pending && g_gs.hw_alert_alm_id > 0) {
+        uint64_t now = esp_timer_get_time() / 1000000ULL;
+        alert_manager_ack((int16_t)g_gs.hw_alert_alm_id, now);
+        audit_log_event(AUDIT_SAFE_OFF, "HW alert acknowledged by user");
+        g_gs.hw_alert_pending = false;
+    }
 }
 
 static void on_screen_timeout(void *arg)
@@ -205,9 +217,10 @@ esp_err_t ui_screens_init(void)
     lv_label_set_long_mode(alert_action_label, LV_LABEL_LONG_WRAP);
 
     alert_ack_label = lv_label_create(alert_overlay);
-    lv_label_set_text(alert_ack_label, "ACK: Enter ou toque para reconhecer");
+    lv_label_set_text(alert_ack_label, "ACK: Toque para reconhecer");
     lv_obj_set_style_text_color(alert_ack_label, lv_color_make(200, 200, 200), 0);
     lv_obj_align(alert_ack_label, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_add_event_cb(alert_overlay, alert_ack_event_cb, LV_EVENT_CLICKED, NULL);
 
     safeoff_overlay = create_overlay("MODO SAFE_OFF", lv_color_make(80, 0, 0), lv_color_make(255, 50, 0));
     safeoff_title = lv_label_create(safeoff_overlay);
@@ -370,7 +383,17 @@ void ui_screen_update_all(void)
         lv_obj_add_flag(wizard_overlay, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if (g_gs.critical_alerts_count > 0 && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
+    if (g_gs.hw_alert_pending) {
+        lv_obj_clear_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(alert_overlay);
+        lv_label_set_text(alert_title_label, "FALHA DE HARDWARE");
+        char buf[64];
+        snprintf(buf, sizeof(buf), "ALM-%03d | Componente sem comunicacao", g_gs.hw_alert_alm_id);
+        lv_label_set_text(alert_alm_label, buf);
+        lv_label_set_text(alert_severity_label, "Severidade: CRITICAL");
+        lv_label_set_text(alert_action_label, g_gs.hw_alert_msg);
+        lv_label_set_text(alert_ack_label, "ACK: Toque para reconhecer e continuar");
+    } else if (g_gs.critical_alerts_count > 0 && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
         lv_obj_clear_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(alert_overlay);
 
@@ -389,6 +412,7 @@ void ui_screen_update_all(void)
             action = "Curto-circuito detectado! Desconectar equipamento";
         }
         lv_label_set_text(alert_action_label, action);
+        lv_label_set_text(alert_ack_label, "ACK: Toque para reconhecer");
     } else {
         lv_obj_add_flag(alert_overlay, LV_OBJ_FLAG_HIDDEN);
     }
