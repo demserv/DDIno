@@ -28,3 +28,5 @@ Thumbs.db
 # Flash backups
 *.bin.bak
 *.elf.bak
+
+projeto_concatenado.txt

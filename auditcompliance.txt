@@ -1,0 +1,59 @@
+PROMPT:
+
+Você deve analisar profundamente o arquivo TXT fornecido, que contém dois documentos de SRS (Software Requirements Specification) e a descrição completa de todos os módulos do sistema.
+
+Sua tarefa é:
+
+Ler e interpretar integralmente os dois SRS.
+
+Identifique requisitos funcionais, requisitos não funcionais, regras de negócio, fluxos, telas, menus e comportamentos esperados.
+
+Compare os requisitos entre si e verifique consistência.
+
+Avaliar se o código-fonte atual do sistema está gerando as telas, menus e fluxos de forma funcional e conforme descrito nos SRS.
+
+Verifique aderência funcional.
+
+Verifique aderência estrutural.
+
+Verifique aderência de navegação.
+
+Verifique se todos os módulos descritos no SRS estão implementados.
+
+Avaliar se as telas estão utilizando corretamente recursos gráficos modernos.
+
+Verifique uso de bibliotecas gráficas.
+
+Verifique uso de ícones, cores, contrastes, espaçamentos, hierarquia visual.
+
+Verifique responsividade e consistência visual.
+
+Verifique se há padrões de UI/UX aplicados.
+
+Comparar as telas do sistema com os exemplos de telas anexados.
+
+As telas do sistema devem seguir exatamente o modelo visual, estrutural e funcional dos exemplos fornecidos.
+
+Caso haja divergências, você deve identificá-las.
+
+Gerar como saída um PLANO DE AÇÃO TÉCNICO E DETALHADO, contendo:
+
+Lista de não conformidades funcionais.
+
+Lista de não conformidades de layout/UI/UX.
+
+Lista de inconsistências entre SRS e implementação.
+
+Lista de melhorias obrigatórias para atingir compliance total.
+
+Recomendações técnicas específicas (bibliotecas, padrões, componentes, ajustes de código).
+
+Recomendações de UI/UX baseadas nos exemplos fornecidos.
+
+Passo a passo para corrigir cada problema encontrado.
+
+Priorização das ações (alta, média, baixa).
+
+Impacto técnico de cada correção.
+
+Sua análise deve ser exaustiva, minuciosa e orientada a requisitos, garantindo que o sistema final esteja 100% alinhado com os SRS e com o padrão visual das telas fornecidas como referência.
