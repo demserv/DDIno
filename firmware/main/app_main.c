@@ -13,6 +13,7 @@
 // @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Saída segura de SAFE_OFF
 // @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
 // @requirement RF-FLOW-BOOT-003 Self-test falho → SAFE_OFF
+// @requirement RF-RESET-005 Factory reset por hardware (UP 10s) com dupla confirmacao
 // @requirement RF-PLUG-006.1 Restauração Feed Mode pós-queda
 // @requirement RNF-CALIB-001 Calibração assistida no boot
 #include "pin_map.h"
@@ -371,6 +372,9 @@ void app_main(void)
 
     reset_handler_init();
 
+    static bool s_was_up_held = false;
+    static uint64_t s_up_held_start_ms = 0;
+
     system_state_t prev_state = g_gs.system_state;
 
     while (1) {
@@ -380,8 +384,63 @@ void app_main(void)
         const uint64_t now_s = now_ms / 1000ULL;
 
         reset_handler_tick(now_ms);
+
+        {
+            // Check keypad UP for hardware factory reset trigger
+            reset_state_t rst = reset_handler_get_state();
+            uint16_t adc_val = 4096;
+            mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_KEYPAD, &adc_val);
+            bool up_pressed = (adc_val >= 100 && adc_val < 600);
+
+            if (rst == RESET_STATE_CONFIRM1) {
+                if (up_pressed && !s_was_up_held) {
+                    reset_handler_confirm();
+                    s_was_up_held = true;
+                } else if (!up_pressed) {
+                    s_was_up_held = false;
+                }
+            } else if (rst == RESET_STATE_IDLE && up_pressed) {
+                if (!s_was_up_held) {
+                    s_up_held_start_ms = now_ms;
+                    s_was_up_held = true;
+                } else if (now_ms - s_up_held_start_ms >= 10000) {
+                    reset_handler_start();
+                    s_was_up_held = false;
+                    s_up_held_start_ms = 0;
+                }
+            } else if (!up_pressed) {
+                s_was_up_held = false;
+                s_up_held_start_ms = 0;
+            }
+
+            int rem = reset_handler_remaining_s();
+            switch (rst) {
+                case RESET_STATE_CONFIRM1:
+                    snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                             "FACTORY RESET: Solte UP e pressione novamente para confirmar");
+                    break;
+                case RESET_STATE_CONFIRM2:
+                    snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                             "Confirmado! Reset automatico em %ds...", rem);
+                    break;
+                case RESET_STATE_COUNTDOWN:
+                    snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                             "FACTORY RESET em %ds", rem);
+                    break;
+                case RESET_STATE_ERASING:
+                    snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                             "APAGANDO NVS...");
+                    break;
+                default:
+                    g_gs.reset_status_msg[0] = '\0';
+                    break;
+            }
+        }
+
         if (reset_handler_is_pending()) {
             wdt_advanced_reset(WDT_TASK_MAIN_LOOP);
+            ui_screen_update_all();
+            lv_timer_handler();
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }

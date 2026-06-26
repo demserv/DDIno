@@ -46,6 +46,8 @@ static lv_obj_t *wizard_msg = NULL;
 static lv_obj_t *mute_icon = NULL;
 static bool s_muted = false;
 
+static lv_obj_t *reset_status_label = NULL;
+
 // Carousel auto-rotation
 static bool s_carousel_enabled = true;
 static uint32_t s_carousel_interval_ms = HW_UI_CAROUSEL_INTERVAL_MS;
@@ -261,6 +263,17 @@ esp_err_t ui_screens_init(void)
     lv_obj_add_flag(mute_icon, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(mute_icon);
 
+    reset_status_label = lv_label_create(lv_layer_top());
+    lv_label_set_text(reset_status_label, "");
+    lv_obj_set_style_text_color(reset_status_label, lv_color_make(255, 200, 0), 0);
+    lv_obj_set_style_text_font(reset_status_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_bg_color(reset_status_label, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(reset_status_label, LV_OPA_80, 0);
+    lv_obj_set_size(reset_status_label, 460, 40);
+    lv_obj_align(reset_status_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(reset_status_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(reset_status_label);
+
     lv_scr_load(screens[SCREEN_DASHBOARD]);
     restart_timeout();
 
@@ -426,6 +439,14 @@ void ui_screen_update_all(void)
             carousel_advance();
             s_last_carousel_ms = now_ms;
         }
+    }
+
+    if (g_gs.reset_status_msg[0] != '\0') {
+        lv_obj_clear_flag(reset_status_label, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(reset_status_label, g_gs.reset_status_msg);
+        lv_obj_move_foreground(reset_status_label);
+    } else {
+        lv_obj_add_flag(reset_status_label, LV_OBJ_FLAG_HIDDEN);
     }
 }
 

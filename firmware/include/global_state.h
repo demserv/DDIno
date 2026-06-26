@@ -57,6 +57,7 @@ typedef struct {
     bool                 hw_alert_pending;
     uint16_t             hw_alert_alm_id;
     char                 hw_alert_msg[128];
+    char                 reset_status_msg[64];
 } global_state_t;
 
 #endif
