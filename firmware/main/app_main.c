@@ -212,7 +212,7 @@ static void handle_emergency_exit(uint64_t now_s)
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
         ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
-        g_gs.system_state = SYSTEM_STATE_SAFE_OFF;
+        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_FSM_INVALID, "ALM-003", "emergency_exit", now_s);
     }
 }
 
@@ -356,7 +356,7 @@ void app_main(void)
 
     if (!g_gs.selftest_passed || !g_gs.hw_ok) {
         ESP_LOGE(TAG, "SELF-TEST FALHOU! Hardware com problemas -> DEGRADED + alerta");
-        g_gs.system_state = SYSTEM_STATE_DEGRADED;
+        global_state_enter_degraded(&g_gs, "selftest_fail");
         g_gs.hw_alert_pending = true;
         g_gs.hw_alert_alm_id = ALM_063;
         snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),

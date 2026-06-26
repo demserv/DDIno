@@ -12,7 +12,7 @@ static bool s_mcp23017_ok = false;
 
 static inline int relay_level(bool on)
 {
-    return on ? HW_RELAY_ACTIVE_LEVEL : HW_RELAY_SAFE_OFF_LEVEL;
+    return on ? HW_RELAY_P01_ACTIVE_LEVEL : HW_RELAY_SAFE_OFF_LEVEL;
 }
 
 bool relay_mcp23017_ok(void)

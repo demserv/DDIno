@@ -15,8 +15,11 @@ typedef uint32_t alm_category_mask_t;
 typedef uint32_t reset_reason_t;
 
 typedef enum {
-    TIME_SOURCE_UNKNOWN = 0,
-    TIME_SOURCE_RTC_DS3231
+    TIME_SOURCE_NONE = 0,
+    TIME_SOURCE_RTC,
+    TIME_SOURCE_NTP,
+    TIME_SOURCE_MANUAL,
+    TIME_SOURCE_INVALID
 } time_source_t;
 
 typedef enum {
