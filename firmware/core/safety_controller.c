@@ -7,6 +7,9 @@
 // @requirement RNF-GLOBAL-ANTIFLAP-001 Estabilização de retorno
 #include "safety_controller.h"
 #include "hardware_config.h"
+#include "driver_relay.h"
+#include "audit_log.h"
+#include "event_log.h"
 #include <string.h>
 #include <stdio.h>
 #include "esp_log.h"
@@ -34,6 +37,59 @@ void safety_controller_init(global_state_t *gs)
     gs->safeoff_entered_at[0] = '\0';
     gs->safeoff_source_alm[0] = '\0';
     gs->electric_ok = true;
+}
+
+esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason,
+                                      const char *source_alm, const char *source_module,
+                                      uint64_t now_s)
+{
+    if (!gs) return ESP_ERR_INVALID_ARG;
+    if (reason == SAFEOFF_REASON_NONE) return ESP_ERR_INVALID_ARG;
+    if (gs->system_state == SYSTEM_STATE_SAFE_OFF) return ESP_OK;
+
+    system_state_t prev = gs->system_state;
+    gs->system_state = SYSTEM_STATE_SAFE_OFF;
+    gs->safeoff_reason = reason;
+    snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
+             (unsigned long long)now_s);
+    if (source_alm) {
+        snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", source_alm);
+    } else {
+        gs->safeoff_source_alm[0] = '\0';
+    }
+    gs->electric_ok = false;
+    relay_all_off();
+
+    ESP_LOGE("safety", "SAFE_OFF entered from %d reason=%d alm=%s module=%s",
+             (int)prev, (int)reason, source_alm ? source_alm : "?", source_module ? source_module : "?");
+    audit_log_state_change("NORMAL", "SAFE_OFF", source_module ? source_module : "enter_safeoff");
+    return ESP_OK;
+}
+
+esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s)
+{
+    if (!gs) return ESP_ERR_INVALID_ARG;
+    if (gs->system_state >= SYSTEM_STATE_EMERGENCY) return ESP_OK;
+
+    system_state_t prev = gs->system_state;
+    gs->system_state = SYSTEM_STATE_EMERGENCY;
+    gs->electric_ok = false;
+    relay_all_off();
+
+    ESP_LOGE("safety", "EMERGENCY entered from %d module=%s", (int)prev, source_module ? source_module : "?");
+    audit_log_state_change("NORMAL", "EMERGENCY", source_module ? source_module : "enter_emergency");
+    return ESP_OK;
+}
+
+esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_module)
+{
+    if (!gs) return ESP_ERR_INVALID_ARG;
+    if (gs->system_state >= SYSTEM_STATE_DEGRADED) return ESP_OK;
+
+    gs->system_state = SYSTEM_STATE_DEGRADED;
+    ESP_LOGW("safety", "DEGRADED entered module=%s", source_module ? source_module : "?");
+    audit_log_state_change("NORMAL", "DEGRADED", source_module ? source_module : "enter_degraded");
+    return ESP_OK;
 }
 
 static bool check_antiflap(system_state_t next, uint64_t now_ms)

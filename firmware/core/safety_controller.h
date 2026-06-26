@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "esp_err.h"
 #include "system_types.h"
 #include "global_state.h"
 
@@ -33,5 +34,11 @@ void safety_controller_init(global_state_t *gs);
 void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, uint64_t now_s);
 bool safety_controller_can_exit_safeoff(const global_state_t *gs, const safety_inputs_t *in, uint64_t now_s);
 bool safety_controller_can_exit_emergency(const global_state_t *gs, const safety_inputs_t *in, uint64_t now_s);
+
+esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason,
+                                     const char *source_alm, const char *source_module,
+                                     uint64_t now_s);
+esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s);
+esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_module);
 
 #endif
