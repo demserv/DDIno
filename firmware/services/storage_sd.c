@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "global_state.h"
+#include "conf_ctl.h"
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -22,6 +23,7 @@ static const char *TAG = "storage_sd";
 
 #define SD_MOUNT_POINT "/sdcard"
 #define SD_SPI_HOST    SPI2_HOST
+#define SD_LOG_ROTATE_SUFFIX_MAX  (64U)
 
 static bool s_mounted = false;
 
@@ -165,6 +167,34 @@ bool storage_sd_is_mounted(void)
     return s_mounted;
 }
 
+static void rotate_log_if_needed(const char *path, size_t max_size_kb)
+{
+    if (max_size_kb == 0) return;
+
+    struct stat st;
+    if (stat(path, &st) != 0) return;
+    if ((size_t)(st.st_size) < max_size_kb * 1024) return;
+
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+    char rotated[320];
+    int n = snprintf(rotated, sizeof(rotated), "%s_%04d%02d%02d_%02d%02d%02d.txt",
+        path, tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday,
+        tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
+
+    if (n < 0 || (size_t)n >= sizeof(rotated)) {
+        ESP_LOGW(TAG, "Rotate path truncated, skipping");
+        return;
+    }
+
+    if (rename(path, rotated) == 0) {
+        ESP_LOGI(TAG, "Log rotated: %s -> %s", path, rotated);
+    } else {
+        ESP_LOGW(TAG, "Falha ao rotacionar log %s", path);
+    }
+}
+
 esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
 {
     if (!line) return ESP_ERR_INVALID_STATE;
@@ -185,6 +215,13 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
 
     char path[96];
     snprintf(path, sizeof(path), "%s/log.txt", full_dir);
+
+    conf_ctl_config_t ctl;
+    size_t max_kb = 512;
+    if (conf_ctl_load(&ctl) == ESP_OK) {
+        max_kb = ctl.log.max_file_size_kb;
+    }
+    rotate_log_if_needed(path, max_kb);
 
     char tmp_path[100];
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path);
