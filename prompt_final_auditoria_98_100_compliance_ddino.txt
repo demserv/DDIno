@@ -1,0 +1,1163 @@
+PROMPT FINAL DE AUDITORIA INDUSTRIAL — DDIno / MONITOR AQUÁRIO INTELIGENTE
+META: 98% A 100% DE COMPLIANCE AUDITÁVEL CONTRA AS SRSs
+DESTINO: OpenCode / IA codificadora e auditora literal
+IDIOMA: Português do Brasil
+
+================================================================================
+0. FINALIDADE DESTE PROMPT
+================================================================================
+Você deve executar uma AUDITORIA FINAL DE COMPLIANCE após a implementação do plano de ação do projeto DDIno.
+
+Este prompt NÃO é para criar uma arquitetura nova.
+Este prompt NÃO é para reinterpretar livremente a SRS.
+Este prompt NÃO é para declarar sucesso sem evidência.
+
+Este prompt serve para:
+1. Ler as SRSs normativas.
+2. Ler o relatório de auditoria anterior.
+3. Ler o plano de ação detalhado.
+4. Ler o prompt mestre de execução usado para correções.
+5. Ler o código-fonte atual após implementação.
+6. Verificar item por item se o código realmente atende aos requisitos.
+7. Corrigir lacunas residuais detectadas, quando a correção for objetiva e segura.
+8. Gerar evidências por requisito.
+9. Gerar relatório final de compliance com cálculo percentual.
+10. Somente declarar 98% a 100% se houver evidência objetiva.
+
+================================================================================
+1. ARQUIVOS DE ENTRADA OBRIGATÓRIOS
+================================================================================
+Antes de auditar ou alterar qualquer código, leia integralmente, nesta ordem:
+
+1. SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+2. SRS v3.11 COMPLETA — GO CODING READY.txt
+3. relatorio_auditoria_compliance_completo_fases.txt
+4. plano_acao_detalhado_nao_conformidades_ddino.txt
+5. prompt_mestre_opencode_ddino_compliance_95.txt
+6. firmware/docs/RTM.md, se existir
+7. firmware/docs/TEST_PLAN.md, se existir
+8. firmware/docs/FREERTOS_TASK_MAP.md, se existir
+9. firmware/docs/AUDITORIA_FINAL_COMPLIANCE.md, se existir
+10. Todo o código-fonte atual do firmware, excluindo código terceiro como LVGL upstream para fins de compliance funcional do produto.
+
+Se algum arquivo obrigatório não existir:
+- Registre como AUSENTE.
+- Não finja que leu.
+- Continue com os demais arquivos.
+- Se for documento obrigatório do projeto, crie/atualize no final conforme critérios deste prompt.
+
+================================================================================
+2. PRINCÍPIO DE AUDITORIA: EVIDÊNCIA OU NÃO CONFORMIDADE
+================================================================================
+Classifique cada requisito em uma das categorias abaixo:
+
+COMPLIANT:
+- Há evidência direta em código/documento/teste.
+- O requisito está implementado.
+- Há teste ou procedimento de validação.
+- Não existe conflito com a SRS.
+
+PARTIAL:
+- Parte do requisito existe.
+- Falta integração, teste, documentação, edge case ou evidência runtime.
+
+NON-COMPLIANT:
+- O código contradiz a SRS.
+- Usa baseline errada.
+- Implementa comportamento proibido.
+- Viola safety, pinagem, estado global, command_validator, fail-safe ou requisito normativo.
+
+MISSING:
+- Não há evidência de implementação.
+
+AMBIGUOUS:
+- Há indícios, mas não é possível comprovar sem inspeção adicional.
+- Use esta classificação o mínimo possível; prefira abrir o arquivo e buscar evidência.
+
+BLOCKED:
+- O requisito depende de hardware físico, instrumento externo ou dado ausente que não está disponível no repositório.
+- Mesmo bloqueado, deve haver implementação de código e teste simulado sempre que possível.
+
+Regra rígida:
+- Se não há evidência, não marque como COMPLIANT.
+- Se precisa hardware real, marque como COMPLIANT-CODE + BLOCKED-HW apenas se o código estiver completo e houver teste simulado.
+
+================================================================================
+3. META DE COMPLIANCE FINAL
+================================================================================
+Meta desejada:
+- 98% a 100% de compliance auditável.
+
+Condição para 100%:
+- Todos os requisitos normativos possuem código, teste e evidência.
+- Nenhum NON-COMPLIANT.
+- Nenhum MISSING.
+- Nenhum AMBIGUOUS.
+- BLOCKED somente se depender comprovadamente de hardware físico, mas com implementação e teste simulado existentes.
+
+Condição para 98%:
+- Nenhum P0 aberto.
+- Nenhum requisito crítico de safety aberto.
+- Nenhum NON-COMPLIANT crítico.
+- Itens BLOCKED-HW claramente justificados e não bloqueantes de firmware.
+
+Se o resultado ficar abaixo de 98%:
+- Liste as causas exatas.
+- Corrija o que for seguro corrigir.
+- Recalcule.
+- Não declare 98% se não atingiu.
+
+================================================================================
+4. BASELINE NORMATIVA QUE DEVE SER AUDITADA
+================================================================================
+Hardware:
+- ESP32-S3.
+- I2C SDA GPIO8.
+- I2C SCL GPIO9.
+- MCP23017 endereço 0x20.
+- DS3231 endereço 0x68.
+- SPI MOSI GPIO11.
+- SPI MISO GPIO12.
+- SPI SCK GPIO13.
+- TFT ILI9488 SPI 480x320.
+- TFT_CS GPIO10.
+- TFT_DC GPIO16.
+- TFT_RST GPIO21.
+- TFT_BL GPIO47.
+- Touch XPT2046 CS GPIO38.
+- Touch IRQ GPIO39.
+- SD CS GPIO15.
+- MCP3208 #1 CS GPIO41.
+- MCP3208 #2 CS GPIO42.
+- PZEM-004T v4.0 UART TX GPIO17 RX GPIO18 9600 8N1.
+- DS18B20 GPIO4.
+- Relé P01 GPIO5.
+- Relé P02 GPIO6.
+- Relés P03..P10 MCP23017 GPA0..GPA7.
+- Relés active-high.
+- Relés OFF no boot/reset/fail-safe.
+
+Estados globais:
+- NORMAL.
+- DEGRADED.
+- SAFE_OFF.
+- EMERGENCY.
+- Prioridade obrigatória: EMERGENCY > SAFE_OFF > DEGRADED > NORMAL.
+
+Arquitetura obrigatória:
+- UI/API não acionam hardware diretamente.
+- Todo comando passa pelo command_validator.
+- Plug Manager/serviços usam relay_logical_on/off.
+- GlobalState é fonte única de estado.
+- SPI compartilhado usa mutex em todas as transações.
+- Falha SD não bloqueia ADC/safety.
+- FreeRTOS tasks obrigatórias com heartbeat.
+- Persistência robusta NVS/SD/RAM fallback/rollback.
+- RTM e TEST_PLAN atualizados.
+
+================================================================================
+5. PLANO DE AUDITORIA E CORREÇÃO RESIDUAL — EXECUTE EM ORDEM
+================================================================================
+
+--------------------------------------------------------------------------------
+FASE 1 — INVENTÁRIO REAL DO REPOSITÓRIO
+--------------------------------------------------------------------------------
+Objetivo:
+Mapear exatamente o que existe no código atual.
+
+Execute:
+1. Liste todos os arquivos próprios do firmware.
+2. Exclua managed_components/lvgl__lvgl da análise de código funcional do produto.
+3. Identifique arquivos criados pelo plano de ação.
+4. Identifique documentos obrigatórios.
+5. Identifique CMakeLists.txt e verifique se todos os novos .c estão incluídos no build.
+
+Entregável:
+- Criar/atualizar firmware/docs/AUDIT_INVENTORY.md com:
+  - arquivos próprios;
+  - arquivos de terceiros excluídos;
+  - documentos obrigatórios encontrados/ausentes;
+  - módulos centrais encontrados;
+  - lacunas de estrutura.
+
+Critério PASS:
+- Inventário completo e separado entre produto e third_party.
+
+--------------------------------------------------------------------------------
+FASE 2 — AUDITORIA DE BUILD, CMAKE E STUBS
+--------------------------------------------------------------------------------
+Objetivo:
+Garantir que o projeto compila e não contém stubs críticos.
+
+Verifique:
+1. idf.py build.
+2. Warnings.
+3. Funções não-void sem return.
+4. Arquivos .c criados e não adicionados ao CMake.
+5. TODO/FIXME/XXX em firmware próprio.
+6. Funções críticas com corpo vazio.
+
+Busque obrigatoriamente:
+- TODO
+- FIXME
+- XXX
+- return ESP_ERR_NOT_SUPPORTED
+- return ESP_FAIL
+- stub
+- mock
+- demo
+- hardcoded
+- hardcode
+- simulated
+- fake
+- placeholder
+
+Mas não penalize testes ou documentação se claramente marcados como teste.
+
+Funções críticas a abrir e revisar:
+- mcp23017_init
+- mcp3208_read_channel
+- acs712_init
+- acs712_read_plug
+- acs712_calibrate_zero
+- ad_keypad_read
+- pzem_read_all
+- pzem_reset_energy
+- ds18b20_read
+- ds3231_get_time
+- relay_init_safe
+- relay_logical_on
+- relay_logical_off
+- relay_all_off
+- global_state_transition
+- command_validator_validate
+- safety_controller_evaluate
+- antiflap_guard_allow_transition
+
+Correção residual obrigatória:
+- Se função crítica estiver vazia, implemente ou marque MISSING.
+- Se .c novo não estiver no build, atualizar CMakeLists.txt.
+- Se função não-void não retorna em todos os caminhos, corrigir.
+
+Entregável:
+- firmware/docs/AUDIT_BUILD_AND_STUBS.md.
+
+Critério PASS:
+- Build passa ou falha é documentada com causa exata.
+- Nenhum stub crítico sem justificativa.
+- Nenhuma função não-void sem retorno.
+
+--------------------------------------------------------------------------------
+FASE 3 — AUDITORIA DE PINAGEM E BASELINE HARDWARE
+--------------------------------------------------------------------------------
+Objetivo:
+Confirmar que a pinagem normativa está centralizada e correta.
+
+Arquivos principais:
+- firmware/include/pin_map.h
+- firmware/include/hardware_config.h
+- firmware/hal/hal_i2c.c/h
+- firmware/hal/hal_spi.c/h
+- firmware/hal/hal_uart.c/h
+- firmware/hal/hal_gpio.c/h
+- drivers que usam pinos.
+
+Verifique:
+1. Todos os pinos normativos existem em pin_map.h.
+2. Não há GPIO literal espalhado para hardware normativo.
+3. I2C usa GPIO8/9.
+4. SPI usa GPIO11/12/13.
+5. Display é ILI9488, não ST7789/ILI9341.
+6. PZEM é v4.0, não v3.0.
+7. Relés P01/P02/P03..P10 obedecem SRS.
+
+Buscas obrigatórias:
+- ST7789
+- ILI9341
+- PZEM-004T v3
+- GPIO_NUM_ ou números literais nos drivers
+- TFT_CS
+- PIN_TFT_CS_GPIO
+- PIN_RELAY_P01_GPIO
+- PIN_RELAY_P02_GPIO
+
+Correção residual:
+- Se ST7789/ILI9341 aparecerem como baseline funcional, corrigir para ILI9488.
+- Se PZEM v3 aparecer em documentação funcional, corrigir para v4.0.
+- Se GPIO literal duplicar pinagem normativa, substituir por pin_map.h.
+
+Entregável:
+- firmware/docs/AUDIT_HARDWARE_BASELINE.md.
+
+Critério PASS:
+- Pinagem normativa centralizada.
+- Nenhum conflito funcional de display/PZEM.
+
+--------------------------------------------------------------------------------
+FASE 4 — AUDITORIA DO GLOBALSTATE COMO FONTE ÚNICA
+--------------------------------------------------------------------------------
+Objetivo:
+Confirmar que o sistema possui estado global único e transições auditáveis.
+
+Arquivos:
+- firmware/include/system_types.h
+- firmware/include/global_state.h
+- firmware/core/global_state.c
+- firmware/core/safety_controller.c/h
+- firmware/core/antiflap_guard.c/h
+- UI, API, services que consomem estado.
+
+Verifique:
+1. Enum system_state_t existe e contém somente NORMAL, DEGRADED, SAFE_OFF, EMERGENCY.
+2. GlobalState contém campos mínimos obrigatórios.
+3. global_state_get_snapshot existe.
+4. global_state_transition existe.
+5. Transição registra:
+   - estado anterior;
+   - novo estado;
+   - causa;
+   - ALM origem;
+   - timestamp.
+6. UI/API não mantêm estado paralelo divergente.
+7. SAFE_OFF possui reason explícita.
+8. EMERGENCY não volta diretamente para NORMAL.
+9. Antiflap existe e é usado.
+
+Correção residual:
+- Se UI tiver enum próprio, deve mapear a partir de system_state_t, não ser fonte de verdade.
+- Se transição não loga todos os campos, corrigir.
+- Se antiflap não é chamado por global_state_transition ou safety_controller, integrar.
+
+Entregável:
+- firmware/docs/AUDIT_GLOBAL_STATE.md.
+
+Critério PASS:
+- Fonte única comprovada.
+- Transições auditáveis.
+
+--------------------------------------------------------------------------------
+FASE 5 — AUDITORIA SAFE_OFF / EMERGENCY / ANTIFLAP
+--------------------------------------------------------------------------------
+Objetivo:
+Validar safety crítico.
+
+Arquivos:
+- firmware/core/safety_controller.c/h
+- firmware/core/antiflap_guard.c/h
+- firmware/core/global_state.c
+- firmware/services/alert_manager.c/h
+- firmware/services/log_manager.c/h
+- firmware/services/plug_manager.c/h
+
+Verifique regras:
+1. EMERGENCY tem prioridade máxima.
+2. SAFE_OFF tem prioridade sobre DEGRADED/NORMAL.
+3. Saída de SAFE_OFF exige causa resolvida.
+4. Saída de SAFE_OFF exige sensores críticos válidos quando aplicável.
+5. Saída de SAFE_OFF exige ACK quando aplicável.
+6. Saída de SAFE_OFF exige estabilização/cooldown quando aplicável.
+7. EMERGENCY não sai direto para NORMAL.
+8. Antiflap controla transições repetidas.
+9. State transition negada é logada.
+
+Testes mínimos a existir ou criar:
+- test_safeoff_blocks_relay_on.
+- test_emergency_priority_over_safeoff.
+- test_emergency_cannot_return_direct_normal.
+- test_safeoff_exit_requires_ack.
+- test_antiflap_blocks_repeated_transitions.
+
+Entregável:
+- firmware/docs/AUDIT_SAFETY_TRANSITIONS.md.
+
+Critério PASS:
+- Todos testes críticos passam ou são documentados com falha real.
+
+--------------------------------------------------------------------------------
+FASE 6 — AUDITORIA COMMAND_VALIDATOR E BLOQUEIO UI/API→HARDWARE
+--------------------------------------------------------------------------------
+Objetivo:
+Garantir que UI/API nunca comandam hardware diretamente.
+
+Arquivos:
+- firmware/services/command_model.h
+- firmware/services/command_validator.c/h
+- firmware/services/plug_manager.c/h
+- firmware/web/**
+- firmware/main/ui/**
+
+Verifique:
+1. command_model.h existe.
+2. command_validator_validate existe.
+3. API /api/v1/commands chama command_validator_validate.
+4. UI chama command_validator_validate ou serviço intermediário que chama validator.
+5. plug_manager recusa comandos negados.
+6. SAFE_OFF nega carga.
+7. EMERGENCY nega carga.
+8. wizard_completed=false nega carga.
+9. monitor_only_mode=true nega carga.
+10. plug blocked nega religamento.
+11. P01/P02 respeitam mutex aquecedor/cooler.
+
+Buscas proibidas em UI/API:
+- gpio_set_level
+- relay_logical_on direto em handler de baixo nível sem validator
+- relay_logical_off direto sem fluxo autorizado
+- mcp23017_write
+- driver_relay
+- driver_mcp23017
+
+Correção residual:
+- Se UI/API acionam driver diretamente, refatorar para command_validator + plug_manager.
+
+Entregável:
+- firmware/docs/AUDIT_COMMAND_PATH.md.
+
+Critério PASS:
+- Nenhum caminho UI/API→hardware direto.
+
+--------------------------------------------------------------------------------
+FASE 7 — AUDITORIA RELÉS E FAIL-SAFE
+--------------------------------------------------------------------------------
+Objetivo:
+Garantir que relés cumprem SRS e safety.
+
+Arquivos:
+- firmware/drivers/driver_relay.c/h
+- firmware/drivers/driver_mcp23017.c/h
+- firmware/services/plug_manager.c/h
+- firmware/fsm/thermal_fsm.c/h
+- firmware/core/safety_controller.c/h
+
+Verifique:
+1. relay_init_safe existe.
+2. relay_logical_on/off existem.
+3. relay_all_off existe.
+4. P01 GPIO5.
+5. P02 GPIO6.
+6. P03..P10 MCP23017 GPA0..GPA7.
+7. active-high.
+8. OFF no boot.
+9. OFF em SAFE_OFF.
+10. OFF em EMERGENCY.
+11. P01/P02 não ligam simultaneamente quando configurados como heater/cooler.
+12. Serviços não escrevem GPIO/MCP diretamente para carga.
+
+Testes mínimos:
+- test_relay_boot_all_off.
+- test_relay_p01_gpio5_active_high.
+- test_relay_p03_mcp23017_gpa0.
+- test_relay_all_off_safeoff.
+- test_heater_cooler_mutex.
+
+Entregável:
+- firmware/docs/AUDIT_RELAYS_FAILSAFE.md.
+
+Critério PASS:
+- Relés seguros por padrão e em falha.
+
+--------------------------------------------------------------------------------
+FASE 8 — AUDITORIA SPI MUTEX E PERIFÉRICOS SPI
+--------------------------------------------------------------------------------
+Objetivo:
+Garantir barramento SPI seguro.
+
+Arquivos:
+- firmware/hal/hal_spi.c/h
+- firmware/drivers/driver_ili9488.c/h
+- firmware/drivers/driver_xpt2046.c/h
+- firmware/drivers/driver_mcp3208.c/h
+- firmware/services/storage_sd.c/h
+
+Verifique:
+1. hal_spi_lock existe.
+2. hal_spi_unlock existe.
+3. Display usa mutex.
+4. Touch usa mutex.
+5. SD usa mutex ou SPI device seguro equivalente.
+6. MCP3208 usa mutex.
+7. Mutex é liberado em todos caminhos de erro.
+8. CS fica inativo após erro.
+9. Falha SD não bloqueia ADC/safety.
+
+Correção residual:
+- Envolver transações sem lock.
+- Garantir goto cleanup para release do mutex.
+
+Padrão recomendado:
+```c
+esp_err_t err = ESP_OK;
+bool locked = hal_spi_lock(pdMS_TO_TICKS(100));
+if (!locked) return ESP_ERR_TIMEOUT;
+
+// operação SPI
+
+cleanup:
+hal_spi_unlock();
+return err;
+```
+
+Entregável:
+- firmware/docs/AUDIT_SPI_MUTEX.md.
+
+Critério PASS:
+- Nenhum acesso SPI compartilhado sem mutex ou mecanismo equivalente documentado.
+
+--------------------------------------------------------------------------------
+FASE 9 — AUDITORIA DOS DRIVERS CRÍTICOS
+--------------------------------------------------------------------------------
+Objetivo:
+Validar implementação mínima robusta dos drivers.
+
+Drivers:
+- ILI9488.
+- XPT2046.
+- MCP23017.
+- MCP3208.
+- DS18B20.
+- PZEM v4.0.
+- ACS712.
+- DS3231.
+- AD Keypad.
+- Buzzer/LED.
+
+Para cada driver, verificar:
+1. init retorna esp_err_t ou status claro.
+2. parâmetros NULL são tratados.
+3. timeouts existem quando aplicável.
+4. erro não trava sistema.
+5. health/ALM é atualizado quando aplicável.
+6. não há stub.
+7. não há valor fake em produção.
+
+Critérios específicos:
+DS18B20:
+- CRC Dallas.
+- rejeita 85°C.
+- média móvel 3 leituras.
+- timeout.
+
+PZEM:
+- v4.0.
+- UART TX17/RX18.
+- 9600 8N1.
+- CRC Modbus.
+- V/A/W/kWh/PF/Hz.
+
+MCP3208:
+- canais conforme SRS.
+- valida 0..7.
+- mutex SPI.
+
+ACS712:
+- 10 canais.
+- RMS.
+- offset/gain.
+- sem calibração → degraded/não confiável.
+
+MCP23017:
+- IODIRA/OLATA.
+- GPA0..GPA7 para P03..P10.
+- falha crítica alimenta safety.
+
+Entregável:
+- firmware/docs/AUDIT_CRITICAL_DRIVERS.md.
+
+Critério PASS:
+- Cada driver tem evidência por função.
+
+--------------------------------------------------------------------------------
+FASE 10 — AUDITORIA FREERTOS, HEARTBEAT E WATCHDOG
+--------------------------------------------------------------------------------
+Objetivo:
+Validar arquitetura concorrente.
+
+Arquivos:
+- firmware/main/app_main.c
+- firmware/core/task_supervisor.c/h
+- firmware/core/watchdog_guard.c/h
+- firmware/docs/FREERTOS_TASK_MAP.md
+
+Verifique tasks:
+- task_safety_core.
+- task_sensors.
+- task_plug_control.
+- task_storage.
+- task_ui.
+- task_web.
+- task_diag.
+
+Para cada task:
+- criada em app_main;
+- prioridade definida;
+- stack definida;
+- periodicidade definida;
+- heartbeat definido se crítica;
+- falha definida;
+- não usa busy-wait;
+- não bloqueia safety.
+
+Verifique:
+1. task_supervisor_register.
+2. task_supervisor_heartbeat.
+3. watchdog_guard_check.
+4. Falha task_safety_core gera estado seguro.
+5. Falha task_web não trava safety.
+
+Entregável:
+- firmware/docs/AUDIT_FREERTOS_WATCHDOG.md.
+
+Critério PASS:
+- FREERTOS_TASK_MAP bate com código.
+
+--------------------------------------------------------------------------------
+FASE 11 — AUDITORIA WIZARD GATING
+--------------------------------------------------------------------------------
+Objetivo:
+Validar bloqueio de operação crítica sem configuração inicial concluída.
+
+Arquivos:
+- firmware/services/config_manager.c/h
+- firmware/core/global_state.c/h
+- firmware/services/command_validator.c/h
+- firmware/fsm/**
+- firmware/main/ui/**
+- firmware/web/**
+
+Verifique:
+1. ConfigRoot contém wizard_completed.
+2. GlobalState contém wizard_completed.
+3. Primeiro boot sem config válida define wizard_completed=false.
+4. Relés permanecem OFF sem wizard.
+5. FSMs críticas não acionam carga sem wizard.
+6. API nega comando crítico sem wizard.
+7. UI mostra pendência/Wizard.
+8. Conclusão do Wizard persiste config atomicamente.
+
+Entregável:
+- firmware/docs/AUDIT_WIZARD_GATING.md.
+
+Critério PASS:
+- Nenhum caminho liga carga antes do Wizard.
+
+--------------------------------------------------------------------------------
+FASE 12 — AUDITORIA UI / HMI / LVGL
+--------------------------------------------------------------------------------
+Objetivo:
+Validar UI operacional real.
+
+Arquivos:
+- firmware/main/ui/display/ui_display.c/h
+- firmware/drivers/driver_ili9488.c/h
+- firmware/drivers/driver_xpt2046.c/h
+- firmware/main/ui/hmi/ui_view_model.c/h
+- firmware/main/ui/hmi/ui_state_machine.c/h
+- firmware/main/ui/screens/**
+
+Verifique:
+1. Display ILI9488 480x320.
+2. Touch XPT2046 GPIO38/GPIO39.
+3. ViewModel não contém mock operacional.
+4. ViewModel consome GlobalState/sensor snapshot.
+5. Badge persistente existe.
+6. Overlay SAFE_OFF/EMERGENCY existe.
+7. Carrossel é interrompido por condição crítica.
+8. PT-BR.
+9. UI não chama hardware direto.
+10. UI usa command_validator.
+
+Buscas obrigatórias para mocks antigos:
+- 26.5
+- 127.2
+- 247.0
+- 02h 34m
+- 26/06/2026
+- active_alerts_count = 2
+
+Entregável:
+- firmware/docs/AUDIT_UI_HMI.md.
+
+Critério PASS:
+- UI usa dados reais ou indisponível explícito.
+
+--------------------------------------------------------------------------------
+FASE 13 — AUDITORIA API /API/V1 E SEGURANÇA
+--------------------------------------------------------------------------------
+Objetivo:
+Validar API e fluxo seguro.
+
+Endpoints mínimos:
+- GET /api/v1/state
+- GET /api/v1/health
+- GET /api/v1/alerts
+- GET /api/v1/plugs
+- POST /api/v1/commands
+- GET /api/v1/config
+- PUT /api/v1/config
+- GET /api/v1/diagnostics
+
+Verifique:
+1. Registrados no esp_http_server.
+2. JSON válido.
+3. Auth/session para comandos/config.
+4. Rate limit.
+5. Audit log de comandos.
+6. command_validator obrigatório.
+7. SAFE_OFF/EMERGENCY bloqueiam comandos.
+
+Entregável:
+- firmware/docs/AUDIT_API_SECURITY.md.
+
+Critério PASS:
+- API não bypassa safety.
+
+--------------------------------------------------------------------------------
+FASE 14 — AUDITORIA PERSISTÊNCIA, SD, ROLLBACK E POWER-LOSS
+--------------------------------------------------------------------------------
+Objetivo:
+Validar robustez de armazenamento.
+
+Arquivos:
+- firmware/services/config_manager.c/h
+- firmware/services/storage_sd.c/h
+- firmware/services/log_manager.c/h
+
+Verifique:
+1. ConfigRoot versionado.
+2. NVS namespace e keys.
+3. save atômico.
+4. validate config.
+5. rollback config inválida.
+6. defaults seguros se NVS ausente.
+7. SD para logs/backups/perfis.
+8. RAM fallback para falha SD.
+9. Falha SD não bloqueia ADC/safety.
+10. Logs de energia conforme implementado/SRS.
+
+Entregável:
+- firmware/docs/AUDIT_PERSISTENCE_STORAGE.md.
+
+Critério PASS:
+- Persistência segura sob falha.
+
+--------------------------------------------------------------------------------
+FASE 15 — AUDITORIA ALERT MANAGER, ALMS, HEALTH MATRIX E SELF-TEST
+--------------------------------------------------------------------------------
+Objetivo:
+Validar saúde, alertas e autoteste.
+
+Arquivos:
+- firmware/services/alert_manager.c/h
+- firmware/core/health_matrix.c/h
+- firmware/services/self_test.c/h
+- firmware/services/log_manager.c/h
+- firmware/main/ui/**
+- firmware/web/**
+
+Verifique Alert Manager:
+1. ALM-001..ALM-065 existem conforme SRS ou catálogo integral documentado.
+2. Cada ALM possui id/severidade/categoria/origem/texto/ack_required/latched.
+3. Estados active/ack/resolved/history.
+4. ACK não resolve causa ativa.
+5. critical_alerts_count atualizado.
+6. Integração UI/API/log/LED.
+
+Verifique Health Matrix:
+- temperatura.
+- ATO.
+- PZEM.
+- ACS/MCP3208.
+- MCP23017.
+- SD.
+- WiFi.
+- UI.
+- persistência.
+- watchdog/task health.
+- API/security.
+
+Verifique Self-test:
+- boot.
+- runtime.
+- falha crítica alimenta GlobalState/ALM.
+
+Entregável:
+- firmware/docs/AUDIT_ALERT_HEALTH_SELFTEST.md.
+
+Critério PASS:
+- Falhas críticas viram ALM e estado correto.
+
+--------------------------------------------------------------------------------
+FASE 16 — AUDITORIA TIME MANAGER E RTC
+--------------------------------------------------------------------------------
+Objetivo:
+Validar tempo confiável.
+
+Arquivos:
+- firmware/drivers/driver_ds3231.c/h
+- firmware/services/time_manager.c/h
+- firmware/core/global_state.c/h
+- firmware/web/api_state.c/h
+
+Verifique:
+1. DS3231 endereço 0x68.
+2. RTC válido é fonte preferencial.
+3. NTP sincroniza RTC se rede disponível.
+4. Hora manual se implementada.
+5. Uptime monotônico se time_valid=false.
+6. time_source/time_valid expostos no GlobalState/API.
+
+Entregável:
+- firmware/docs/AUDIT_TIME_MANAGER.md.
+
+Critério PASS:
+- Sistema não depende de hora inválida para safety.
+
+--------------------------------------------------------------------------------
+FASE 17 — AUDITORIA DE DOCUMENTAÇÃO E RASTREABILIDADE
+--------------------------------------------------------------------------------
+Objetivo:
+Garantir rastreabilidade industrial.
+
+Documentos obrigatórios:
+- firmware/docs/RTM.md
+- firmware/docs/TEST_PLAN.md
+- firmware/docs/FREERTOS_TASK_MAP.md
+- firmware/docs/AUDITORIA_FINAL_COMPLIANCE.md
+
+RTM.md deve conter:
+| Requisito | Status | Arquivo | Função | Teste | Evidência | Observação |
+
+TEST_PLAN.md deve conter:
+| Teste | Requisito | Tipo | Procedimento | Resultado esperado | Resultado atual |
+
+FREERTOS_TASK_MAP.md deve conter:
+| Task | Prioridade | Stack | Core | Periodicidade | Heartbeat | Criticidade | Falha esperada |
+
+Correção residual:
+- Se RTM não cobre requisito crítico, completar.
+- Se TEST_PLAN não cobre P0/P1, completar.
+- Se FREERTOS_TASK_MAP não bate com app_main, corrigir.
+
+Entregável:
+- firmware/docs/AUDIT_DOCUMENTATION_TRACEABILITY.md.
+
+Critério PASS:
+- Todo requisito crítico possui código e teste rastreado.
+
+--------------------------------------------------------------------------------
+FASE 18 — RECÁLCULO FINAL DE COMPLIANCE
+--------------------------------------------------------------------------------
+Objetivo:
+Calcular percentual final com método explícito.
+
+Use a lista de requisitos auditáveis da auditoria anterior como base mínima:
+1. RF-GLOBAL-001
+2. RF-GLOBAL-002
+3. PRIORIDADE-GLOBAL
+4. RF-GLOBAL-SAFEOFF-EXIT-001
+5. RF-GLOBAL-EMERG-EXIT-001
+6. RNF-GLOBAL-ANTIFLAP-001
+7. RF-SAFEOFF-CAUSE-001
+8. RF-GLOBAL-005
+9. RF-GLOBAL-006
+10. RF-LED-001
+11. RF-LED-002
+12. RF-LED-003
+13. ARQ-001
+14. ARQ-002
+15. STACK-001
+16. APPMAIN-001
+17. FREERTOS-001
+18. DOC-FREERTOS-001
+19. HW-I2C-001
+20. HW-SPI-001
+21. HW-UART-001
+22. RF-THERMAL-001
+23. RF-ENERGY-001
+24. RF-HW-MCP23017-001
+25. RF-HW-MCP3208-001
+26. RF-CAL-ACS-001
+27. RF-UI-DISPLAY-001
+28. RF-UI-INPUT-001
+29. RF-STORAGE-002/003
+30. RF-HW-RELAY-LOGIC-001
+31. RELAY-ABSTRACTION-001
+32. RF-UI-*
+33. RF-WEB-001..008
+34. RNF-SECURITY-001..003
+35. RF-CMD-VALIDATOR-001
+36. RF-FLOW-SELFTEST-001
+37. RF-HEALTH-MATRIX-001
+38. RF-PERSIST-ROLLBACK-001
+39. RF-LOG-ELECTRIC-001
+40. RF-ALERT-001..006
+41. RF-TIME-001
+42. BASELINE-001
+43. BUILD/COMPILAÇÃO
+
+Pontuação:
+- COMPLIANT = 1.0
+- COMPLIANT-CODE-BLOCKED-HW = 0.95
+- PARTIAL = 0.5
+- AMBIGUOUS = 0.25
+- MISSING = 0
+- NON-COMPLIANT = 0
+
+Fórmula:
+Compliance % = soma_pontos / total_itens * 100
+
+Regra crítica:
+- Mesmo se fórmula der >=98%, se existir NON-COMPLIANT crítico de safety, resultado máximo permitido = 90%.
+- Se build falhar, resultado máximo permitido = 85%.
+- Se UI/API bypassa command_validator, resultado máximo permitido = 88%.
+- Se relés não ficam OFF no boot/fail-safe, resultado máximo permitido = 80%.
+- Se GlobalState não é fonte única, resultado máximo permitido = 85%.
+- Se display não for ILI9488, resultado máximo permitido = 92%.
+- Se PZEM ainda for v3.0 em baseline funcional, resultado máximo permitido = 94%.
+
+Entregável:
+- firmware/docs/AUDITORIA_FINAL_COMPLIANCE.md
+
+================================================================================
+6. FORMATO OBRIGATÓRIO DO RELATÓRIO FINAL
+================================================================================
+Crie o arquivo firmware/docs/AUDITORIA_FINAL_COMPLIANCE.md com esta estrutura exata:
+
+# Auditoria Final de Compliance — Monitor Aquário Inteligente DDIno
+
+## 1. Escopo
+- SRSs lidas:
+- código auditado:
+- código terceiro excluído:
+
+## 2. Resultado Executivo
+- Compliance final calculado:
+- Veredito:
+- Build:
+- Testes:
+- Itens críticos abertos:
+
+## 3. Metodologia
+- Critérios de classificação:
+- Fórmula usada:
+- Penalidades máximas aplicadas:
+
+## 4. Matriz Final de Compliance
+| ID | Requisito | Status | Pontuação | Evidência | Arquivo/Função | Teste |
+
+## 5. Itens COMPLIANT
+Listar com evidências.
+
+## 6. Itens COMPLIANT-CODE-BLOCKED-HW
+Listar somente quando depender de hardware real, com código e teste simulado.
+
+## 7. Itens PARTIAL
+Listar lacuna exata e ação restante.
+
+## 8. Itens MISSING
+Listar lacuna exata.
+
+## 9. Itens NON-COMPLIANT
+Listar violação exata.
+
+## 10. Itens AMBIGUOUS
+Listar por que ainda não foi possível comprovar.
+
+## 11. Evidências de Build
+- comando executado:
+- resultado:
+- erros/warnings:
+
+## 12. Evidências de Teste
+- testes executados:
+- resultado:
+- testes não executados:
+- justificativa:
+
+## 13. Auditorias Específicas
+- Build/stubs:
+- Hardware baseline:
+- GlobalState:
+- Safety transitions:
+- Command path:
+- Relays/fail-safe:
+- SPI mutex:
+- Drivers:
+- FreeRTOS/WDT:
+- Wizard:
+- UI:
+- API:
+- Persistência:
+- Alerts/Health/Self-test:
+- Time:
+- Documentação:
+
+## 14. Riscos Residuais
+Listar apenas riscos reais.
+
+## 15. Plano de Correção Residual
+Tabela:
+| Prioridade | Item | Arquivo | Correção | Critério de aceite |
+
+## 16. Veredito Final
+- APROVADO 100%
+- APROVADO >=98%
+- APROVADO CONDICIONAL
+- REPROVADO
+
+Não use veredito aprovado se houver NON-COMPLIANT crítico.
+
+================================================================================
+7. CORREÇÃO RESIDUAL AUTOMÁTICA PERMITIDA
+================================================================================
+Durante a auditoria, você pode corrigir automaticamente lacunas quando:
+- a correção é diretamente determinada pela SRS;
+- a correção não exige decisão de produto;
+- a correção não altera requisito;
+- há arquivo/função evidente;
+- é possível testar ou validar estaticamente.
+
+Exemplos permitidos:
+- adicionar return faltante;
+- trocar ST7789/ILI9341 por ILI9488 em baseline funcional;
+- substituir GPIO literal por pin_map.h;
+- inserir command_validator em handler que bypassa;
+- adicionar lock/unlock SPI ausente;
+- atualizar CMake com arquivo .c novo;
+- criar RTM/TEST_PLAN ausentes;
+- remover mock operacional substituindo por GlobalState/snapshot;
+- corrigir PZEM v3.0 para v4.0 em documentação/código funcional.
+
+Exemplos proibidos:
+- inventar novo hardware;
+- inventar ALM sem base na SRS;
+- alterar pinagem;
+- remover safety para compilar;
+- silenciar erro sem tratar causa;
+- declarar teste PASS sem execução/evidência;
+- criar comportamento de produto não descrito.
+
+================================================================================
+8. CHECKLIST FINAL BLOQUEANTE
+================================================================================
+Antes de concluir, marque PASS/FAIL para cada item:
+
+[ ] Build passa.
+[ ] Nenhum warning crítico novo.
+[ ] Nenhum stub crítico.
+[ ] Nenhuma função não-void sem return.
+[ ] Nenhum mock operacional em produção.
+[ ] Nenhum hardcode operacional proibido.
+[ ] Pinagem normativa centralizada.
+[ ] Display funcional ILI9488.
+[ ] PZEM funcional v4.0.
+[ ] SPI mutex usado por todos periféricos SPI compartilhados.
+[ ] GlobalState é fonte única.
+[ ] Transições logam from/to/cause/ALM/timestamp.
+[ ] SAFE_OFF tem reason explícita.
+[ ] EMERGENCY tem prioridade máxima.
+[ ] EMERGENCY não volta direto para NORMAL.
+[ ] Antiflap existe e é usado.
+[ ] command_validator existe.
+[ ] UI usa command_validator.
+[ ] API usa command_validator.
+[ ] UI/API não acionam hardware direto.
+[ ] relay_logical_on/off existem.
+[ ] Relés OFF no boot.
+[ ] Relés OFF em SAFE_OFF/EMERGENCY.
+[ ] P01/P02 protegidos contra heater/cooler simultâneo.
+[ ] FreeRTOS tasks obrigatórias existem.
+[ ] Heartbeat existe para tasks críticas.
+[ ] WDT/supervisor reage a falhas críticas.
+[ ] Wizard gating bloqueia operação crítica antes de conclusão.
+[ ] DS18B20 valida CRC e rejeita 85°C.
+[ ] PZEM valida CRC Modbus.
+[ ] MCP23017 controla P03..P10.
+[ ] MCP3208 valida canal e libera mutex em erro.
+[ ] ACS712 possui calibração/estado degraded sem calibração.
+[ ] Alert Manager possui ciclo active/ack/resolved/history.
+[ ] Health Matrix cobre subsistemas críticos.
+[ ] Self-test cobre boot/runtime.
+[ ] Persistência possui NVS/defaults/rollback.
+[ ] SD falho não bloqueia safety.
+[ ] Time Manager possui RTC/NTP/manual/uptime conforme disponibilidade.
+[ ] API /api/v1 endpoints mínimos existem.
+[ ] UI possui badge persistente e overlay crítico.
+[ ] RTM.md atualizado.
+[ ] TEST_PLAN.md atualizado.
+[ ] FREERTOS_TASK_MAP.md atualizado.
+[ ] AUDITORIA_FINAL_COMPLIANCE.md criado.
+[ ] Compliance calculado com fórmula explícita.
+[ ] Veredito final condizente com evidências.
+
+================================================================================
+9. FORMATO DA RESPOSTA FINAL AO USUÁRIO/OPERADOR
+================================================================================
+Ao terminar, responda exatamente com:
+
+1. RESUMO EXECUTIVO
+- Compliance final:
+- Veredito:
+- Build:
+- Testes:
+
+2. ARQUIVOS CRIADOS
+- listar
+
+3. ARQUIVOS MODIFICADOS
+- listar
+
+4. PRINCIPAIS EVIDÊNCIAS DE COMPLIANCE
+- listar por área
+
+5. ITENS AINDA ABERTOS
+- listar ou "Nenhum"
+
+6. ITENS BLOQUEADOS POR HARDWARE REAL
+- listar ou "Nenhum"
+
+7. PERCENTUAL FINAL E JUSTIFICATIVA
+- apresentar cálculo
+
+8. PRÓXIMOS PASSOS NECESSÁRIOS
+- somente se houver bloqueio real
+
+Proibido responder:
+- "Está tudo certo" sem evidência.
+- "Acredito que ficou 100%".
+- "Provavelmente atende".
+- "Não encontrei problemas" sem relatório.
+
+================================================================================
+10. CRITÉRIO DE APROVAÇÃO FINAL
+================================================================================
+APROVADO 100%:
+- Compliance calculado = 100%.
+- Nenhum NON-COMPLIANT.
+- Nenhum MISSING.
+- Nenhum AMBIGUOUS.
+- Nenhum BLOCKED sem implementação/teste simulado.
+- Build PASS.
+- Testes críticos PASS.
+
+APROVADO >=98%:
+- Compliance >= 98%.
+- Nenhum P0 aberto.
+- Nenhum safety crítico aberto.
+- Itens restantes são BLOCKED-HW ou refinamentos não críticos.
+- Build PASS.
+
+APROVADO CONDICIONAL:
+- Compliance 95% a 97,99%.
+- Nenhum risco de safety aberto.
+- Há pendências documentais ou hardware real.
+
+REPROVADO:
+- Compliance <95%.
+- Ou build FAIL.
+- Ou command_validator bypassado.
+- Ou relés inseguros.
+- Ou GlobalState não é fonte única.
+- Ou SAFE_OFF/EMERGENCY violados.
+
+FIM DO PROMPT FINAL DE AUDITORIA.

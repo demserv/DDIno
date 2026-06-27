@@ -7,135 +7,96 @@ if ([string]::IsNullOrWhiteSpace($OutputFile)) {
     $OutputFile = Join-Path $RootPath "projeto_concatenado.txt"
 }
 
-$RootPath = [System.IO.Path]::GetFullPath($RootPath)
-$OutputFile = [System.IO.Path]::GetFullPath($OutputFile)
+$RootPath = [IO.Path]::GetFullPath($RootPath)
+$OutputFile = [IO.Path]::GetFullPath($OutputFile)
 
 Write-Host "Diretorio raiz: $RootPath"
-Write-Host "Arquivo de saida: $OutputFile"
+Write-Host "Arquivo base: $OutputFile"
 Write-Host "Iniciando varredura..."
-
-function Test-IsBinaryFile {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    $sampleSize = 8192
-
-    try {
-        $fs = [System.IO.File]::OpenRead($Path)
-
-        try {
-            $buffer = New-Object byte[] $sampleSize
-            $bytesRead = $fs.Read($buffer, 0, $sampleSize)
-
-            if ($bytesRead -eq 0) {
-                return $false
-            }
-
-            for ($i = 0; $i -lt $bytesRead; $i++) {
-                if ($buffer[$i] -eq 0) {
-                    return $true
-                }
-            }
-
-            return $false
-        }
-        finally {
-            $fs.Close()
-        }
-    }
-    catch {
-        return $true
-    }
-}
 
 $totalFiles = 0
 $includedFiles = 0
-$skippedBinaryFiles = 0
 $skippedErrors = 0
 
-# Garante que a pasta de saída exista
+# Lista arquivos
+$allFiles = Get-ChildItem -Path $RootPath -File -Recurse -Force | Sort-Object FullName
+$totalFiles = $allFiles.Count
+
+# Divide em 10 partes (CORRETO)
+$parts = 10
+if ($totalFiles -lt $parts) {
+    $filesPerPart = 1
+} else {
+    $filesPerPart = [Math]::Ceiling($totalFiles / $parts)
+}
+
+# Diretório de saída
 $outputDir = Split-Path -Parent $OutputFile
-if (-not [string]::IsNullOrWhiteSpace($outputDir) -and -not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+if (-not (Test-Path $outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir | Out-Null
 }
 
-# Remove arquivo anterior, se existir
-if (Test-Path $OutputFile) {
-    Remove-Item $OutputFile -Force
-}
+# Loop
+for ($part = 1; $part -le $parts; $part++) {
 
-# Cria StreamWriter UTF-8 sem BOM
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-$writer = New-Object System.IO.StreamWriter($OutputFile, $false, $utf8NoBom)
+    $partFile = Join-Path $outputDir ("projeto_concatenado_part_{0:D2}_of_10.txt" -f $part)
 
-try {
-    Get-ChildItem -Path $RootPath -File -Recurse -Force | Sort-Object FullName | ForEach-Object {
-        $file = $_
-        $filePath = [System.IO.Path]::GetFullPath($file.FullName)
+    # Sobrescreve sempre
+    if (Test-Path $partFile) {
+        Remove-Item $partFile -Force
+    }
 
-        # Evita incluir o próprio arquivo de saída
-        if ($filePath -eq $OutputFile) {
-            return
+    Write-Host "Gerando arquivo $partFile"
+
+    $writer = New-Object IO.StreamWriter($partFile, $false, [Text.UTF8Encoding]::new($false))
+
+    try {
+
+        $startIndex = ($part - 1) * $filesPerPart
+        $endIndex = $startIndex + $filesPerPart - 1
+
+        if ($startIndex -ge $totalFiles) {
+            $writer.Close()
+            Write-Host "Parte $part vazia, ignorada."
+            continue
         }
 
-        $script:totalFiles++
+        if ($endIndex -ge $totalFiles) {
+            $endIndex = $totalFiles - 1
+        }
 
-        try {
-            if (Test-IsBinaryFile -Path $filePath) {
-                $script:skippedBinaryFiles++
-                return
-            }
+        $writer.WriteLine("***************************************INICIO DO ARQUIVO $part/10********************************")
 
-            $writer.WriteLine("***************Inicio do arquivo -$filePath*****************.")
+        for ($i = $startIndex; $i -le $endIndex; $i++) {
+
+            $file = $allFiles[$i]
 
             try {
-                $reader = New-Object System.IO.StreamReader($filePath, $true)
+                $content = Get-Content -Path $file.FullName -Raw -ErrorAction Stop
 
-                try {
-                    while (($line = $reader.ReadLine()) -ne $null) {
-                        $writer.WriteLine($line)
-                    }
-                }
-                finally {
-                    $reader.Close()
-                }
+                $writer.WriteLine("")
+                $writer.WriteLine("===== FILE: $($file.FullName) =====")
+                $writer.WriteLine($content)
+
+                $includedFiles++
             }
             catch {
-                # Segunda tentativa com UTF-8 replacement fallback
-                $encoding = New-Object System.Text.UTF8Encoding($false, $false)
-                $reader = New-Object System.IO.StreamReader($filePath, $encoding, $true)
-
-                try {
-                    while (($line = $reader.ReadLine()) -ne $null) {
-                        $writer.WriteLine($line)
-                    }
-                }
-                finally {
-                    $reader.Close()
-                }
+                $skippedErrors++
             }
-
-            $writer.WriteLine("*****************Fim do arquivo -$filePath******************")
-            $writer.WriteLine("")
-
-            $script:includedFiles++
         }
-        catch {
-            $script:skippedErrors++
-            Write-Warning "Erro ao processar arquivo: $filePath | Motivo: $($_.Exception.Message)"
-        }
+
+        $writer.WriteLine("***********************************FINAL DO ARQUIVO $part/10*************************")
     }
-}
-finally {
-    $writer.Close()
+    finally {
+        $writer.Close()
+    }
+
+    Write-Host "Arquivo $part/10 gerado com sucesso"
 }
 
 Write-Host ""
 Write-Host "Concluido."
-Write-Host "Total de arquivos encontrados: $totalFiles"
-Write-Host "Arquivos concatenados: $includedFiles"
-Write-Host "Arquivos binarios ignorados: $skippedBinaryFiles"
-Write-Host "Arquivos ignorados por erro: $skippedErrors"
-Write-Host "TXT gerado em: $OutputFile"
+Write-Host "Total arquivos: $totalFiles"
+Write-Host "Incluidos: $includedFiles"
+Write-Host "Erros: $skippedErrors"
+Write-Host "Arquivos gerados em: $outputDir"
