@@ -75,6 +75,7 @@ set(MAIN_SRCS
     "../services/electric_service.c"
     "../services/time_manager.c"
     "../services/pending_actions.c"
+    "../services/task_manager.c"
     "../security/sec_policy.c"
 
     # HMI refatorada
