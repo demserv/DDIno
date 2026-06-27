@@ -50,6 +50,7 @@ static lv_obj_t *reset_status_label = NULL;
 
 // Carousel auto-rotation
 static bool s_carousel_enabled = true;
+static bool s_carousel_paused = false;
 static uint32_t s_carousel_interval_ms = HW_UI_CAROUSEL_INTERVAL_MS;
 static uint64_t s_last_carousel_ms = 0;
 static uint64_t s_last_interaction_ms = 0;
@@ -433,6 +434,7 @@ void ui_screen_update_all(void)
     if (s_carousel_enabled) {
         if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) return;
         if (!g_gs.wizard_completed) return;
+        if (s_carousel_paused) return;
         uint64_t now_ms = esp_timer_get_time() / 1000;
         if (now_ms - s_last_interaction_ms < HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS) return;
         if (now_ms - s_last_carousel_ms > s_carousel_interval_ms) {
@@ -458,4 +460,20 @@ void ui_carousel_enable(bool en)
 void ui_carousel_set_interval(uint32_t interval_ms)
 {
     s_carousel_interval_ms = interval_ms;
+}
+
+void ui_carousel_pause(void)
+{
+    s_carousel_paused = true;
+}
+
+void ui_carousel_resume(void)
+{
+    s_carousel_paused = false;
+    s_last_carousel_ms = esp_timer_get_time() / 1000;
+}
+
+bool ui_carousel_is_paused(void)
+{
+    return s_carousel_paused || !s_carousel_enabled;
 }
