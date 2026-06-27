@@ -117,7 +117,7 @@ try {
                 }
             }
 
-            $writer.WriteLine("Fim do arquivo -$filePath******************")
+            $writer.WriteLine("*****************Fim do arquivo -$filePath******************")
             $writer.WriteLine("")
 
             $script:includedFiles++
