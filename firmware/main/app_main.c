@@ -337,7 +337,7 @@ static void read_pzem(void)
 static void update_energy_accumulators(const float *plug_currents)
 {
     double total_wh = 0;
-    float voltage = (g_pzem.valid && g_pzem.voltage_v > 0.0f) ? g_pzem.voltage_v : 127.0f;
+    float voltage = (g_pzem.valid && g_pzem.voltage_v > 0.0f) ? g_pzem.voltage_v : (float)config_get_system()->mains_voltage;
     for (uint8_t p = 1; p <= 10; p++) {
         cdn_energy_update(p, plug_currents[p-1], voltage, 50);
         total_wh += cdn_energy_get_wh(p);
@@ -795,7 +795,7 @@ void app_main(void)
     temp_filter_init(5);
     plug_manager_init();
     const feed_params_storage_t *fp = config_get_feed();
-    feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, 120);
+    feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
     {
         uint64_t boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
         esp_err_t snap_err = feed_snapshot_restore(&s_feed_fsm, 0, boot_ms, g_gs.time_valid);

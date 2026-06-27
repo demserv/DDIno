@@ -54,6 +54,7 @@ typedef struct {
 
 typedef struct {
     uint32_t feed_duration_min;
+    uint32_t feed_cooldown_min;
 } feed_params_storage_t;
 
 typedef struct {
