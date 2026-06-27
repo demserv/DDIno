@@ -13,6 +13,7 @@
 #include "global_state.h"
 #include "hardware_config.h"
 #include "hal_bus.h"
+#include "hal_spi.h"
 #include "driver_relay.h"
 #include "driver_mcp3208.h"
 #include "driver_acs712.h"
@@ -712,6 +713,7 @@ void app_main(void)
     self_test_init();
 
     ESP_ERROR_CHECK(hal_bus_init_all());
+    ESP_ERROR_CHECK(hal_spi_init());
     circuit_breaker_init();
     esp_err_t relay_err = relay_init_safe();
     if (relay_err != ESP_OK) {

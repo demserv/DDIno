@@ -1,6 +1,6 @@
-// @requirement RF-UI-INPUT-001 Touch XPT2046 SPI como entrada primária
 #include "ui_touch.h"
 #include "pin_map.h"
+#include "hal_spi.h"
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -8,7 +8,6 @@
 #include "lvgl.h"
 
 static const char *TAG = "ui_touch";
-static spi_device_handle_t touch_spi = NULL;
 
 static uint16_t xpt2046_read_raw(uint8_t cmd)
 {
@@ -19,7 +18,7 @@ static uint16_t xpt2046_read_raw(uint8_t cmd)
         .tx_buffer = tx_buf,
         .rx_buffer = rx_buf,
     };
-    spi_device_polling_transmit(touch_spi, &t);
+    hal_spi_transaction_polling(HAL_SPI_DEVICE_TOUCH, &t);
     return (((uint16_t)rx_buf[1] << 8) | rx_buf[2]) >> 4;
 }
 
@@ -87,19 +86,6 @@ esp_err_t ui_touch_init(void)
 
     gpio_set_direction(PIN_TOUCH_IRQ_GPIO, GPIO_MODE_INPUT);
     gpio_set_pull_mode(PIN_TOUCH_IRQ_GPIO, GPIO_PULLUP_ONLY);
-
-    spi_device_interface_config_t dev_cfg = {
-        .clock_speed_hz = 2 * 1000 * 1000,
-        .mode = 0,
-        .spics_io_num = PIN_TOUCH_CS_GPIO,
-        .queue_size = 1,
-        .flags = SPI_DEVICE_HALFDUPLEX,
-    };
-    esp_err_t ret = spi_bus_add_device(SPI2_HOST, &dev_cfg, &touch_spi);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Touch SPI device add failed");
-        return ret;
-    }
 
     static lv_indev_drv_t indev_drv;
     lv_indev_drv_init(&indev_drv);

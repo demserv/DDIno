@@ -1,7 +1,7 @@
-// @requirement RF-UI-DISPLAY-001 Brilho configurável
 #include "ui_display.h"
 #include "hardware_config.h"
 #include "pin_map.h"
+#include "hal_spi.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,7 +12,6 @@
 #include "lvgl.h"
 
 static const char *TAG = "ui_display";
-static spi_device_handle_t spi_dev = NULL;
 
 static uint8_t s_brightness_percent = HW_UI_BRIGHTNESS_DEFAULT;
 static uint8_t s_configured_brightness = HW_UI_BRIGHTNESS_DEFAULT;
@@ -26,7 +25,7 @@ static void ili9488_send_cmd(uint8_t cmd)
         .tx_buffer = &cmd,
     };
     gpio_set_level(PIN_TFT_DC_GPIO, 0);
-    spi_device_polling_transmit(spi_dev, &t);
+    hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
 }
 
 static void ili9488_send_data(const uint8_t *data, int len)
@@ -36,7 +35,7 @@ static void ili9488_send_data(const uint8_t *data, int len)
         .tx_buffer = data,
     };
     gpio_set_level(PIN_TFT_DC_GPIO, 1);
-    spi_device_polling_transmit(spi_dev, &t);
+    hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
 }
 
 static void ili9488_send_cmd_data(uint8_t cmd, uint8_t data)
@@ -93,7 +92,7 @@ static void disp_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
         .length = pixel_count * 2 * 8,
         .tx_buffer = color_p,
     };
-    spi_device_polling_transmit(spi_dev, &t);
+    hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
 
     lv_disp_flush_ready(drv);
 }
@@ -110,33 +109,6 @@ esp_err_t ui_display_init(void)
     gpio_set_direction(PIN_TFT_DC_GPIO, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_TFT_RST_GPIO, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_TFT_BL_GPIO, GPIO_MODE_OUTPUT);
-
-    spi_bus_config_t bus_cfg = {
-        .mosi_io_num = PIN_SPI_MOSI_GPIO,
-        .miso_io_num = PIN_SPI_MISO_GPIO,
-        .sclk_io_num = PIN_SPI_SCK_GPIO,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = DISP_BUF_SIZE * 2 + 8,
-    };
-    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "SPI bus init failed");
-        return ret;
-    }
-
-    spi_device_interface_config_t dev_cfg = {
-        .clock_speed_hz = 40 * 1000 * 1000,
-        .mode = 0,
-        .spics_io_num = PIN_TFT_CS_GPIO,
-        .queue_size = 1,
-        .flags = SPI_DEVICE_HALFDUPLEX,
-    };
-    ret = spi_bus_add_device(SPI2_HOST, &dev_cfg, &spi_dev);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "SPI device add failed");
-        return ret;
-    }
 
     ili9488_init();
 
@@ -155,7 +127,6 @@ esp_err_t ui_display_init(void)
     disp_drv.ver_res = 320;
     disp_drv.flush_cb = disp_flush_cb;
     disp_drv.draw_buf = &disp_buf;
-    disp_drv.user_data = spi_dev;
     lv_disp_drv_register(&disp_drv);
 
     const esp_timer_create_args_t tick_timer_args = {
