@@ -1,3 +1,4 @@
+// @requirement RF-RESET-004 Diálogo de confirmação para ações críticas
 #pragma once
 
 #include "lvgl.h"

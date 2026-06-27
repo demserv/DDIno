@@ -1,4 +1,5 @@
 #include <string.h>
+// @requirement RF-RTM-001 a RF-RTM-003 Testes de Plug Manager
 #include "unity.h"
 #include "services/plug_manager.h"
 #include "driver_relay.h"

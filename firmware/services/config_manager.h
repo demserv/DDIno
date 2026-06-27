@@ -1,3 +1,5 @@
+// @requirement RF-STORAGE-001 NVS como fonte primária de parâmetros
+// @requirement RF-GLOBAL-005 Proibição de hardcode operacional
 #ifndef FIRMWARE_SERVICES_CONFIG_MANAGER_H
 #define FIRMWARE_SERVICES_CONFIG_MANAGER_H
 

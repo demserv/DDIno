@@ -1,3 +1,4 @@
+// @requirement RNF-SECURITY-001 Rate limiting por IP
 #ifndef FIRMWARE_WEB_API_RATE_LIMIT_H
 #define FIRMWARE_WEB_API_RATE_LIMIT_H
 

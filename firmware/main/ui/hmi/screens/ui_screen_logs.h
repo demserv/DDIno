@@ -1,3 +1,4 @@
+// @requirement RF-LOG-001 Tela de logs
 #pragma once
 
 #include "lvgl.h"

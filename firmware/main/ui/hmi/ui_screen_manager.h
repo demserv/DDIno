@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Gerenciador de telas
 #pragma once
 
 #include "lvgl.h"

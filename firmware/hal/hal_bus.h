@@ -1,3 +1,4 @@
+// @requirement RNF-HARDWARE-001 HAL de barramentos (I2C, SPI, UART)
 #ifndef HAL_BUS_H
 #define HAL_BUS_H
 

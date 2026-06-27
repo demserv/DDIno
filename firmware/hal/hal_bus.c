@@ -1,3 +1,4 @@
+// @requirement RNF-HARDWARE-001 HAL de barramentos I2C, SPI, UART
 #include "hal_bus.h"
 #include "driver/i2c.h"
 #include "driver/spi_master.h"

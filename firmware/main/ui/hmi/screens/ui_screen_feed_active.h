@@ -1,3 +1,4 @@
+// @requirement RF-FEED-002 Tela de Feed Mode ativo
 #pragma once
 
 #include "lvgl.h"

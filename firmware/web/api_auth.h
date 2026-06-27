@@ -1,3 +1,4 @@
+// @requirement RF-WEB-004 Autenticação de API via SHA-256 token
 #ifndef FIRMWARE_WEB_API_AUTH_H
 #define FIRMWARE_WEB_API_AUTH_H
 

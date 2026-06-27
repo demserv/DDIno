@@ -1,3 +1,4 @@
+// @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "services/audit_log.h"
 #include "services/storage_sd.h"
 #include "esp_timer.h"

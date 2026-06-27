@@ -1,3 +1,5 @@
+// @requirement RF-RESET-004 Diálogo de confirmação com dupla confirmação
+// @requirement RF-PLUG-011 Dupla confirmação para ações críticas
 #include "ui_confirm_dialog.h"
 #include "../ui_theme.h"
 

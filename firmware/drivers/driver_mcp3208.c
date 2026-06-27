@@ -1,3 +1,5 @@
+// @requirement RF-ATO-001 Leitura ADC ATO digital ON/OFF via MCP3208 #2 CH2
+// @requirement RNF-HARDWARE-001 MCP3208 SPI ADC para sensores e keypad
 #include "driver_mcp3208.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"

@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-001 Definição de estados globais (NORMAL, DEGRADED, SAFE_OFF, EMERGENCY)
 #ifndef FIRMWARE_INCLUDE_SYSTEM_TYPES_H
 #define FIRMWARE_INCLUDE_SYSTEM_TYPES_H
 

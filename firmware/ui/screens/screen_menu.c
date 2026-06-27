@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Tela de menu principal com navegação
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "lvgl.h"

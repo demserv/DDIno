@@ -1,3 +1,5 @@
+// @requirement RF-UI-OVERLAY-001 Tela de alertas com overlays críticos
+// @requirement RF-ALERT-004 Timeout de ACK visível na UI
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "alert_model.h"

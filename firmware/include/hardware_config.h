@@ -1,3 +1,4 @@
+// @requirement RNF-HARDWARE-001 Constantes físicas e de hardware (NÃO confundir com parâmetros operacionais)
 #ifndef FIRMWARE_INCLUDE_HARDWARE_CONFIG_H
 #define FIRMWARE_INCLUDE_HARDWARE_CONFIG_H
 

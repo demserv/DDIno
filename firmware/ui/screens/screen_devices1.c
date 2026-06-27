@@ -1,3 +1,5 @@
+// @requirement RF-PLUG-001 a RF-PLUG-014 Exibição de plugues na UI (P01-P05)
+// @requirement RF-PLUG-003 Corrente individual visível na tela de dispositivos
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "plug_model.h"

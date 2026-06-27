@@ -1,3 +1,4 @@
+// @requirement RF-UI-WIZARD-001 Tela de wizard
 #pragma once
 
 #include "lvgl.h"

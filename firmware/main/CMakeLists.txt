@@ -51,6 +51,32 @@ set(MAIN_SRCS
     "../ui/ui_header.c"
     "../ui/ui_footer.c"
 
+    # Epic 1 — P0 modules
+    "../services/storage_manager.c"
+    "../core/event_bus.c"
+    "../drivers/relay_abstraction.c"
+    "../services/health_matrix.c"
+
+    # Epic 2 — Truly-Missing modules
+    "../services/util_ctl.c"
+    "../services/wifi_ctl.c"
+    "../services/sensor_ctl.c"
+    "../services/disp_ctl.c"
+    "../services/log_ctl.c"
+    "../services/conf_ctl.c"
+    "../services/web_ctl.c"
+    "../services/alm_ctl.c"
+    "../services/bom_ctl.c"
+    "../services/data_ctl.c"
+
+    # P0-005 — Canonical service modules
+    "../services/thermal_service.c"
+    "../services/ato_service.c"
+    "../services/electric_service.c"
+    "../services/time_manager.c"
+    "../services/pending_actions.c"
+    "../security/sec_policy.c"
+
     # HMI refatorada
     "ui/hmi/ui_theme.c"
     "ui/hmi/ui_view_model.c"
@@ -95,6 +121,7 @@ set(MAIN_INCLUDE_DIRS
     "../fsm"
     "../web"
     "../ui"
+    "../security"
     "ui/hmi"
     "ui/hmi/components"
     "ui/hmi/screens"

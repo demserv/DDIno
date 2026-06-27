@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Componente de tile de menu
 #pragma once
 
 #include "lvgl.h"

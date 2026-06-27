@@ -1,3 +1,5 @@
+// @requirement RF-UI-CAROUSEL-001 Gerenciamento de telas com content_root
+// @requirement RF-UI-STATUS-001 Topbar e footer persistentes
 #include "ui_screen_manager.h"
 #include "ui_theme.h"
 

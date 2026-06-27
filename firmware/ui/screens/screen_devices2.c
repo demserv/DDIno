@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P06-P10
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "plug_model.h"

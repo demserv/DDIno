@@ -1,3 +1,5 @@
+// @requirement RF-RESET-001 a RF-RESET-004 Tela de sistema com reset, wizard, informações
+// @requirement RF-UI-WIZARD-001..005 Acesso ao wizard
 #include "ui_screen_system.h"
 #include "../ui_theme.h"
 #include "../ui_events.h"

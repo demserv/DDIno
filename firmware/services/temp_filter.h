@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-002 Filtro de média móvel para temperatura
 #ifndef FIRMWARE_SERVICES_TEMP_FILTER_H
 #define FIRMWARE_SERVICES_TEMP_FILTER_H
 

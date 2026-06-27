@@ -1,3 +1,4 @@
+// @requirement RF-LOG-001 a RF-LOG-020 Modelo de log de eventos estruturado
 #ifndef FIRMWARE_INCLUDE_EVENT_LOG_H
 #define FIRMWARE_INCLUDE_EVENT_LOG_H
 

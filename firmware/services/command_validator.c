@@ -1,3 +1,5 @@
+// @requirement RNF-SECURITY-001 Validação de comandos: monitor_only, EMERGENCY, double_confirmation
+// @requirement RF-PLUG-011 Dupla confirmação para plugs críticos P01/P02
 #include "command_validator.h"
 #include <stddef.h>
 #include <string.h>

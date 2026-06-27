@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-006 Tela de configuração térmica
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-003 Badge de estado global (NORMAL/DEGRADED/SAFE_OFF/EMERGENCY) na UI
 #include "ui_status_badge.h"
 #include "../ui_theme.h"
 

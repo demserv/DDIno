@@ -1,3 +1,5 @@
+// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P01-P05
+// @requirement RF-PLUG-003 Corrente individual por plugue visível
 #include "ui_screen_devices_page1.h"
 #include "../ui_theme.h"
 #include "../components/ui_device_row.h"

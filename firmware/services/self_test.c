@@ -1,3 +1,5 @@
+// @requirement RF-FLOW-BOOT-003 Self-test obrigatório no boot
+// @requirement RF-UI-DIAG-001 Diagnóstico de subsistemas
 #include "self_test.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"

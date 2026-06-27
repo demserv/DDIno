@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-005 Schema de configuração sem hardcode operacional
 #ifndef FIRMWARE_INCLUDE_CONFIG_SCHEMA_H
 #define FIRMWARE_INCLUDE_CONFIG_SCHEMA_H
 

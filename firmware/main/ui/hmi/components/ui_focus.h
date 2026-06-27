@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Foco visual para navegação por teclado
 #pragma once
 
 #include "lvgl.h"

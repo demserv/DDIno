@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-003 Badge de estado global colorido
 #pragma once
 
 #include "lvgl.h"

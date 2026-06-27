@@ -1,3 +1,4 @@
+// @requirement RF-RESET-001 Tela de sistema
 #pragma once
 
 #include "lvgl.h"

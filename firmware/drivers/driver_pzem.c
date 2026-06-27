@@ -1,3 +1,5 @@
+// @requirement RF-ENERGY-001 Leitura PZEM Modbus (V, A, W, kWh, PF, Hz)
+// @requirement RF-ENERGY-006 Frequência da rede via PZEM
 #include "driver_pzem.h"
 #include "driver/uart.h"
 #include "esp_log.h"

@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Indicação de foco visual para navegação por keypad
 #include "ui_focus.h"
 #include "../ui_theme.h"
 

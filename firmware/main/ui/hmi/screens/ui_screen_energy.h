@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-001 Tela de energia
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,4 @@
+// @requirement RNF-SECURITY-001 Validação de comandos antes da execução
 #ifndef FIRMWARE_SERVICES_COMMAND_VALIDATOR_H
 #define FIRMWARE_SERVICES_COMMAND_VALIDATOR_H
 

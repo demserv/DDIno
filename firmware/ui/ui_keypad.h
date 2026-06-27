@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Keypad AD 5 botoes via MCP3208
 #ifndef FIRMWARE_UI_KEYPAD_H
 #define FIRMWARE_UI_KEYPAD_H
 

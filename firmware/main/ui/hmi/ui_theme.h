@@ -1,3 +1,4 @@
+// @requirement RNF-USAB-001 Tema: 14 cores, 6 raios, 6 pads, 6 fontes Montserrat
 #pragma once
 
 #include "lvgl.h"

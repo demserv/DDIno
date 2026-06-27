@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-005 Root ViewModel com dados centralizados
 #pragma once
 
 #include "ui_types.h"

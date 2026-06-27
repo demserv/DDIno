@@ -1,3 +1,5 @@
+// @requirement RF-GLOBAL-003 Entrada por keypad como fallback local
+// @requirement RNF-HARDWARE-001 AD Keypad 5V com condicionamento via MCP3208 CH3
 #include "driver_ad_keypad.h"
 #include "driver_mcp3208.h"
 #include "pin_map.h"

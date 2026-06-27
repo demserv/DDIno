@@ -1,3 +1,5 @@
+// @requirement RF-UI-DIAG-001 Tela de diagnóstico com 9 subsistemas
+// @requirement RF-FLOW-BOOT-003 Exibição de self-test na UI
 #include "ui_screen_diagnostics.h"
 #include "../ui_theme.h"
 #include <stdio.h>

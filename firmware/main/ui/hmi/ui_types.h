@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-001 Tipos de dados compartilhados da HMI
 #pragma once
 
 #include <stdint.h>

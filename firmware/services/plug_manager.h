@@ -1,3 +1,5 @@
+// @requirement RF-PLUG-001 a RF-PLUG-014 Gerenciamento completo de plugues
+// @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
 #ifndef FIRMWARE_SERVICES_PLUG_MANAGER_H
 #define FIRMWARE_SERVICES_PLUG_MANAGER_H
 

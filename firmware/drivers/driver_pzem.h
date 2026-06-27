@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-001 PZEM-004T v4.0 Modbus RTU via UART
 #ifndef DRIVER_PZEM_H
 #define DRIVER_PZEM_H
 

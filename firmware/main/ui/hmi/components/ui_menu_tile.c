@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Tile de menu 140x72 com ícone e texto
 #include "ui_menu_tile.h"
 #include "../ui_theme.h"
 

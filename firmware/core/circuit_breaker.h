@@ -1,3 +1,4 @@
+// @requirement RNF-ELECTRICAL-001 Circuit breaker pattern para barramentos
 #ifndef FIRMWARE_CORE_CIRCUIT_BREAKER_H
 #define FIRMWARE_CORE_CIRCUIT_BREAKER_H
 

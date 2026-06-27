@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-011 Serviço de segurança de relés com dupla confirmação
 #ifndef FIRMWARE_SERVICES_RELAY_SAFETY_SERVICE_H
 #define FIRMWARE_SERVICES_RELAY_SAFETY_SERVICE_H
 

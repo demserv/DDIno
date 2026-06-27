@@ -1,3 +1,5 @@
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Tela de energia com 4 metric cards + gráfico mensal
+// @requirement RF-ENERGY-004 Projeção mensal mensal
 #include "ui_screen_energy.h"
 #include "../ui_theme.h"
 #include "../components/ui_metric_card.h"

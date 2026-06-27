@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Menu principal com 9 tiles em grid 3x3
 #include "ui_screen_main_menu.h"
 #include "../ui_theme.h"
 #include "../components/ui_menu_tile.h"

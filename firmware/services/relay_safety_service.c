@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-011 Desligamento manual de plugs críticos com dupla confirmação
 #include "relay_safety_service.h"
 #include <stddef.h>
 

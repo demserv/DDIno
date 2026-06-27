@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Footer com estado global, uptime, alertas, página
 #include "ui_footer.h"
 #include "../ui_theme.h"
 #include <stdio.h>

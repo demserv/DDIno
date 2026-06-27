@@ -1,3 +1,4 @@
+// @requirement RF-WDT-001 WDT avançado com monitoramento por task
 #ifndef FIRMWARE_SERVICES_WDT_ADVANCED_H
 #define FIRMWARE_SERVICES_WDT_ADVANCED_H
 

@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-003 Badge de estado sempre visível na UI
 #include "ui_state_badge.h"
 #include "global_state.h"
 #include "system_types.h"

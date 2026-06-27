@@ -1,3 +1,4 @@
+// @requirement RF-ALERT-001 Modelo canônico de alerta com severity, category, action_hint
 #ifndef FIRMWARE_INCLUDE_ALERT_MODEL_H
 #define FIRMWARE_INCLUDE_ALERT_MODEL_H
 

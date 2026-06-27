@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 a RF-PLUG-014 Linha de dispositivo com ícone, nome, estado, corrente
 #include "ui_device_row.h"
 #include "../ui_theme.h"
 #include <stdio.h>

@@ -52,6 +52,23 @@
 #include "fsm/restart_fsm.h"
 #include "services/feed_snapshot.h"
 #include "services/reset_handler.h"
+#include "event_bus.h"
+#include "health_matrix.h"
+#include "wifi_ctl.h"
+#include "sensor_ctl.h"
+#include "disp_ctl.h"
+#include "log_ctl.h"
+#include "conf_ctl.h"
+#include "web_ctl.h"
+#include "alm_ctl.h"
+#include "bom_ctl.h"
+#include "data_ctl.h"
+#include "thermal_service.h"
+#include "ato_service.h"
+#include "electric_service.h"
+#include "time_manager.h"
+#include "pending_actions.h"
+#include "sec_policy.h"
 
 static const char *TAG = "app_main";
 
@@ -343,6 +360,26 @@ void app_main(void)
         ESP_LOGW(TAG, "API web nao iniciou (sistema continua sem API)");
     }
 
+    event_bus_init();
+    health_matrix_init();
+
+    conf_ctl_init();
+    log_ctl_init();
+    disp_ctl_init();
+    sensor_ctl_init();
+    wifi_ctl_init();
+    web_ctl_init();
+    alm_ctl_init();
+    bom_ctl_init();
+    data_ctl_init();
+
+    thermal_service_init();
+    ato_service_init();
+    electric_service_init();
+    time_manager_init();
+    pending_actions_init();
+    sec_policy_init();
+
     ESP_LOGI(TAG, "FASE 6 - API web /api/v1 + UI LVGL ativos");
 
     wdt_advanced_init();
@@ -381,6 +418,8 @@ void app_main(void)
 
     while (1) {
         circuit_breaker_update();
+        event_bus_process_pending();
+        health_matrix_update();
         wdt_advanced_reset(WDT_TASK_MAIN_LOOP);
         const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
         const uint64_t now_s = now_ms / 1000ULL;

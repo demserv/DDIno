@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Topbar com informações de sistema
 #pragma once
 
 #include "lvgl.h"

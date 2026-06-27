@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Footer persistente
 #pragma once
 
 #include "lvgl.h"

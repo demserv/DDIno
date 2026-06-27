@@ -1,3 +1,6 @@
+// @requirement RF-UI-CAROUSEL-001 Dashboard como tela principal do carrossel
+// @requirement RF-THERMAL-001 Exibição de temperatura na UI
+// @requirement RF-ENERGY-001 Exibição de energia na UI
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "plug_model.h"

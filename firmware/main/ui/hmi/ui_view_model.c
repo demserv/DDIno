@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-005 ViewModel com dados mock centralizados (sem hardcode nas telas)
 #include "ui_view_model.h"
 #include <string.h>
 #include <stdio.h>

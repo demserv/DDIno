@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Indicador de página (pontos)
 #pragma once
 
 #include "lvgl.h"

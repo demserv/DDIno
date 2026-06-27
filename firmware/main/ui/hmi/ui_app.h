@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Ponto de entrada da HMI
 #pragma once
 
 void ui_app_init(void);

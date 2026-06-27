@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Indicador de página para navegação entre telas
 #include "ui_page_indicator.h"
 #include "../ui_theme.h"
 

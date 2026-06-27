@@ -1,3 +1,5 @@
+// @requirement RF-THERMAL-001 a RF-THERMAL-009 Dashboard com temperatura, setpoint, estado térmico
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Indicadores de energia no dashboard
 #include "ui_screen_dashboard.h"
 #include "../ui_theme.h"
 #include <stdio.h>

@@ -1,3 +1,6 @@
+// @requirement RF-GLOBAL-001 a RF-GLOBAL-004 Estados globais e transições
+// @requirement RF-GLOBAL-SAFEOFF-EXIT-001 Saída segura de SAFE_OFF
+// @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
 #ifndef FIRMWARE_CORE_SAFETY_CONTROLLER_H
 #define FIRMWARE_CORE_SAFETY_CONTROLLER_H
 

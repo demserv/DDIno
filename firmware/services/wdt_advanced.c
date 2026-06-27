@@ -1,3 +1,5 @@
+// @requirement RF-WDT-001 Watchdog configurável por task
+// @requirement RF-WDT-004 Timeout recovery com reset controlado
 #include "wdt_advanced.h"
 #include "esp_task_wdt.h"
 #include "esp_log.h"

@@ -1,3 +1,4 @@
+// @requirement RF-ALERT-001 a RF-ALERT-006 Tela de alertas com ativos, histórico, ACK
 #include "ui_screen_alerts.h"
 #include "../ui_theme.h"
 #include "../ui_events.h"

@@ -1,3 +1,5 @@
+// @requirement RF-WEB-003 Operações de escrita validadas via command model
+// @requirement RNF-SECURITY-001 Validação de comandos com dupla confirmação
 #ifndef FIRMWARE_INCLUDE_COMMAND_MODEL_H
 #define FIRMWARE_INCLUDE_COMMAND_MODEL_H
 

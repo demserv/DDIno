@@ -1,3 +1,7 @@
+// @requirement RF-WEB-004 Autenticação via token SHA-256, sessão RAM 1h
+// @requirement RNF-SECURITY-001 Rate limit e bloqueio por IP
+// @requirement RNF-SECURITY-002 Expiração e renovação de sessão
+// @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "api_auth.h"
 #include "api_rate_limit.h"
 #include "esp_log.h"

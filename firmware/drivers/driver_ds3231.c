@@ -1,3 +1,5 @@
+// @requirement RF-TIME-001 DS3231 RTC como fonte de tempo principal
+// @requirement RNF-HARDWARE-001 I2C RTC com bateria CR2032
 #include "driver_ds3231.h"
 #include "driver/i2c.h"
 #include "esp_log.h"

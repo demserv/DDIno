@@ -1,3 +1,4 @@
+// @requirement RF-LED-001 a RF-LED-003 Sinalização LED RGB + buzzer
 #ifndef FIRMWARE_DRIVERS_BUZZER_LED_H
 #define FIRMWARE_DRIVERS_BUZZER_LED_H
 

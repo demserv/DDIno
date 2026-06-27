@@ -1,3 +1,5 @@
+// @requirement RNF-ELECTRICAL-001 Circuit breaker por barramento com fail count
+// @requirement RF-ENERGY-008 Proteção de sobrecorrente total via circuit breaker
 #include "circuit_breaker.h"
 #include "esp_timer.h"
 #include <string.h>

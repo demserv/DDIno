@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 Tela dispositivos página 2
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,5 @@
+// @requirement RF-UI-WIZARD-001..005 Wizard com 6 steps (welcome, password, thermal, ato, electric, review)
+// @requirement RF-GLOBAL-006 Bloqueio de operação sem wizard concluído
 #include "ui_screen_wizard.h"
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"

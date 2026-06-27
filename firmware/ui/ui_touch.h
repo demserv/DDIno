@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Touch XPT2046 SPI
 #ifndef FIRMWARE_UI_TOUCH_H
 #define FIRMWARE_UI_TOUCH_H
 

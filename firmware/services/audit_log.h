@@ -1,3 +1,4 @@
+// @requirement RNF-SECURITY-003 Log de auditoria com timestamp, evento, resultado
 #ifndef FIRMWARE_SERVICES_AUDIT_LOG_H
 #define FIRMWARE_SERVICES_AUDIT_LOG_H
 

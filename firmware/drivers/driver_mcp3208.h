@@ -1,3 +1,5 @@
+// @requirement RF-ATO-001 Leitura ADC via MCP3208
+// @requirement RF-PLUG-003 Leitura corrente ACS712 via MCP3208
 #ifndef DRIVER_MCP3208_H
 #define DRIVER_MCP3208_H
 

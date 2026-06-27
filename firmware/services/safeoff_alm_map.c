@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-004 Mapeamento de causas de SAFE_OFF para ALMs
 #include "safeoff_alm_map.h"
 #include "alm_ids.h"
 

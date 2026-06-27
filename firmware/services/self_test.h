@@ -1,3 +1,4 @@
+// @requirement RF-FLOW-BOOT-003 Self-test de subsistemas no boot
 #ifndef FIRMWARE_SERVICES_SELF_TEST_H
 #define FIRMWARE_SERVICES_SELF_TEST_H
 

@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-001 FSM de estados da UI
 #pragma once
 
 #include "ui_types.h"

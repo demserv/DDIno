@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-001 Card de métrica com valor, unidade, ícone
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,4 @@
+// @requirement RF-UI-DIAG-001 Tela de diagnóstico
 #pragma once
 
 #include "lvgl.h"

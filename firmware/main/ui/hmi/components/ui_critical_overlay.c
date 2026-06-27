@@ -1,3 +1,5 @@
+// @requirement RF-UI-OVERLAY-001 Overlay crítico SAFE_OFF e EMERGENCY em lv_layer_top()
+// @requirement RF-GLOBAL-004.1 Matriz de prioridade visual de overlays
 #include "ui_critical_overlay.h"
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"

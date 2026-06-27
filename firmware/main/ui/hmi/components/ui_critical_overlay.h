@@ -1,3 +1,4 @@
+// @requirement RF-UI-OVERLAY-001 Overlay crítico SAFE_OFF/EMERGENCY
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-004 Componente de gráfico de barras
 #pragma once
 
 #include "lvgl.h"

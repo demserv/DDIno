@@ -1,3 +1,4 @@
+// @requirement RF-UI-CAROUSEL-001 Menu principal
 #pragma once
 
 #include "lvgl.h"

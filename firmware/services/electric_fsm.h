@@ -1,3 +1,5 @@
+// @requirement RF-FSM-ELECTRIC-001 FSM de proteção elétrica com 8 estados
+// @requirement RF-ENERGY-007 a RF-ENERGY-009 Proteções elétricas via FSM
 #ifndef FIRMWARE_SERVICES_ELECTRIC_FSM_H
 #define FIRMWARE_SERVICES_ELECTRIC_FSM_H
 

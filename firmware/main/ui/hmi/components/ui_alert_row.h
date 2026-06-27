@@ -1,3 +1,4 @@
+// @requirement RF-ALERT-001 Linha de alerta com ícone, texto, severidade
 #pragma once
 
 #include "lvgl.h"

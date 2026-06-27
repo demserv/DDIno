@@ -1,3 +1,4 @@
+// @requirement RF-UI-STATUS-001 Topbar com WiFi, datetime, botão FEED
 #include "ui_topbar.h"
 #include "../ui_theme.h"
 #include "../ui_events.h"

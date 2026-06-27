@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-001 Leitura DS18B20 com CRC e rejeição 85°C
 #ifndef FIRMWARE_DRIVERS_DS18B20_H
 #define FIRMWARE_DRIVERS_DS18B20_H
 

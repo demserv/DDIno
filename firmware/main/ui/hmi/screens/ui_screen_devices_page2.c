@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P06-P10
 #include "ui_screen_devices_page2.h"
 #include "../ui_theme.h"
 #include "../components/ui_device_row.h"

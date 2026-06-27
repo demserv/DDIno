@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 a RF-PLUG-014 Modelo de plugue com modos, estados, proteções
 #ifndef FIRMWARE_INCLUDE_PLUG_MODEL_H
 #define FIRMWARE_INCLUDE_PLUG_MODEL_H
 

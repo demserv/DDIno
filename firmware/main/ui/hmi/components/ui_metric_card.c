@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Card de métrica para valores de energia
 #include "ui_metric_card.h"
 #include "../ui_theme.h"
 #include <stdio.h>

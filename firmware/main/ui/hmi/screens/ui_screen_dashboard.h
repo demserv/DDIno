@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-001 Tela de dashboard
 #pragma once
 
 #include "lvgl.h"

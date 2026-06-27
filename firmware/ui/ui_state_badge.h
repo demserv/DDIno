@@ -1,3 +1,4 @@
+// @requirement RF-GLOBAL-003 Badge de estado global na UI
 #ifndef FIRMWARE_UI_STATE_BADGE_H
 #define FIRMWARE_UI_STATE_BADGE_H
 

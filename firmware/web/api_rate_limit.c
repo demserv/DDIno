@@ -1,3 +1,4 @@
+// @requirement RNF-SECURITY-001 Rate limiting (5 tentativas/min/IP com bloqueio)
 #include "api_rate_limit.h"
 #include <string.h>
 #include "esp_timer.h"

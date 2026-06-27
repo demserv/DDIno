@@ -1,3 +1,5 @@
+// @requirement RF-FEED-002 Interface obrigatória do Feed Mode com timer e bombas
+// @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
 #include "ui_screen_feed_active.h"
 #include "../ui_theme.h"
 #include "../ui_events.h"

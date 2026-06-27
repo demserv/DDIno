@@ -1,3 +1,4 @@
+// @requirement RF-ALERT-003 Tabela canônica ALM-001 a ALM-065
 #ifndef FIRMWARE_INCLUDE_ALM_IDS_H
 #define FIRMWARE_INCLUDE_ALM_IDS_H
 

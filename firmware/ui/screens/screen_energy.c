@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Tela de energia com V, A, W, PF, Hz
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "driver_acs712.h"

@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Eventos de HMI desacoplados
 #pragma once
 
 #include <stdint.h>

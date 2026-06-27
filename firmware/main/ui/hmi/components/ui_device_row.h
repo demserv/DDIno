@@ -1,3 +1,4 @@
+// @requirement RF-PLUG-001 Linha de dispositivo com dados de plugue
 #pragma once
 
 #include "lvgl.h"

@@ -1,3 +1,4 @@
+// @requirement RF-ALERT-001 a RF-ALERT-006 Componente de linha de alerta na UI
 #include "ui_alert_row.h"
 #include "../ui_theme.h"
 #include <string.h>

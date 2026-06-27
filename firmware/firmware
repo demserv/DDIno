@@ -1,0 +1,427 @@
+param(
+    [string]$RootPath = (Get-Location).Path,
+
+    [string]$OutputFile = $null,
+
+    # Limite estimado de tokens por parte gerada.
+    # Ajuste conforme a IA que você pretende usar.
+    [int]$MaxTokensPerPart = 20000,
+
+    # Estimativa média de caracteres por token.
+    # 4 é uma aproximação comum para textos/códigos.
+    [int]$CharsPerToken = 4
+)
+
+if ([string]::IsNullOrWhiteSpace($OutputFile)) {
+    $OutputFile = Join-Path $RootPath "projeto_concatenado.txt"
+}
+
+$RootPath   = [System.IO.Path]::GetFullPath($RootPath)
+$OutputFile = [System.IO.Path]::GetFullPath($OutputFile)
+
+Write-Host "Diretorio raiz: $RootPath"
+Write-Host "Arquivo base de saida: $OutputFile"
+Write-Host "Limite estimado por parte: $MaxTokensPerPart tokens"
+Write-Host "Estimativa: 1 token ~= $CharsPerToken caracteres"
+Write-Host "Iniciando varredura..."
+Write-Host ""
+
+$totalFiles = 0
+$includedFiles = 0
+$skippedBinaryFiles = 0
+$skippedErrors = 0
+$generatedParts = 0
+
+# Garante que a pasta de saída exista
+$outputDir = Split-Path -Parent $OutputFile
+if (-not [string]::IsNullOrWhiteSpace($outputDir) -and -not (Test-Path $outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+}
+
+$outputBaseName = [System.IO.Path]::GetFileNameWithoutExtension($OutputFile)
+$outputExt      = [System.IO.Path]::GetExtension($OutputFile)
+
+if ([string]::IsNullOrWhiteSpace($outputExt)) {
+    $outputExt = ".txt"
+}
+
+# Remove arquivos anteriores gerados pelo script
+Get-ChildItem -Path $outputDir -File -Force -ErrorAction SilentlyContinue |
+Where-Object {
+    $_.Name -like "$outputBaseName`_part*$outputExt" -or
+    $_.FullName -ieq $OutputFile
+} |
+ForEach-Object {
+    Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+}
+
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+function Get-EstimatedTokens {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [int]$CharsPerToken
+    )
+
+    if ([string]::IsNullOrEmpty($Text)) {
+        return 0
+    }
+
+    return [math]::Ceiling($Text.Length / $CharsPerToken)
+}
+
+function Get-RelativePathSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPath
+    )
+
+    $baseFull = [System.IO.Path]::GetFullPath($BasePath)
+    $targetFull = [System.IO.Path]::GetFullPath($TargetPath)
+
+    if (-not $baseFull.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+        $baseFull += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    try {
+        $baseUri = New-Object System.Uri($baseFull)
+        $targetUri = New-Object System.Uri($targetFull)
+        $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+
+        return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+    }
+    catch {
+        return $targetFull
+    }
+}
+
+function Test-IsBinaryFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    # Extensões normalmente binárias ou não úteis para concatenação textual
+    $binaryExtensions = @(
+        ".exe", ".dll", ".pdb", ".obj", ".o", ".a", ".lib",
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".mp3", ".mp4", ".avi", ".mov", ".mkv", ".wav",
+        ".bin", ".dat", ".db", ".sqlite", ".class", ".jar",
+        ".so", ".dylib", ".apk", ".ipa"
+    )
+
+    $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+
+    if ($binaryExtensions -contains $extension) {
+        return $true
+    }
+
+    try {
+        $fileInfo = Get-Item -LiteralPath $Path -ErrorAction Stop
+
+        if ($fileInfo.Length -eq 0) {
+            return $false
+        }
+
+        $bytesToRead = [Math]::Min(8192, $fileInfo.Length)
+        $buffer = New-Object byte[] $bytesToRead
+
+        $stream = [System.IO.File]::OpenRead($Path)
+
+        try {
+            [void]$stream.Read($buffer, 0, $bytesToRead)
+        }
+        finally {
+            $stream.Close()
+        }
+
+        # BOM UTF-8
+        if ($bytesToRead -ge 3 -and
+            $buffer[0] -eq 0xEF -and
+            $buffer[1] -eq 0xBB -and
+            $buffer[2] -eq 0xBF) {
+            return $false
+        }
+
+        # BOM UTF-16 LE / BE
+        if ($bytesToRead -ge 2 -and
+            (($buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE) -or
+             ($buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF))) {
+            return $false
+        }
+
+        # Se tiver byte nulo sem BOM conhecido, provavelmente é binário
+        if ($buffer -contains 0) {
+            return $true
+        }
+
+        $controlChars = 0
+
+        foreach ($b in $buffer) {
+            # Permite TAB, LF e CR
+            if (($b -lt 32) -and ($b -ne 9) -and ($b -ne 10) -and ($b -ne 13)) {
+                $controlChars++
+            }
+        }
+
+        $ratio = $controlChars / $bytesToRead
+
+        if ($ratio -gt 0.30) {
+            return $true
+        }
+
+        return $false
+    }
+    catch {
+        # Se não conseguiu avaliar, trata como erro de leitura depois,
+        # não como binário.
+        return $false
+    }
+}
+
+function New-FileBlock {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo]$File,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Content
+    )
+
+    # Mantém o padrão original de início de cada arquivo concatenado
+    # conforme o script anterior:
+    #
+    # ==============================
+    # Arquivo: caminho
+    # ==============================
+    # conteúdo
+    #
+    return @"
+==============================
+Arquivo: $($File.FullName)
+==============================
+$Content
+
+"@
+}
+
+function New-TocText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$PartNumber,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TotalParts,
+
+        [Parameter(Mandatory = $true)]
+        [object[]]$Files,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RootPath,
+
+        [Parameter(Mandatory = $true)]
+        [int]$MaxTokensPerPart
+    )
+
+    $toc = New-Object System.Text.StringBuilder
+
+    [void]$toc.AppendLine("============================================================")
+    [void]$toc.AppendLine("INDICE / TOC")
+    [void]$toc.AppendLine("============================================================")
+    [void]$toc.AppendLine("Parte: $PartNumber de $TotalParts")
+    [void]$toc.AppendLine("Limite estimado por parte: $MaxTokensPerPart tokens")
+    [void]$toc.AppendLine("Observacao: a contagem de tokens e aproximada.")
+    [void]$toc.AppendLine("Diretorio raiz: $RootPath")
+    [void]$toc.AppendLine("Arquivos nesta parte: $($Files.Count)")
+    [void]$toc.AppendLine("============================================================")
+    [void]$toc.AppendLine("")
+
+    $index = 1
+
+    foreach ($item in $Files) {
+        $line = ("{0:D5}. {1} | tokens_estimados={2} | bytes={3}" -f `
+            $index,
+            $item.RelativePath,
+            $item.EstimatedTokens,
+            $item.Bytes)
+
+        [void]$toc.AppendLine($line)
+        $index++
+    }
+
+    [void]$toc.AppendLine("")
+    [void]$toc.AppendLine("============================================================")
+    [void]$toc.AppendLine("FIM DO INDICE / INICIO DO CONTEUDO CONCATENADO")
+    [void]$toc.AppendLine("============================================================")
+    [void]$toc.AppendLine("")
+
+    return $toc.ToString()
+}
+
+# ---------------------------------------------------------------------
+# 1) Varredura inicial: identifica arquivos texto, ignora binários
+# ---------------------------------------------------------------------
+
+$eligibleFiles = New-Object System.Collections.Generic.List[object]
+
+$allFiles = Get-ChildItem -Path $RootPath -File -Recurse -Force -ErrorAction SilentlyContinue |
+            Sort-Object FullName
+
+foreach ($file in $allFiles) {
+    $totalFiles++
+
+    # Evita incluir os próprios arquivos TXT gerados pelo script
+    $isGeneratedOutput =
+        ($file.DirectoryName -ieq $outputDir) -and
+        (
+            ($file.Name -like "$outputBaseName`_part*$outputExt") -or
+            ($file.FullName -ieq $OutputFile)
+        )
+
+    if ($isGeneratedOutput) {
+        continue
+    }
+
+    if (Test-IsBinaryFile -Path $file.FullName) {
+        $skippedBinaryFiles++
+        continue
+    }
+
+    try {
+        $content = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop
+
+        if ($null -eq $content) {
+            $content = ""
+        }
+
+        $fileBlock = New-FileBlock -File $file -Content $content
+        $estimatedTokens = Get-EstimatedTokens -Text $fileBlock -CharsPerToken $CharsPerToken
+
+        $relativePath = Get-RelativePathSafe -BasePath $RootPath -TargetPath $file.FullName
+
+        $tocLineApprox = "$relativePath | tokens_estimados=$estimatedTokens | bytes=$($file.Length)"
+        $tocTokens = Get-EstimatedTokens -Text $tocLineApprox -CharsPerToken $CharsPerToken
+
+        $eligibleFiles.Add([PSCustomObject]@{
+            FullName         = $file.FullName
+            RelativePath    = $relativePath
+            Bytes           = $file.Length
+            EstimatedTokens = $estimatedTokens
+            TocTokens       = $tocTokens
+        }) | Out-Null
+    }
+    catch {
+        $skippedErrors++
+    }
+}
+
+if ($eligibleFiles.Count -eq 0) {
+    Write-Host "Nenhum arquivo texto elegivel encontrado."
+    Write-Host ""
+    Write-Host "Concluido."
+    Write-Host "Total de arquivos encontrados: $totalFiles"
+    Write-Host "Arquivos binarios ignorados: $skippedBinaryFiles"
+    Write-Host "Arquivos ignorados por erro: $skippedErrors"
+    exit
+}
+
+# ---------------------------------------------------------------------
+# 2) Planejamento das partes por limite estimado de tokens
+# ---------------------------------------------------------------------
+
+$parts = New-Object System.Collections.Generic.List[object]
+$currentPart = New-Object System.Collections.Generic.List[object]
+$currentTokens = 0
+
+# Reserva aproximada para cabeçalho/eadTokens = 300
+
+foreach ($item in $eligibleFiles) {
+    $itemTotalTokens = $item.EstimatedTokens + $item.TocTokens
+
+    if ($currentPart.Count -gt 0 -and (($currentTokens + $itemTotalTokens + $partFixedOverheadTokens) -gt $MaxTokensPerPart)) {
+        $parts.Add(@($currentPart)) | Out-Null
+
+        $currentPart = New-Object System.Collections.Generic.List[object]
+        $currentTokens = 0
+    }
+
+    $currentPart.Add($item) | Out-Null
+    $currentTokens += $itemTotalTokens
+
+    # Se um único arquivo for maior que o limite, ele ficará sozinho na parte.
+    # O script nunca quebra um arquivo no meio.
+}
+
+if ($currentPart.Count -gt 0) {
+    $parts.Add(@($currentPart)) | Out-Null
+}
+
+# ---------------------------------------------------------------------
+# 3) Escrita dos arquivos finais com TOC no início de cada parte
+# ---------------------------------------------------------------------
+
+$totalParts = $parts.Count
+$partNumber = 1
+
+foreach ($part in $parts) {
+    $partFileName = "{0}_part{1:D3}{2}" -f $outputBaseName, $partNumber, $outputExt
+    $partOutputPath = Join-Path $outputDir $partFileName
+
+    $writer = New-Object System.IO.StreamWriter($partOutputPath, $false, $utf8NoBom)
+
+    try {
+        $tocText = New-TocText `
+            -PartNumber $partNumber `
+            -TotalParts $totalParts `
+            -Files $part `
+            -RootPath $RootPath `
+            -MaxTokensPerPart $MaxTokensPerPart
+
+        $writer.Write($tocText)
+
+        foreach ($item in $part) {
+            try {
+                $file = Get-Item -LiteralPath $item.FullName -ErrorAction Stop
+                $content = Get-Content -LiteralPath $item.FullName -Raw -ErrorAction Stop
+
+                if ($null -eq $content) {
+                    $content = ""
+                }
+
+                $fileBlock = New-FileBlock -File $file -Content $content
+                $writer.Write($fileBlock)
+
+                $includedFiles++
+            }
+            catch {
+                $skippedErrors++
+            }
+        }
+    }
+    finally {
+        $writer.Close()
+    }
+
+    $generatedParts++
+    Write-Host ("Gerado: {0}" -f $partOutputPath)
+
+    $partNumber++
+}
+
+Write-Host ""
+Write-Host "Concluido."
+Write-Host "Total de arquivos encontrados: $totalFiles"
+Write-Host "Arquivos texto elegiveis: $($eligibleFiles.Count)"
+Write-Host "Arquivos concatenados: $includedFiles"
+Write-Host "Arquivos binarios ignorados: $skippedBinaryFiles"
+Write-Host "Arquivos ignorados por erro: $skippedErrors"
+Write-Host "Partes TXT geradas: $generatedParts"
+Write-Host "Diretorio de saida: $outputDir"

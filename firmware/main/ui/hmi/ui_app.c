@@ -1,3 +1,6 @@
+// @requirement RF-UI-CAROUSEL-001 Gerenciamento de telas e overlays
+// @requirement RF-UI-OVERLAY-001 Overlays críticos SAFE_OFF/EMERGENCY
+// @requirement RF-UI-WIZARD-001..005 Integração com wizard
 #include "ui_app.h"
 #include "ui_theme.h"
 #include "ui_view_model.h"

@@ -1,3 +1,4 @@
+// @requirement RF-UI-INPUT-001 Touch XPT2046 SPI como entrada primária
 #include "ui_touch.h"
 #include "pin_map.h"
 

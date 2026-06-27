@@ -1,3 +1,5 @@
+// @requirement RF-PLUG-006 Snapshot Feed Mode com checksum e TTL 30min
+// @requirement RF-PLUG-006.1 Restauração pós-queda de energia
 #ifndef FIRMWARE_SERVICES_FEED_SNAPSHOT_H
 #define FIRMWARE_SERVICES_FEED_SNAPSHOT_H
 

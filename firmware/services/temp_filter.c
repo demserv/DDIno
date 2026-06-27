@@ -1,3 +1,4 @@
+// @requirement RF-THERMAL-002 Filtro de média móvel circular para temperatura
 #include "services/temp_filter.h"
 
 static float s_buffer[TEMP_FILTER_MAX_WINDOW];

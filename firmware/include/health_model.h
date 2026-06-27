@@ -1,3 +1,4 @@
+// @requirement RF-WEB-005 Modelo de health consolidado (heap, SD, WiFi, uptime)
 #ifndef FIRMWARE_INCLUDE_HEALTH_MODEL_H
 #define FIRMWARE_INCLUDE_HEALTH_MODEL_H
 

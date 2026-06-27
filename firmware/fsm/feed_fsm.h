@@ -1,3 +1,5 @@
+// @requirement RF-FEED-001 a RF-FEED-003 Feed Mode FSM
+// @requirement RF-FSM-FEED-001 Feed como camada ortogonal ao estado global
 #ifndef FIRMWARE_FSM_FEED_FSM_H
 #define FIRMWARE_FSM_FEED_FSM_H
 

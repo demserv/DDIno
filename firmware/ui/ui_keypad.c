@@ -1,3 +1,5 @@
+// @requirement RF-UI-INPUT-001 Entrada por keypad AD 5 botões
+// @requirement RNF-HARDWARE-001 Keypad via MCP3208 CH3
 #include "ui_keypad.h"
 #include "pin_map.h"
 #include "driver_mcp3208.h"

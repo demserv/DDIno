@@ -1,3 +1,4 @@
+// @requirement RF-ENERGY-004 Gráfico de barras para projeção mensal de energia
 #include "ui_bar_chart.h"
 #include "../ui_theme.h"
 #include <stdio.h>

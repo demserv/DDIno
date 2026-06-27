@@ -1,3 +1,5 @@
+// @requirement RF-THERMAL-003 a RF-THERMAL-007 Tela de configuração de parâmetros térmicos
+// @requirement RF-THERMAL-006 Parâmetros térmicos obrigatórios definidos pelo usuário
 #include "ui_screen_config_temperature.h"
 #include "../ui_theme.h"
 #include "../ui_events.h"

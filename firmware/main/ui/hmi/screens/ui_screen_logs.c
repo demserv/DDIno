@@ -1,3 +1,4 @@
+// @requirement RF-LOG-001 a RF-LOG-020 Tela de logs do sistema
 #include "ui_screen_logs.h"
 #include "../ui_theme.h"
 
