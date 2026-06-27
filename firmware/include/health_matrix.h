@@ -14,6 +14,9 @@ typedef enum {
     HEALTH_OK = 0,
     HEALTH_DEGRADED,
     HEALTH_FAILED,
+    HEALTH_OPEN,
+    HEALTH_HALF_OPEN,
+    HEALTH_CLOSED,
     HEALTH_UNKNOWN
 } health_status_t;
 

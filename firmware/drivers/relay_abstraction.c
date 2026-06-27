@@ -26,6 +26,19 @@ esp_err_t relay_abstraction_set(relay_id_t id, bool on)
 {
     if (id >= RELAY_COUNT) return ESP_ERR_INVALID_ARG;
     if (s_states[id] == RELAY_STATE_BLOCKED) return ESP_ERR_INVALID_STATE;
+
+    // @requirement RF-PLUG-010 Exclusao mutua P01 (Aquecedor) e P02 (Cooler)
+    if (on) {
+        if (id == RELAY_ID_P01 && s_states[RELAY_ID_P02] == RELAY_STATE_ON) {
+            ESP_LOGW(TAG, "P01 negado: P02 (Cooler) esta ON");
+            return ESP_ERR_INVALID_STATE;
+        }
+        if (id == RELAY_ID_P02 && s_states[RELAY_ID_P01] == RELAY_STATE_ON) {
+            ESP_LOGW(TAG, "P02 negado: P01 (Aquecedor) esta ON");
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+
     esp_err_t err = relay_set(id, on);
     if (err == ESP_OK) {
         s_states[id] = on ? RELAY_STATE_ON : RELAY_STATE_OFF;

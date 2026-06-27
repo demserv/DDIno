@@ -4,7 +4,7 @@
 static float s_buffer[TEMP_FILTER_MAX_WINDOW];
 static uint8_t s_head = 0;
 static uint8_t s_count = 0;
-static uint8_t s_window = 5;
+static uint8_t s_window = 3;
 static bool s_valid = false;
 
 void temp_filter_init(uint8_t window_size)

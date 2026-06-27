@@ -1,4 +1,5 @@
 // @requirement RF-THERMAL-001 Leitura contínua com validação robusta
+// @requirement RF-THERMAL-009 CRC obrigatório, rejeição 85°C, timeout ALM-013, moving average 3
 #include "driver_ds18b20.h"
 #include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
@@ -7,6 +8,8 @@
 #include "sdkconfig.h"
 #include "pin_map.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "alert_manager.h"
 
 static const char *TAG = "ds18b20";
 
@@ -25,7 +28,8 @@ static uint8_t crc8_dallas(const uint8_t *data, size_t len)
     return crc;
 }
 
-#define DS18B20_GPIO PIN_DS18B20_DQ_GPIO
+#define DS18B20_GPIO           PIN_DS18B20_DQ_GPIO
+#define DS18B20_TIMEOUT_MS     1000
 
 static portMUX_TYPE s_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -108,14 +112,24 @@ esp_err_t ds18b20_init(void)
 bool ds18b20_read(float *temp_c)
 {
     uint8_t scratchpad[9];
+    uint64_t start = esp_timer_get_time() / 1000ULL;
 
     if (!ow_reset()) {
+        ESP_LOGW(TAG, "DS18B20 sem resposta (ow_reset falhou)");
+        alert_manager_raise(ALM_013, true, start / 1000ULL);
         return false;
     }
     ow_write_byte(0xCC);
     ow_write_byte(0x44);
     vTaskDelay(pdMS_TO_TICKS(750));
+    if ((esp_timer_get_time() / 1000ULL - start) > DS18B20_TIMEOUT_MS) {
+        ESP_LOGW(TAG, "DS18B20 timeout na conversao");
+        alert_manager_raise(ALM_013, true, esp_timer_get_time() / 1000000ULL);
+        return false;
+    }
     if (!ow_reset()) {
+        ESP_LOGW(TAG, "DS18B20 sem resposta apos conversao");
+        alert_manager_raise(ALM_013, true, esp_timer_get_time() / 1000000ULL);
         return false;
     }
     ow_write_byte(0xCC);
@@ -125,12 +139,14 @@ bool ds18b20_read(float *temp_c)
     }
     if (crc8_dallas(scratchpad, 8) != scratchpad[8]) {
         ESP_LOGW(TAG, "CRC mismatch on scratchpad");
+        alert_manager_raise(ALM_013, true, esp_timer_get_time() / 1000000ULL);
         return false;
     }
     int16_t raw = (int16_t)((scratchpad[1] << 8) | scratchpad[0]);
     *temp_c = raw * 0.0625f;
     if (*temp_c > 84.9f && *temp_c < 85.1f) {
         ESP_LOGW(TAG, "Rejeitando leitura 85C (power-on reset)");
+        alert_manager_raise(ALM_013, true, esp_timer_get_time() / 1000000ULL);
         return false;
     }
     return true;

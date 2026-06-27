@@ -792,7 +792,7 @@ void app_main(void)
     thermal_fsm_init(&s_thermal_fsm, &s_tcfg);
     ato_fsm_init(&s_ato_fsm, &s_acfg);
     electric_fsm_init(&s_electric_fsm, &s_ecfg);
-    temp_filter_init(5);
+    temp_filter_init(3);
     plug_manager_init();
     const feed_params_storage_t *fp = config_get_feed();
     feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
@@ -855,18 +855,29 @@ void app_main(void)
     }
 
     if (!g_gs.selftest_passed || !g_gs.hw_ok) {
-        ESP_LOGE(TAG, "SELF-TEST FALHOU! Hardware com problemas -> DEGRADED + alerta");
         uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
-        global_state_enter_degraded(&g_gs, "selftest_fail");
-        g_gs.hw_alert_pending = true;
-        g_gs.hw_alert_alm_id = ALM_063;
-        snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
-                 "Falha de hardware na inicializacao. Toque para continuar em modo degradado.");
-        alert_manager_raise_full(ALM_063, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
-                                 g_gs.hw_alert_msg, 0.0f,
-                                 "Hardware nao detectado. Sistema operara sem protecoes.",
-                                 0, true, false, now_s);
-        audit_log_event(AUDIT_SELF_TEST, "Self-test falhou -> DEGRADED (hw alert)");
+        if (!g_gs.hw_ok) {
+            ESP_LOGE(TAG, "CRITICAL SELF-TEST FALHOU! Hardware critico com problemas -> SAFE_OFF + ALM-063");
+            global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_SELFTEST_FAIL, "ALM-063",
+                                       "self-test critical fail", now_s);
+            alert_manager_raise_full(ALM_063, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                                     "Falha CRITICA de hardware na inicializacao", 0.0f,
+                                     "Hardware critico nao detectado. Sistema em SAFE_OFF.",
+                                     0, true, false, now_s);
+            audit_log_event(AUDIT_SELF_TEST, "Self-test CRITICAL falhou -> SAFE_OFF (ALM-063)");
+        } else {
+            ESP_LOGE(TAG, "SELF-TEST FALHOU (nao critico)! Hardware com problemas -> DEGRADED + alerta");
+            global_state_enter_degraded(&g_gs, "selftest_fail");
+            g_gs.hw_alert_pending = true;
+            g_gs.hw_alert_alm_id = ALM_063;
+            snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
+                     "Falha de hardware na inicializacao. Toque para continuar em modo degradado.");
+            alert_manager_raise_full(ALM_063, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_SYSTEM,
+                                     g_gs.hw_alert_msg, 0.0f,
+                                     "Hardware nao detectado. Sistema operara sem protecoes.",
+                                     0, true, false, now_s);
+            audit_log_event(AUDIT_SELF_TEST, "Self-test nao critico falhou -> DEGRADED (hw alert)");
+        }
     }
 
     reset_handler_init();

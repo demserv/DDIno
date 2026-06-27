@@ -25,6 +25,7 @@ esp_err_t time_get_source(time_source_t *out);
 bool time_is_valid(void);
 esp_err_t time_sync_ntp_async(const char *ntp_server);
 esp_err_t time_set_timezone(const char *tz);
+bool time_is_ntp_synced(void);
 
 #ifdef __cplusplus
 }

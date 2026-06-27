@@ -10,6 +10,7 @@
 
 static const char *TAG = "config_mgr";
 
+#define NVS_NS_SCHEMA    "cfg_schema"
 #define NVS_NS_THERMAL   "cfg_therm"
 #define NVS_NS_ATO       "cfg_ato"
 #define NVS_NS_ELECTRIC  "cfg_elect"
@@ -23,6 +24,9 @@ static const char *TAG = "config_mgr";
 #define NVS_NS_CALIB     "cfg_calib"
 
 #define NVS_KEY_BLOB     "blob"
+#define NVS_KEY_VERSION  "version"
+
+static char s_stored_version[16];
 
 static thermal_params_storage_t  s_thermal;
 static ato_params_storage_t      s_ato;
@@ -122,9 +126,50 @@ static esp_err_t save_nvs_blob(const char *ns, const void *blob, size_t sz)
     return err;
 }
 
+static esp_err_t schema_version_check(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS_SCHEMA, NVS_READONLY, &h);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "No schema version in NVS, storing current v%s", PARAM_CATALOG_VERSION);
+        return ESP_ERR_NVS_NOT_FOUND;
+    }
+    size_t len = sizeof(s_stored_version);
+    err = nvs_get_str(h, NVS_KEY_VERSION, s_stored_version, &len);
+    nvs_close(h);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Schema version missing, will reset to defaults");
+        return ESP_ERR_NVS_NOT_FOUND;
+    }
+    if (s_stored_version[0] != PARAM_CATALOG_VERSION[0]) {
+        ESP_LOGW(TAG, "Schema major mismatch: stored v%s, current v%s — resetting defaults",
+                 s_stored_version, PARAM_CATALOG_VERSION);
+        return ESP_ERR_NVS_NOT_FOUND;
+    }
+    ESP_LOGI(TAG, "Schema version OK: v%s", s_stored_version);
+    return ESP_OK;
+}
+
+static esp_err_t schema_version_store(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS_SCHEMA, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_set_str(h, NVS_KEY_VERSION, PARAM_CATALOG_VERSION);
+    if (err == ESP_OK) nvs_commit(h);
+    nvs_close(h);
+    return err;
+}
+
 esp_err_t config_manager_init(void)
 {
     set_defaults();
+    esp_err_t ver = schema_version_check();
+    if (ver != ESP_OK) {
+        ESP_LOGW(TAG, "Schema version mismatch or missing — resetting all config to defaults");
+        config_reset_to_defaults();
+        schema_version_store();
+    }
     esp_err_t err = config_load_all();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "NVS load failed (%s), using defaults", esp_err_to_name(err));
