@@ -22,6 +22,8 @@ typedef struct {
     uint16_t active_alerts_count;
     uint8_t page_index;
     uint8_t page_count;
+    bool wizard_active;
+    bool time_valid;
 } ui_footer_vm_t;
 
 typedef struct {

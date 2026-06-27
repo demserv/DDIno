@@ -10,6 +10,7 @@
 #include "alert_manager.h"
 #include "audit_log.h"
 #include "config_manager.h"
+#include "safeoff_alm_map.h"
 
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -412,7 +413,12 @@ void ui_screen_update_all(void)
         lv_obj_move_foreground(alert_overlay);
 
         char buf[64];
-        snprintf(buf, sizeof(buf), "ALM-XXX | %d alerta(s) critico(s)", g_gs.critical_alerts_count);
+        if (g_gs.safeoff_reason != SAFEOFF_REASON_NONE) {
+            int16_t alm = safeoff_reason_to_alm_id(g_gs.safeoff_reason);
+            snprintf(buf, sizeof(buf), "ALM-%03d | %d alerta(s) critico(s)", alm, g_gs.critical_alerts_count);
+        } else {
+            snprintf(buf, sizeof(buf), "%d alerta(s) critico(s)", g_gs.critical_alerts_count);
+        }
         lv_label_set_text(alert_alm_label, buf);
 
         const char *action = "Desligar cargas e verificar equipamento";

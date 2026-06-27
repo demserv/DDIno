@@ -16,6 +16,10 @@ cmd_validation_t command_validator_can_toggle_plug(const global_state_t *gs, uin
 
     if (!gs) return denied("INTERNAL_ERROR");
 
+    if (!gs->wizard_completed) {
+        return denied("WIZARD_NOT_COMPLETED");
+    }
+
     if (gs->monitor_only_mode) {
         return denied("MONITOR_ONLY_ACTIVE");
     }
@@ -36,6 +40,7 @@ cmd_validation_t command_validator_can_toggle_plug(const global_state_t *gs, uin
 cmd_validation_t command_validator_can_set_config(const global_state_t *gs, const char *key)
 {
     if (!gs) return denied("INTERNAL_ERROR");
+    if (!gs->wizard_completed) return denied("WIZARD_NOT_COMPLETED");
     if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return denied("SAFE_MODE_ACTIVE");
     (void)key;
     cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = false, .error_code = NULL };
@@ -45,6 +50,7 @@ cmd_validation_t command_validator_can_set_config(const global_state_t *gs, cons
 cmd_validation_t command_validator_can_start_feed(const global_state_t *gs)
 {
     if (!gs) return denied("INTERNAL_ERROR");
+    if (!gs->wizard_completed) return denied("WIZARD_NOT_COMPLETED");
     if (gs->monitor_only_mode) return denied("MONITOR_ONLY_ACTIVE");
     if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return denied("SAFE_MODE_ACTIVE");
     if (gs->feed_active) return denied("FEED_ALREADY_ACTIVE");

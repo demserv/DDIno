@@ -11,6 +11,7 @@ set(MAIN_SRCS
     "../drivers/driver_ds3231.c"
     "../drivers/driver_buzzer_led.c"
     "../core/safety_controller.c"
+    "../core/global_state.c"
     "../services/command_validator.c"
     "../services/safeoff_alm_map.c"
     "../services/alert_manager.c"

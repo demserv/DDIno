@@ -88,7 +88,11 @@ void ui_bar_chart_create(lv_obj_t *parent, int x, int y, int w, int h, const ui_
 
 void ui_bar_chart_update(lv_obj_t *chart_root, const ui_energy_vm_t *energy)
 {
-    (void)chart_root;
-    (void)energy;
-    /* TODO: reconstruir barras quando dados mudarem */
+    if (!chart_root || !energy) return;
+    lv_chart_series_t *ser = lv_chart_get_series_next(chart_root, NULL);
+    if (!ser) return;
+    for (int i = 0; i < 10; i++) {
+        lv_chart_set_next_value(chart_root, ser, (lv_coord_t)i);
+    }
+    lv_chart_refresh(chart_root);
 }

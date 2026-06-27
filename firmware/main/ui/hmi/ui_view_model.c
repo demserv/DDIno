@@ -200,10 +200,38 @@ void ui_view_model_init_defaults(ui_root_vm_t *vm)
     vm->config_temperature.temp_extreme_c = 35.0f;
 }
 
+#include "global_state.h"
+#include "alert_manager.h"
+#include "config_manager.h"
+#include "plug_manager.h"
+#include "fsm/thermal_fsm.h"
+#include "fsm/ato_fsm.h"
+#include "services/electric_fsm.h"
+#include "fsm/feed_fsm.h"
+#include "health_matrix.h"
+
+extern global_state_t g_gs;
+extern thermal_fsm_t g_thermal_fsm;
+extern ato_fsm_t g_ato_fsm;
+extern electric_fsm_t g_electric_fsm;
+extern feed_fsm_t g_feed_fsm;
+
 void ui_view_model_update_from_system(ui_root_vm_t *vm)
 {
-    /* TODO: Integrar com GlobalState, AlertManager, PlugManager, ThermalService,
-       ATOService, ElectricService, FeedModeService, StorageManager, ConfigManager,
-       HealthMatrix quando disponiveis. */
-    (void)vm;
+    if (!vm) return;
+
+    vm->topbar.wifi_ok = g_gs.wifi_ok;
+    vm->topbar.feed_mode_active = g_gs.feed_active;
+    vm->topbar.feed_remaining_s = g_gs.feed_remaining_s;
+
+    vm->footer.system_state = (ui_system_state_t)g_gs.system_state;
+    vm->footer.active_alerts_count = g_gs.active_alerts_count;
+    vm->footer.page_index = 0;
+    vm->footer.page_count = 1;
+
+    vm->dashboard.current_temp_c = g_gs.temp_filtered_c;
+    vm->dashboard.voltage_v = 0;
+    vm->dashboard.current_a = 0;
+    vm->dashboard.power_w = 0;
+    vm->dashboard.power_factor = 0;
 }

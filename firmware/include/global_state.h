@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "esp_err.h"
 #include "system_types.h"
 #include "fsm/feed_fsm.h"
 
@@ -59,5 +60,12 @@ typedef struct {
     char                 hw_alert_msg[128];
     char                 reset_status_msg[64];
 } global_state_t;
+
+void global_state_init(void);
+const global_state_t* global_state_get_snapshot(void);
+esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t reason,
+                                   const char *source_alm, const char *source_module,
+                                   uint64_t now_s);
+global_state_t* global_state_get_write_ptr(void);
 
 #endif

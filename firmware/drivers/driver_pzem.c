@@ -44,7 +44,20 @@ static void append_crc(uint8_t *buf, uint8_t len)
 
 esp_err_t pzem_init(void)
 {
-    ESP_LOGI(TAG, "PZEM init (UART1, 9600 baud)");
+    const uart_config_t uart_cfg = {
+        .baud_rate = PZEM_BAUD,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+    };
+    esp_err_t err = uart_param_config(PZEM_UART, &uart_cfg);
+    if (err != ESP_OK) return err;
+    err = uart_set_pin(PZEM_UART, PIN_PZEM_TX_GPIO, PIN_PZEM_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    if (err != ESP_OK) return err;
+    err = uart_driver_install(PZEM_UART, PZEM_BUF_SIZE, 0, 0, NULL, 0);
+    if (err != ESP_OK) return err;
+    ESP_LOGI(TAG, "PZEM-004T v4.0 init (UART1, 9600 8N1)");
     return ESP_OK;
 }
 

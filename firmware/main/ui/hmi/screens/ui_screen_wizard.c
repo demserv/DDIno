@@ -3,6 +3,9 @@
 #include "ui_screen_wizard.h"
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"
+#include "global_state.h"
+
+extern global_state_t g_gs;
 
 static void wizard_back_cb(lv_event_t *e)
 {
@@ -10,10 +13,14 @@ static void wizard_back_cb(lv_event_t *e)
     ui_screen_manager_show(UI_SCREEN_MAIN_MENU);
 }
 
+#include "config_manager.h"
+
 static void wizard_next_cb(lv_event_t *e)
 {
     (void)e;
-    /* TODO: Avancar wizard via ConfigManager */
+    uint8_t step = config_get_wizard_step();
+    if (step >= WIZARD_STEP_COMPLETE) return;
+    config_set_wizard_step(step + 1);
 }
 
 void ui_screen_wizard_create(lv_obj_t *parent, ui_root_vm_t *vm)
@@ -62,4 +69,6 @@ void ui_screen_wizard_create(lv_obj_t *parent, ui_root_vm_t *vm)
 void ui_screen_wizard_update(ui_root_vm_t *vm)
 {
     (void)vm;
+    uint8_t step = config_get_wizard_step();
+    g_gs.wizard_step = (wizard_step_t)step;
 }

@@ -491,6 +491,9 @@ static void task_safety_core_fn(void *pv)
     static uint32_t s_heartbeat_check_cycle = 0;
 
     while (1) {
+        const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        const uint64_t now_s = now_ms / 1000ULL;
+
         wdt_advanced_reset(TASK_ID_SAFETY_CORE);
         watchdog_guard_heartbeat(TASK_ID_SAFETY_CORE);
 
@@ -524,9 +527,6 @@ static void task_safety_core_fn(void *pv)
                 }
             }
         }
-
-        const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
-        const uint64_t now_s = now_ms / 1000ULL;
 
         reset_handler_tick(now_ms);
         reset_handler_check(now_ms);
@@ -624,9 +624,20 @@ static void task_sensors_fn(void *pv)
     (void)pv;
     ESP_LOGI(TAG, "sensors task iniciada");
 
+    float temp_c = 25.0f;
+    int32_t ato_level = 0;
+    float plug_currents[10] = {0};
+
     while (1) {
         wdt_advanced_reset(TASK_ID_SENSORS);
         watchdog_guard_heartbeat(TASK_ID_SENSORS);
+
+        read_sensors(&temp_c, &ato_level);
+        update_plug_currents(plug_currents);
+        read_pzem();
+
+        g_gs.temp_filtered_c = temp_c;
+
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SENSORS));
     }
 }
@@ -639,6 +650,9 @@ static void task_plug_control_fn(void *pv)
     while (1) {
         wdt_advanced_reset(TASK_ID_PLUG_CONTROL);
         watchdog_guard_heartbeat(TASK_ID_PLUG_CONTROL);
+
+        plug_manager_tick(g_gs.uptime_s, g_gs.system_state, g_gs.feed_active);
+
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_PLUG_CONTROL));
     }
 }
@@ -651,6 +665,10 @@ static void task_storage_fn(void *pv)
     while (1) {
         wdt_advanced_reset(TASK_ID_STORAGE);
         watchdog_guard_heartbeat(TASK_ID_STORAGE);
+
+        cdn_energy_log_to_sd();
+        storage_sd_backup_config();
+
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_STORAGE));
     }
 }
@@ -678,6 +696,9 @@ static void task_web_fn(void *pv)
     while (1) {
         wdt_advanced_reset(TASK_ID_WEB);
         watchdog_guard_heartbeat(TASK_ID_WEB);
+
+        lv_timer_handler();
+
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_WEB));
     }
 }
@@ -687,9 +708,20 @@ static void task_diag_fn(void *pv)
     (void)pv;
     ESP_LOGI(TAG, "diag task iniciada");
 
+    uint64_t last_health_s = 0;
+
     while (1) {
         wdt_advanced_reset(TASK_ID_DIAG);
         watchdog_guard_heartbeat(TASK_ID_DIAG);
+
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        if (now_s - last_health_s >= g_gs.health_check_interval_s) {
+            health_matrix_update();
+            g_gs.last_health_check_timestamp = now_s;
+            g_gs.sd_ok = storage_sd_is_mounted();
+            last_health_s = now_s;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_DIAG));
     }
 }

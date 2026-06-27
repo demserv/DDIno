@@ -17,13 +17,13 @@ static void sys_tile_cb(lv_event_t *e)
             ui_screen_manager_show(UI_SCREEN_DIAGNOSTICS);
             break;
         case 1:
-            /* TODO: Abrir tela de manutencao */
+            ui_screen_manager_show(UI_SCREEN_WIZARD);
             break;
         case 2:
             ui_events_emit(UI_EVENT_REQUEST_SAFE_REBOOT);
             break;
         case 3:
-            /* TODO: Mostrar versoes */
+            ui_screen_manager_show(UI_SCREEN_LOGS);
             break;
     }
 }
