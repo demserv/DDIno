@@ -24,7 +24,18 @@ $skippedErrors = 0
 # ================================
 # LISTAR ARQUIVOS
 # ================================
+$ExcludePaths = @(
+    "*managed_components\lvgl__lvgl\docs\*",
+    "*managed_components\lvgl__lvgl\examples\*",
+    "*managed_components\lvgl__lvgl\demos\*",
+    "*managed_components\lvgl__lvgl\tests\*"
+)
+
 $allFiles = Get-ChildItem -Path $RootPath -File -Recurse -Force |
+            Where-Object {
+                $path = $_.FullName
+                -not ($ExcludePaths | Where-Object { $path -like $_ })
+            } |
             Sort-Object FullName
 
 $totalFiles = $allFiles.Count

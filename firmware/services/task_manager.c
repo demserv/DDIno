@@ -86,16 +86,29 @@ static const task_definition_t s_tasks[TASK_ID_COUNT] = {
     }
 };
 
+static TaskFunction_t s_task_fns[TASK_ID_COUNT];
+
+esp_err_t task_manager_register_fn(int task_id, TaskFunction_t task_fn)
+{
+    if (task_id < 0 || task_id >= TASK_ID_COUNT) return ESP_ERR_INVALID_ARG;
+    s_task_fns[task_id] = task_fn;
+    return ESP_OK;
+}
+
 esp_err_t task_manager_launch_all(void)
 {
     memset(s_handles, 0, sizeof(s_handles));
 
     for (int i = 0; i < TASK_ID_COUNT; i++) {
+        const task_definition_t *def = &s_tasks[i];
         ESP_LOGI(TAG, "Task %d (%s): pri=%u stack=%u core=%d",
-                 s_tasks[i].task_id, s_tasks[i].name,
-                 (unsigned)s_tasks[i].priority,
-                 (unsigned)s_tasks[i].stack_size,
-                 (int)s_tasks[i].core_id);
+                 def->task_id, def->name,
+                 (unsigned)def->priority,
+                 (unsigned)def->stack_size,
+                 (int)def->core_id);
+        if (s_task_fns[i] != NULL) {
+            task_manager_create(s_task_fns[i], i);
+        }
     }
 
     return ESP_OK;

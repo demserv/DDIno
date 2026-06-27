@@ -97,8 +97,10 @@ feed_state_t feed_fsm_get_state(const feed_fsm_t *fsm)
     return fsm ? fsm->state : FEED_STATE_IDLE;
 }
 
-uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm)
+uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm, uint64_t now_ms)
 {
     if (!fsm || fsm->state != FEED_STATE_ACTIVE) return 0;
-    return fsm->duration_s;
+    uint64_t elapsed_ms = now_ms - fsm->state_started_ms;
+    if (elapsed_ms >= (uint64_t)fsm->duration_s * 1000ULL) return 0;
+    return fsm->duration_s - (uint32_t)(elapsed_ms / 1000ULL);
 }

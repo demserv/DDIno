@@ -367,7 +367,7 @@ static void update_feed_snapshot(uint64_t now_ms, uint64_t now_s)
 
     g_gs.feed_active = (feed_fsm_get_state(&s_feed_fsm) == FEED_STATE_ACTIVE);
     g_gs.feed_state = feed_fsm_get_state(&s_feed_fsm);
-    g_gs.feed_remaining_s = feed_fsm_remaining_s(&s_feed_fsm);
+    g_gs.feed_remaining_s = feed_fsm_remaining_s(&s_feed_fsm, now_ms);
 }
 
 static void update_led_signaling(uint64_t now_ms)
@@ -916,14 +916,14 @@ void app_main(void)
 
     ESP_LOGI(TAG, "FASE 7 - Lancando tasks via task_manager");
 
+    task_manager_register_fn(TASK_ID_SAFETY_CORE, task_safety_core_fn);
+    task_manager_register_fn(TASK_ID_SENSORS, task_sensors_fn);
+    task_manager_register_fn(TASK_ID_PLUG_CONTROL, task_plug_control_fn);
+    task_manager_register_fn(TASK_ID_STORAGE, task_storage_fn);
+    task_manager_register_fn(TASK_ID_UI, task_ui_fn);
+    task_manager_register_fn(TASK_ID_WEB, task_web_fn);
+    task_manager_register_fn(TASK_ID_DIAG, task_diag_fn);
     task_manager_launch_all();
-    task_manager_create(task_safety_core_fn, TASK_ID_SAFETY_CORE);
-    task_manager_create(task_sensors_fn, TASK_ID_SENSORS);
-    task_manager_create(task_plug_control_fn, TASK_ID_PLUG_CONTROL);
-    task_manager_create(task_storage_fn, TASK_ID_STORAGE);
-    task_manager_create(task_ui_fn, TASK_ID_UI);
-    task_manager_create(task_web_fn, TASK_ID_WEB);
-    task_manager_create(task_diag_fn, TASK_ID_DIAG);
 
     vTaskDelete(NULL);
 }

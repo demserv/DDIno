@@ -74,6 +74,7 @@ typedef struct {
     TaskHandle_t handle;
 } task_definition_t;
 
+esp_err_t task_manager_register_fn(int task_id, TaskFunction_t task_fn);
 esp_err_t task_manager_launch_all(void);
 esp_err_t task_manager_create(TaskFunction_t task_fn, int task_id);
 TaskHandle_t task_manager_get_handle(int task_id);

@@ -90,6 +90,6 @@ TEST_CASE("Feed: remaining_s retorna duracao quando ativo", "[feed]")
 {
     setUp();
     feed_fsm_start(&fsm, 1000);
-    uint32_t rem = feed_fsm_remaining_s(&fsm);
+    uint32_t rem = feed_fsm_remaining_s(&fsm, 1000);
     TEST_ASSERT_EQUAL(600, rem);
 }

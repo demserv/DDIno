@@ -27,7 +27,7 @@ bool feed_fsm_start(feed_fsm_t *fsm, uint64_t now_ms);
 void feed_fsm_stop(feed_fsm_t *fsm);
 void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms);
 feed_state_t feed_fsm_get_state(const feed_fsm_t *fsm);
-uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm);
+uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm, uint64_t now_ms);
 bool feed_fsm_can_start(const feed_fsm_t *fsm, uint64_t now_ms);
 
 #endif

@@ -12,6 +12,7 @@ static const char *TAG = "wdt_guard";
 typedef struct {
     volatile uint32_t heartbeat_count;
     uint32_t last_seen_count;
+    uint32_t missed_beats;
     uint32_t missed_threshold;
     bool alarmed;
     watchdog_severity_t severity;
