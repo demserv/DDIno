@@ -63,6 +63,7 @@
 #include "time_manager.h"
 #include "pending_actions.h"
 #include "sec_policy.h"
+#include "watchdog_guard.h"
 
 static const char *TAG = "app_main";
 
@@ -479,11 +480,42 @@ static void task_safety_core_fn(void *pv)
 
     system_state_t prev_state = g_gs.system_state;
 
+    static uint32_t s_heartbeat_check_cycle = 0;
+
     while (1) {
         wdt_advanced_reset(TASK_ID_SAFETY_CORE);
+        watchdog_guard_heartbeat(TASK_ID_SAFETY_CORE);
+
         circuit_breaker_update();
         event_bus_process_pending();
         health_matrix_update();
+
+        s_heartbeat_check_cycle++;
+        if (s_heartbeat_check_cycle % 20 == 0) {
+            for (int i = 0; i < TASK_ID_COUNT; i++) {
+                if (i == TASK_ID_SAFETY_CORE) continue;
+                if (i == TASK_ID_DIAG && !watchdog_guard_get_heartbeat(i)) continue;
+                watchdog_status_t st = watchdog_guard_check(i);
+                if (st.alarmed) {
+                    if (st.severity == WATCHDOG_SEVERITY_CRITICAL) {
+                        ESP_LOGE(TAG, "Task %d critica sem heartbeat -> SAFE_OFF", i);
+                        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_WDT_RECOVERY,
+                                                   "ALM-043", "task_hang", now_s);
+                    } else {
+                        ESP_LOGW(TAG, "Task %d sem heartbeat -> alerta ALM-043", i);
+                        const char *tn = task_manager_get_name(i);
+                        alert_manager_raise_full(ALM_043, ALERT_SEVERITY_HIGH,
+                                                 ALERT_CATEGORY_SYSTEM,
+                                                 "Task sem heartbeat", 0.0f,
+                                                 tn ? tn : "unknown",
+                                                 0, false, true, now_s);
+                    }
+                }
+                if (st.recovered && g_gs.system_state != SYSTEM_STATE_SAFE_OFF) {
+                    alert_manager_clear(ALM_043);
+                }
+            }
+        }
 
         const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
         const uint64_t now_s = now_ms / 1000ULL;
@@ -586,6 +618,7 @@ static void task_sensors_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_SENSORS);
+        watchdog_guard_heartbeat(TASK_ID_SENSORS);
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SENSORS));
     }
 }
@@ -597,6 +630,7 @@ static void task_plug_control_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_PLUG_CONTROL);
+        watchdog_guard_heartbeat(TASK_ID_PLUG_CONTROL);
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_PLUG_CONTROL));
     }
 }
@@ -608,6 +642,7 @@ static void task_storage_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_STORAGE);
+        watchdog_guard_heartbeat(TASK_ID_STORAGE);
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_STORAGE));
     }
 }
@@ -619,6 +654,7 @@ static void task_ui_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_UI);
+        watchdog_guard_heartbeat(TASK_ID_UI);
         ui_screen_update_all();
         ui_app_tick();
         lv_timer_handler();
@@ -633,6 +669,7 @@ static void task_web_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_WEB);
+        watchdog_guard_heartbeat(TASK_ID_WEB);
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_WEB));
     }
 }
@@ -644,6 +681,7 @@ static void task_diag_fn(void *pv)
 
     while (1) {
         wdt_advanced_reset(TASK_ID_DIAG);
+        watchdog_guard_heartbeat(TASK_ID_DIAG);
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_DIAG));
     }
 }
@@ -794,6 +832,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Init completo - lancando tasks normativas");
 
     wdt_advanced_init();
+    watchdog_guard_init();
 
     {
         const selftest_params_storage_t *sp = config_get_selftest();
