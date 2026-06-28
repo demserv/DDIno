@@ -1,4 +1,5 @@
-// @requirement RF-UI-WIZARD-001..005 Wizard com steps individuais
+// @requirement RF-GLOBAL-001 Definição de estados globais
+// @requirement RF-GLOBAL-002 Transições de estado global com rastreabilidade
 #ifndef FIRMWARE_INCLUDE_GLOBAL_STATE_H
 #define FIRMWARE_INCLUDE_GLOBAL_STATE_H
 
@@ -7,6 +8,10 @@
 #include "esp_err.h"
 #include "system_types.h"
 #include "fsm/feed_fsm.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     WIZARD_STEP_NONE = 0,
@@ -18,6 +23,17 @@ typedef enum {
     WIZARD_STEP_REVIEW,
     WIZARD_STEP_COMPLETE
 } wizard_step_t;
+
+typedef enum {
+    GS_HEALTH_TEMP = 0,
+    GS_HEALTH_ATO,
+    GS_HEALTH_PZEM,
+    GS_HEALTH_SD,
+    GS_HEALTH_WIFI,
+    GS_HEALTH_UI,
+    GS_HEALTH_ELECTRIC,
+    GS_HEALTH_SELFTEST
+} global_state_health_field_t;
 
 typedef struct {
     system_state_t       system_state;
@@ -61,11 +77,18 @@ typedef struct {
     char                 reset_status_msg[64];
 } global_state_t;
 
-void global_state_init(void);
-const global_state_t* global_state_get_snapshot(void);
+esp_err_t global_state_init(void);
+void global_state_bind(global_state_t *gs);
+esp_err_t global_state_get_snapshot(global_state_t *out);
+const global_state_t *global_state_get_snapshot_ptr(void);
 esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t reason,
                                    const char *source_alm, const char *source_module,
                                    uint64_t now_s);
-global_state_t* global_state_get_write_ptr(void);
+esp_err_t global_state_set_health_flag(global_state_health_field_t field, bool ok);
+global_state_t *global_state_get_write_ptr(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

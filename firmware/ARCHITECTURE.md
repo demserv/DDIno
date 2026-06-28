@@ -5,7 +5,7 @@
 Firmware bare-metal/RTOS para ESP32-S3 (N16R8) que implementa um monitor/controlador de aquário com:
 
 - 10 tomadas inteligentes (relés via MCP23017 I2C)
-- Sensores: temperatura (DS18B20), nível ATO (XKC-Y25-V via ADC), corrente (ACS712 20A × 8 + ADC), energia (PZEM-004T v3.0)
+- Sensores: temperatura (DS18B20), nível ATO (XKC-Y25-V via ADC), corrente (ACS712 20A × 8 + ADC), energia (PZEM-004T v4.0)
 - RTC DS3231 para timestamp
 - Display TFT 480×320 + Touch XPT2046 + AD Keypad
 - API HTTP `/api/v1` para integração LAN
@@ -23,7 +23,7 @@ app_main.c  ← entry point (loop 50ms)
   │   ├── driver_mcp3208     SPI: 2× MCP3208 (ADC corrente, ATO, keypad)
   │   ├── driver_acs712      leitura corrente por plug
   │   ├── driver_ad_keypad   decodificação teclado 5V condicionado
-  │   ├── driver_pzem        UART: PZEM-004T v3.0 (V, A, W, Wh, Hz, PF)
+  │   ├── driver_pzem        UART: PZEM-004T v4.0 (V, A, W, Wh, Hz, PF)
   │   ├── driver_ds18b20     1-Wire bit-banged (GPIO4)
   │   ├── driver_ds3231      I2C: RTC DS3231
   │   └── driver_buzzer_led  LED 3 cores + buzzer via MCP23017 GPB
@@ -48,7 +48,7 @@ app_main.c  ← entry point (loop 50ms)
   │   ├── api_auth         autenticação SHA-256 + token RAM
   │   └── api_rate_limit   rate limit por IP (30 req/min)
   ├── ui/            interface LVGL
-  │   ├── ui_display      init display ST7789/ILI9341 via SPI
+  │   ├── ui_display      init display ILI9488 480×320 via SPI
   │   ├── ui_touch        touch XPT2046 SPI
   │   ├── ui_keypad       teclado analógico como LVGL indev
   │   ├── ui_screens      gerenciamento carrossel (7 telas)
@@ -248,7 +248,7 @@ Rotas:
 
 ```
 lvgl (8.3)
-  ├── display: ST7789/ILI9341 480×320 via SPI (CS, DC, RST, BL)
+  ├── display: ILI9488 480×320 via SPI (CS GPIO10, DC GPIO16, RST GPIO21, BL GPIO47)
   ├── touch:  XPT2046 SPI (CS, IRQ) → LV_INDEV_TYPE_POINTER
   ├── keypad: AD Keypad via MCP3208 CH3 → LV_INDEV_TYPE_KEYPAD
   ├── state_badge: lv_layer_top() com texto + cor (NORMAL✓/DEGRADED⚠/SAFE_OFF⛔/EMERGENCY🚨)

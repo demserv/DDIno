@@ -16,10 +16,15 @@ typedef enum {
     UI_SCREEN_DIAGNOSTICS,
     UI_SCREEN_SYSTEM,
     UI_SCREEN_LOGS,
-    UI_SCREEN_WIZARD
+    UI_SCREEN_WIZARD,
+    UI_SCREEN_ATO
 } ui_screen_id_t;
 
 void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm);
 void ui_screen_manager_show(ui_screen_id_t screen_id);
 void ui_screen_manager_refresh(void);
+void ui_screen_manager_tick(void);
+void ui_screen_manager_on_user_interaction(void);
+void ui_screen_manager_carousel_pause(void);
+void ui_screen_manager_carousel_resume(void);
 ui_screen_id_t ui_screen_manager_get_current(void);

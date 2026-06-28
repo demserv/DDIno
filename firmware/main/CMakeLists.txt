@@ -41,6 +41,7 @@ set(MAIN_SRCS
     "../services/wdt_advanced.c"
     "../services/cdn_energy.c"
     "../services/config_manager.c"
+    "../services/config_root.c"
     "../services/temp_filter.c"
     "../services/audit_log.c"
     "../services/plug_manager.c"
@@ -54,6 +55,11 @@ set(MAIN_SRCS
 
     # Epic 1 — P0 modules
     "../services/storage_manager.c"
+    "../services/storage_atomic.c"
+    "../services/log_manager.c"
+    "../services/safety_gate.c"
+    "../services/command_dispatcher.c"
+    "../services/safeoff_record.c"
     "../core/event_bus.c"
     "../drivers/relay_abstraction.c"
     "../services/health_matrix.c"
@@ -112,6 +118,7 @@ set(MAIN_SRCS
     "ui/hmi/screens/ui_screen_system.c"
     "ui/hmi/screens/ui_screen_logs.c"
     "ui/hmi/screens/ui_screen_wizard.c"
+    "ui/hmi/screens/ui_screen_ato.c"
 )
 
 set(MAIN_INCLUDE_DIRS

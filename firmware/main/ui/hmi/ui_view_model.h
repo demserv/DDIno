@@ -108,6 +108,13 @@ typedef struct {
 } ui_config_temperature_vm_t;
 
 typedef struct {
+    ui_ato_state_t state;
+    int32_t level_adc;
+    bool pump_on;
+    bool overflow;
+} ui_ato_vm_t;
+
+typedef struct {
     ui_topbar_vm_t topbar;
     ui_footer_vm_t footer;
     ui_dashboard_vm_t dashboard;
@@ -116,6 +123,7 @@ typedef struct {
     ui_alerts_vm_t alerts;
     ui_diagnostics_vm_t diagnostics;
     ui_config_temperature_vm_t config_temperature;
+    ui_ato_vm_t ato;
 } ui_root_vm_t;
 
 void ui_view_model_init_defaults(ui_root_vm_t *vm);

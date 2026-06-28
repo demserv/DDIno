@@ -28,7 +28,7 @@ void ui_screen_main_menu_create(lv_obj_t *parent, ui_root_vm_t *vm)
 
     static ui_screen_id_t targets[] = {
         UI_SCREEN_CONFIG_TEMPERATURE,
-        UI_SCREEN_CONFIG_TEMPERATURE, /* ATO -> placeholder vai para config temp */
+        UI_SCREEN_ATO,
         UI_SCREEN_ENERGY,
         UI_SCREEN_DEVICES_1,
         UI_SCREEN_ALERTS,

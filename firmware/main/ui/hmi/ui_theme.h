@@ -53,3 +53,12 @@
 #define UI_FONT_HUGE         (&lv_font_montserrat_48)
 
 void ui_theme_init(void);
+
+lv_style_t *ui_theme_get_topbar(void);
+lv_style_t *ui_theme_get_footer(void);
+lv_style_t *ui_theme_get_card(void);
+lv_style_t *ui_theme_get_button(void);
+lv_style_t *ui_theme_get_label(void);
+lv_style_t *ui_theme_get_badge(void);
+lv_style_t *ui_theme_get_alert(void);
+lv_style_t *ui_theme_get_overlay(void);

@@ -6,7 +6,7 @@
 
 static const char *TAG = "thermal_svc";
 static thermal_fsm_t s_fsm;
-static const thermal_fsm_t *s_fsm_out = NULL;
+static const thermal_output_t *s_fsm_out = NULL;
 static float s_setpoint = 25.0f;
 
 esp_err_t thermal_service_init(void)

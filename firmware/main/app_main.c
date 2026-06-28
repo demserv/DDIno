@@ -95,6 +95,8 @@ static esp_err_t init_nvs_safe(void)
 
 static void init_global_state(void)
 {
+    ESP_ERROR_CHECK(global_state_init());
+    global_state_bind(&g_gs);
     memset(&g_gs, 0, sizeof(g_gs));
     g_gs.system_state = SYSTEM_STATE_NORMAL;
     g_gs.safeoff_reason = SAFEOFF_REASON_NONE;

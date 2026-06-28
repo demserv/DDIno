@@ -3,6 +3,7 @@
 // @requirement RNF-CALIB-001 Calibração assistida de sensores
 // @requirement RF-ATO-003 Configuração ATO com validação LOW/HIGH
 #include "config_manager.h"
+#include "config_root.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "driver_acs712.h"
@@ -39,6 +40,38 @@ static antiflap_params_storage_t s_antiflap;
 static selftest_params_storage_t s_selftest;
 static system_params_storage_t   s_system;
 static calibration_params_storage_t s_calibration;
+
+static config_root_t s_root;
+
+static void root_to_indiv(void)
+{
+    s_thermal     = s_root.thermal;
+    s_ato         = s_root.ato;
+    s_electric    = s_root.electric;
+    s_plug_limits = s_root.plug_limits;
+    s_restart     = s_root.restart;
+    s_feed        = s_root.feed;
+    s_security    = s_root.security;
+    s_antiflap    = s_root.antiflap;
+    s_selftest    = s_root.selftest;
+    s_system      = s_root.system;
+    s_calibration = s_root.calibration;
+}
+
+static void indiv_to_root(void)
+{
+    s_root.thermal     = s_thermal;
+    s_root.ato         = s_ato;
+    s_root.electric    = s_electric;
+    s_root.plug_limits = s_plug_limits;
+    s_root.restart     = s_restart;
+    s_root.feed        = s_feed;
+    s_root.security    = s_security;
+    s_root.antiflap    = s_antiflap;
+    s_root.selftest    = s_selftest;
+    s_root.system      = s_system;
+    s_root.calibration = s_calibration;
+}
 
 static void set_defaults(void)
 {
@@ -164,6 +197,19 @@ static esp_err_t schema_version_store(void)
 esp_err_t config_manager_init(void)
 {
     set_defaults();
+    memset(&s_root, 0, sizeof(s_root));
+    snprintf(s_root.schema_version, sizeof(s_root.schema_version), "%s", CONFIG_ROOT_SCHEMA_VERSION);
+
+    esp_err_t root_err = config_root_load(&s_root);
+    if (root_err == ESP_OK && config_root_validate(&s_root)) {
+        root_to_indiv();
+        ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08X, wizard=%d)",
+                 s_root.crc32, s_system.wizard_completed);
+        return ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "ConfigRoot not found or invalid (%s), migrating individual blobs",
+             esp_err_to_name(root_err));
     esp_err_t ver = schema_version_check();
     if (ver != ESP_OK) {
         ESP_LOGW(TAG, "Schema version mismatch or missing — resetting all config to defaults");
@@ -175,6 +221,8 @@ esp_err_t config_manager_init(void)
         ESP_LOGW(TAG, "NVS load failed (%s), using defaults", esp_err_to_name(err));
         config_save_all();
     }
+    indiv_to_root();
+    config_root_save(&s_root);
     ESP_LOGI(TAG, "Config manager init OK (wizard=%d)", s_system.wizard_completed);
     return ESP_OK;
 }
@@ -195,6 +243,9 @@ esp_err_t config_set_thermal(const thermal_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_thermal = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal));
 }
 
@@ -202,6 +253,9 @@ esp_err_t config_set_ato(const ato_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_ato = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_ATO, &s_ato, sizeof(s_ato));
 }
 
@@ -209,6 +263,9 @@ esp_err_t config_set_electric(const electric_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_electric = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_ELECTRIC, &s_electric, sizeof(s_electric));
 }
 
@@ -216,6 +273,9 @@ esp_err_t config_set_plug_limits(const plug_limits_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_plug_limits = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_PLUG, &s_plug_limits, sizeof(s_plug_limits));
 }
 
@@ -223,6 +283,9 @@ esp_err_t config_set_restart(const restart_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_restart = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_RESTART, &s_restart, sizeof(s_restart));
 }
 
@@ -230,6 +293,9 @@ esp_err_t config_set_feed(const feed_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_feed = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_FEED, &s_feed, sizeof(s_feed));
 }
 
@@ -237,6 +303,9 @@ esp_err_t config_set_security(const security_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_security = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_SECURITY, &s_security, sizeof(s_security));
 }
 
@@ -244,6 +313,9 @@ esp_err_t config_set_antiflap(const antiflap_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_antiflap = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_ANTIFLAP, &s_antiflap, sizeof(s_antiflap));
 }
 
@@ -251,6 +323,9 @@ esp_err_t config_set_selftest(const selftest_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_selftest = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
 }
 
@@ -258,6 +333,9 @@ esp_err_t config_set_system(const system_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_system = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
@@ -265,6 +343,9 @@ esp_err_t config_set_calibration(const calibration_params_storage_t *p)
 {
     if (!p) return ESP_ERR_INVALID_ARG;
     s_calibration = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     return save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
 }
 
@@ -298,6 +379,9 @@ esp_err_t config_load_all(void)
 
 esp_err_t config_save_all(void)
 {
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
     esp_err_t e;
     e = save_nvs_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal));
     if (e != ESP_OK) return e;
@@ -326,6 +410,9 @@ esp_err_t config_save_all(void)
 esp_err_t config_reset_to_defaults(void)
 {
     set_defaults();
+    memset(&s_root, 0, sizeof(s_root));
+    snprintf(s_root.schema_version, sizeof(s_root.schema_version), "%s", CONFIG_ROOT_SCHEMA_VERSION);
+    indiv_to_root();
     return config_save_all();
 }
 
@@ -337,12 +424,16 @@ bool config_is_wizard_completed(void)
 void config_set_wizard_completed(bool val)
 {
     s_system.wizard_completed = val;
+    indiv_to_root();
+    config_root_save(&s_root);
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
 void config_set_monitor_only(bool val)
 {
     s_system.monitor_only_mode = val;
+    indiv_to_root();
+    config_root_save(&s_root);
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
@@ -354,5 +445,7 @@ uint8_t config_get_wizard_step(void)
 void config_set_wizard_step(uint8_t step)
 {
     s_system.wizard_step = step;
+    indiv_to_root();
+    config_root_save(&s_root);
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }

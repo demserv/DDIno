@@ -6,7 +6,7 @@
 | 1 | ESP32-S3 N16R8       | 1   | ESP32-S3-DevKitC-1 | Espressif    | R$120       |
 | 2 | MCP23017             | 1   | MCP23017-E/SO      | Microchip    | R$15        |
 | 3 | MCP3208              | 2   | MCP3208-CI/P       | Microchip    | R$25        |
-| 4 | PZEM-004T v3         | 1   | PZEM-004T          | Peacefair    | R$60        |
+| 4 | PZEM-004T v4.0       | 1   | PZEM-004T          | Peacefair    | R$60        |
 | 5 | ACS712 20A           | 1   | ACS712ELC-20A      | Allegro      | R$20        |
 | 6 | DS18B20              | 1   | DS18B20+           | Maxim        | R$12        |
 | 7 | DS3231               | 1   | DS3231SN           | Maxim        | R$25        |

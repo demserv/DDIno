@@ -41,7 +41,7 @@ relay_apply_result_t relay_safety_compute(
 
 esp_err_t relay_logical_on(uint8_t plug_id, bool critical_confirmed)
 {
-    const global_state_t *gs = global_state_get_snapshot();
+    const global_state_t *gs = global_state_get_snapshot_ptr();
     if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return ESP_ERR_INVALID_STATE;
 
     relay_apply_request_t req = {
@@ -60,7 +60,7 @@ esp_err_t relay_logical_on(uint8_t plug_id, bool critical_confirmed)
 
 esp_err_t relay_logical_off(uint8_t plug_id, bool critical_confirmed)
 {
-    const global_state_t *gs = global_state_get_snapshot();
+    const global_state_t *gs = global_state_get_snapshot_ptr();
     if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return ESP_ERR_INVALID_STATE;
 
     relay_apply_request_t req = {

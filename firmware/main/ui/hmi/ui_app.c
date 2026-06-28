@@ -44,6 +44,7 @@ void ui_app_tick(void)
     ui_topbar_update(&g_topbar, &g_vm.topbar);
     ui_footer_update(&g_footer, &g_vm.footer);
     ui_screen_manager_refresh();
+    ui_screen_manager_tick();
 
     /* Overlays criticos baseados no estado do sistema */
     if (g_vm.footer.system_state == UI_SYSTEM_EMERGENCY) {

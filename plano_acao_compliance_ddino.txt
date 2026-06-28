@@ -1,0 +1,997 @@
+PLANO DE AÇÃO DETALHADO PARA ELEVAR COMPLIANCE >= 98%
+Projeto: Monitor Aquário Inteligente / DDIno
+Base: Auditoria rigorosa SRS v3.11-AF.3 + AF.4 + Bloco 12/N + Bloco 13/N versus código concatenado anexado
+Data de geração: 27/06/2026
+
+OBJETIVO
+Corrigir todos os itens que impediram o atingimento de compliance >= 98%, com foco em alterações objetivas de código, rastreabilidade e evidências verificáveis.
+
+RESULTADO DA AUDITORIA BASE
+- Itens não conformes/parciais identificados: 5
+- Não conformidades estimadas: 4,76%
+- Compliance recomendado antes das correções: 95,24%
+- Meta: >= 98%
+- Para 105 requisitos mapeados, o limite máximo para ficar >= 98% é até 2 itens não conformes/parciais.
+- Este plano corrige os 5 itens para buscar 100% de conformidade dos itens auditados.
+
+============================================================
+NC-001 — RF-DATA-CONFIG-ROOT-001 permanece parcial
+============================================================
+
+1. Diagnóstico
+O pacote indica que RF-DATA-CONFIG-ROOT-001 permanece PARTIAL porque as configurações existem em namespaces NVS separados, mas não há uma estrutura ConfigRoot única, versionada, validada e transacional. Para compliance rigoroso, a SRS exige persistência/configuração robusta, com NVS, SD, fallback, rollback e comportamento seguro em falha.
+
+2. Arquivos a alterar/criar
+Alterar:
+- firmware/main/services/config_manager.c
+- firmware/main/services/config_manager.h
+- firmware/main/app_main.c
+- firmware/main/ui/hmi/screens/ui_screen_wizard.c
+- firmware/main/web/api_rest.c, se endpoints expõem ou gravam configuração
+
+Criar, se ainda não existirem:
+- firmware/main/include/config_root.h
+- firmware/main/services/config_root.c
+- firmware/main/services/config_root.h
+- firmware/tests/test_config_root.c ou equivalente no padrão do projeto
+- firmware/docs/CONFIG_ROOT_SCHEMA.md
+
+3. Alteração arquitetural esperada
+Criar uma estrutura única de configuração raiz:
+- versionada;
+- validável;
+- com defaults seguros;
+- com commit transacional;
+- com rollback;
+- usada por Wizard, UI, API, FSMs e serviços.
+
+4. Sugestão de código — include/config_root.h
+
+```c
+#pragma once
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CONFIG_ROOT_SCHEMA_VERSION 1U
+#define CONFIG_ROOT_MAGIC 0x4444494EU  /* 'DDIN' */
+
+typedef enum {
+    CONFIG_ELECTRIC_PROFILE_127V = 0,
+    CONFIG_ELECTRIC_PROFILE_220V = 1,
+    CONFIG_ELECTRIC_PROFILE_BIVOLT_MANUAL = 2
+} config_electric_profile_t;
+
+typedef struct {
+    float setpoint_c;
+    float hysteresis_c;
+    float critical_high_c;
+    float critical_low_c;
+    bool heater_enabled;
+    bool cooler_enabled;
+} config_thermal_t;
+
+typedef struct {
+    bool enabled;
+    uint16_t adc_threshold_on;
+    uint16_t adc_threshold_off;
+    uint32_t refill_timeout_s;
+    uint32_t blocked_timeout_s;
+} config_ato_t;
+
+typedef struct {
+    config_electric_profile_t profile;
+    float over_voltage_v;
+    float under_voltage_v;
+    float total_current_limit_a;
+    float min_power_factor;
+} config_electric_t;
+
+typedef struct {
+    uint8_t brightness_percent;
+    bool touch_enabled;
+    bool keypad_enabled;
+    uint32_t carousel_interval_ms;
+} config_ui_t;
+
+typedef struct {
+    bool auth_enabled;
+    uint32_t session_timeout_s;
+    uint32_t rate_limit_per_minute;
+} config_web_t;
+
+typedef struct {
+    uint32_t magic;
+    uint32_t schema_version;
+    uint32_t crc32;
+    bool wizard_completed;
+    config_thermal_t thermal;
+    config_ato_t ato;
+    config_electric_t electric;
+    config_ui_t ui;
+    config_web_t web;
+} config_root_t;
+
+void config_root_set_defaults(config_root_t *cfg);
+esp_err_t config_root_validate(const config_root_t *cfg);
+uint32_t config_root_crc32(const config_root_t *cfg);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+5. Sugestão de código — services/config_root.c
+
+```c
+#include "config_root.h"
+#include <string.h>
+
+void config_root_set_defaults(config_root_t *cfg)
+{
+    if (!cfg) return;
+    memset(cfg, 0, sizeof(*cfg));
+
+    cfg->magic = CONFIG_ROOT_MAGIC;
+    cfg->schema_version = CONFIG_ROOT_SCHEMA_VERSION;
+    cfg->wizard_completed = false;
+
+    cfg->thermal.setpoint_c = 25.0f;
+    cfg->thermal.hysteresis_c = 0.5f;
+    cfg->thermal.critical_high_c = 30.0f;
+    cfg->thermal.critical_low_c = 20.0f;
+    cfg->thermal.heater_enabled = true;
+    cfg->thermal.cooler_enabled = true;
+
+    cfg->ato.enabled = true;
+    cfg->ato.adc_threshold_on = 2500;
+    cfg->ato.adc_threshold_off = 2000;
+    cfg->ato.refill_timeout_s = 120;
+    cfg->ato.blocked_timeout_s = 180;
+
+    cfg->electric.profile = CONFIG_ELECTRIC_PROFILE_BIVOLT_MANUAL;
+    cfg->electric.over_voltage_v = 242.0f;
+    cfg->electric.under_voltage_v = 100.0f;
+    cfg->electric.total_current_limit_a = 10.0f;
+    cfg->electric.min_power_factor = 0.70f;
+
+    cfg->ui.brightness_percent = 80;
+    cfg->ui.touch_enabled = true;
+    cfg->ui.keypad_enabled = true;
+    cfg->ui.carousel_interval_ms = 5000;
+
+    cfg->web.auth_enabled = true;
+    cfg->web.session_timeout_s = 900;
+    cfg->web.rate_limit_per_minute = 30;
+
+    cfg->crc32 = config_root_crc32(cfg);
+}
+
+esp_err_t config_root_validate(const config_root_t *cfg)
+{
+    if (!cfg) return ESP_ERR_INVALID_ARG;
+    if (cfg->magic != CONFIG_ROOT_MAGIC) return ESP_ERR_INVALID_STATE;
+    if (cfg->schema_version != CONFIG_ROOT_SCHEMA_VERSION) return ESP_ERR_INVALID_VERSION;
+
+    if (cfg->thermal.setpoint_c < 15.0f || cfg->thermal.setpoint_c > 35.0f) return ESP_ERR_INVALID_STATE;
+    if (cfg->thermal.hysteresis_c <= 0.0f || cfg->thermal.hysteresis_c > 5.0f) return ESP_ERR_INVALID_STATE;
+    if (cfg->thermal.critical_low_c >= cfg->thermal.critical_high_c) return ESP_ERR_INVALID_STATE;
+
+    if (cfg->ato.adc_threshold_on > 4095 || cfg->ato.adc_threshold_off > 4095) return ESP_ERR_INVALID_STATE;
+    if (cfg->ato.refill_timeout_s == 0) return ESP_ERR_INVALID_STATE;
+
+    if (cfg->ui.brightness_percent > 100) return ESP_ERR_INVALID_STATE;
+    if (!cfg->ui.touch_enabled && !cfg->ui.keypad_enabled) return ESP_ERR_INVALID_STATE;
+
+    if (cfg->web.rate_limit_per_minute == 0) return ESP_ERR_INVALID_STATE;
+
+    uint32_t expected = config_root_crc32(cfg);
+    if (cfg->crc32 != expected) return ESP_ERR_INVALID_CRC;
+
+    return ESP_OK;
+}
+
+uint32_t config_root_crc32(const config_root_t *cfg)
+{
+    /* Substituir por esp_rom_crc32_le ou função CRC já usada no projeto.
+       O campo crc32 deve ser zerado temporariamente durante cálculo. */
+    if (!cfg) return 0;
+    config_root_t tmp = *cfg;
+    tmp.crc32 = 0;
+
+    const uint8_t *p = (const uint8_t *)&tmp;
+    uint32_t crc = 0xFFFFFFFFu;
+    for (size_t i = 0; i < sizeof(tmp); ++i) {
+        crc ^= p[i];
+        for (int b = 0; b < 8; ++b) {
+            crc = (crc >> 1) ^ (0xEDB88320u & (-(int32_t)(crc & 1u)));
+        }
+    }
+    return ~crc;
+}
+```
+
+6. Sugestão de API no config_manager.h
+
+```c
+#pragma once
+#include "esp_err.h"
+#include "config_root.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+esp_err_t config_manager_init(void);
+esp_err_t config_manager_load_root(config_root_t *out_cfg);
+esp_err_t config_manager_save_root(const config_root_t *cfg);
+esp_err_t config_manager_commit_root_transactional(const config_root_t *cfg);
+esp_err_t config_manager_rollback_root(config_root_t *out_cfg);
+bool config_manager_is_wizard_completed(void);
+esp_err_t config_manager_set_wizard_completed(bool completed);
+const config_root_t *config_manager_get_cached_root(void);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+7. Sugestão de implementação transacional em config_manager.c
+
+```c
+esp_err_t config_manager_commit_root_transactional(const config_root_t *cfg)
+{
+    if (!cfg) return ESP_ERR_INVALID_ARG;
+
+    esp_err_t err = config_root_validate(cfg);
+    if (err != ESP_OK) return err;
+
+    /* Estratégia:
+       1. Gravar config_root_pending.
+       2. Gravar marcador transaction_pending=true.
+       3. Copiar pending para active.
+       4. Limpar marcador.
+       5. Manter backup anterior para rollback. */
+
+    err = nvs_write_blob("cfg", "root_pending", cfg, sizeof(*cfg));
+    if (err != ESP_OK) return err;
+
+    bool pending = true;
+    err = nvs_write_blob("cfg", "tx_pending", &pending, sizeof(pending));
+    if (err != ESP_OK) return err;
+
+    config_root_t old_cfg;
+    if (config_manager_load_root(&old_cfg) == ESP_OK) {
+        (void)nvs_write_blob("cfg", "root_backup", &old_cfg, sizeof(old_cfg));
+    }
+
+    err = nvs_write_blob("cfg", "root_active", cfg, sizeof(*cfg));
+    if (err != ESP_OK) return err;
+
+    pending = false;
+    err = nvs_write_blob("cfg", "tx_pending", &pending, sizeof(pending));
+    if (err != ESP_OK) return err;
+
+    g_config_root_cache = *cfg;
+    return ESP_OK;
+}
+```
+
+Observação: `nvs_write_blob` acima representa helper já existente ou a ser criado com `nvs_open`, `nvs_set_blob`, `nvs_commit`, `nvs_close`.
+
+8. Critérios de aceite
+- `RF-DATA-CONFIG-ROOT-001` deixa de ser PARTIAL.
+- Não há acesso direto disperso a namespaces críticos fora do ConfigManager.
+- Boot com NVS corrompido cai em defaults seguros e gera ALM apropriado.
+- Power-loss durante commit não deixa configuração inconsistente.
+- Wizard grava ConfigRoot completo.
+
+============================================================
+NC-002 — Tela ATO está como placeholder no menu principal
+============================================================
+
+1. Diagnóstico
+O tile ATO do menu principal aponta para `UI_SCREEN_CONFIG_TEMPERATURE`, com comentário de placeholder. Isso impede conformidade UI/HMI para ATO.
+
+2. Arquivos a alterar/criar
+Alterar:
+- firmware/main/ui/hmi/screens/ui_screen_main_menu.c
+- firmware/main/ui/hmi/ui_screen_manager.h
+- firmware/main/ui/hmi/ui_screen_manager.c
+- firmware/main/ui/hmi/ui_view_model.h
+- firmware/main/ui/hmi/ui_view_model.c
+
+Criar:
+- firmware/main/ui/hmi/screens/ui_screen_ato.c
+- firmware/main/ui/hmi/screens/ui_screen_ato.h
+
+3. Alterar enum de telas
+No `ui_screen_manager.h`, incluir tela ATO real.
+
+```c
+typedef enum {
+    UI_SCREEN_MAIN_MENU = 0,
+    UI_SCREEN_DASHBOARD,
+    UI_SCREEN_CONFIG_TEMPERATURE,
+    UI_SCREEN_ATO,
+    UI_SCREEN_ENERGY,
+    UI_SCREEN_DEVICES_1,
+    UI_SCREEN_ALERTS,
+    UI_SCREEN_SYSTEM,
+    UI_SCREEN_LOGS,
+    UI_SCREEN_WIZARD,
+    UI_SCREEN_DIAGNOSTICS,
+    UI_SCREEN_COUNT
+} ui_screen_id_t;
+```
+
+4. Corrigir target no menu principal
+Em `ui_screen_main_menu.c`, substituir:
+
+```c
+UI_SCREEN_CONFIG_TEMPERATURE, /* ATO -> placeholder vai para config temp */
+```
+
+por:
+
+```c
+UI_SCREEN_ATO,
+```
+
+5. Sugestão de ViewModel para ATO
+Em `ui_view_model.h`:
+
+```c
+typedef enum {
+    UI_ATO_STATE_NORMAL = 0,
+    UI_ATO_STATE_REFILLING,
+    UI_ATO_STATE_OVERFLOW,
+    UI_ATO_STATE_BLOCKED,
+    UI_ATO_STATE_ERROR,
+    UI_ATO_STATE_DISABLED
+} ui_ato_state_t;
+
+typedef struct {
+    ui_ato_state_t state;
+    bool sensor_water_present;
+    bool pump_commanded_on;
+    bool reservoir_empty;
+    bool overflow_detected;
+    bool blocked_detected;
+    uint32_t refill_elapsed_s;
+    uint32_t refill_timeout_s;
+    char active_alarm[16];
+} ui_ato_vm_t;
+
+typedef struct {
+    /* campos existentes */
+    ui_ato_vm_t ato;
+} ui_root_vm_t;
+```
+
+6. Criar ui_screen_ato.h
+
+```c
+#pragma once
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_ato_update(ui_root_vm_t *vm);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+7. Criar ui_screen_ato.c
+
+```c
+#include "ui_screen_ato.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+#include <stdio.h>
+
+static lv_obj_t *lbl_state;
+static lv_obj_t *lbl_sensor;
+static lv_obj_t *lbl_pump;
+static lv_obj_t *lbl_timer;
+static lv_obj_t *lbl_alarm;
+static lv_obj_t *btn_refill;
+static lv_obj_t *btn_stop;
+
+static const char *ato_state_to_text(ui_ato_state_t s)
+{
+    switch (s) {
+    case UI_ATO_STATE_NORMAL: return "NORMAL";
+    case UI_ATO_STATE_REFILLING: return "REFILLING";
+    case UI_ATO_STATE_OVERFLOW: return "OVERFLOW";
+    case UI_ATO_STATE_BLOCKED: return "BLOCKED";
+    case UI_ATO_STATE_ERROR: return "ERROR";
+    case UI_ATO_STATE_DISABLED: return "DISABLED";
+    default: return "UNKNOWN";
+    }
+}
+
+static void refill_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_ATO_START_REFILL);
+}
+
+static void stop_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_ATO_STOP_REFILL);
+}
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "ATO / Nivel de Agua");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 6);
+
+    lbl_state = lv_label_create(parent);
+    lv_obj_set_pos(lbl_state, 20, 45);
+
+    lbl_sensor = lv_label_create(parent);
+    lv_obj_set_pos(lbl_sensor, 20, 75);
+
+    lbl_pump = lv_label_create(parent);
+    lv_obj_set_pos(lbl_pump, 20, 105);
+
+    lbl_timer = lv_label_create(parent);
+    lv_obj_set_pos(lbl_timer, 20, 135);
+
+    lbl_alarm = lv_label_create(parent);
+    lv_obj_set_pos(lbl_alarm, 20, 165);
+
+    btn_refill = lv_btn_create(parent);
+    lv_obj_set_size(btn_refill, 130, 36);
+    lv_obj_set_pos(btn_refill, 40, 220);
+    lv_obj_add_event_cb(btn_refill, refill_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *l1 = lv_label_create(btn_refill);
+    lv_label_set_text(l1, "Iniciar refill");
+    lv_obj_center(l1);
+
+    btn_stop = lv_btn_create(parent);
+    lv_obj_set_size(btn_stop, 130, 36);
+    lv_obj_set_pos(btn_stop, 300, 220);
+    lv_obj_add_event_cb(btn_stop, stop_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *l2 = lv_label_create(btn_stop);
+    lv_label_set_text(l2, "Parar ATO");
+    lv_obj_center(l2);
+
+    ui_screen_ato_update(vm);
+}
+
+void ui_screen_ato_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+
+    char buf[96];
+
+    snprintf(buf, sizeof(buf), "Estado: %s", ato_state_to_text(vm->ato.state));
+    lv_label_set_text(lbl_state, buf);
+
+    snprintf(buf, sizeof(buf), "Sensor agua: %s", vm->ato.sensor_water_present ? "OK" : "BAIXO/SECO");
+    lv_label_set_text(lbl_sensor, buf);
+
+    snprintf(buf, sizeof(buf), "Bomba ATO: %s", vm->ato.pump_commanded_on ? "ON" : "OFF");
+    lv_label_set_text(lbl_pump, buf);
+
+    snprintf(buf, sizeof(buf), "Refill: %lu/%lu s",
+             (unsigned long)vm->ato.refill_elapsed_s,
+             (unsigned long)vm->ato.refill_timeout_s);
+    lv_label_set_text(lbl_timer, buf);
+
+    snprintf(buf, sizeof(buf), "Alarme: %s", vm->ato.active_alarm[0] ? vm->ato.active_alarm : "nenhum");
+    lv_label_set_text(lbl_alarm, buf);
+
+    bool unsafe = vm->ato.state == UI_ATO_STATE_OVERFLOW ||
+                  vm->ato.state == UI_ATO_STATE_BLOCKED ||
+                  vm->ato.state == UI_ATO_STATE_ERROR ||
+                  vm->ato.state == UI_ATO_STATE_DISABLED;
+
+    if (unsafe) lv_obj_add_state(btn_refill, LV_STATE_DISABLED);
+    else lv_obj_clear_state(btn_refill, LV_STATE_DISABLED);
+}
+```
+
+8. Registrar tela no screen manager
+No `ui_screen_manager.c`, no switch de criação:
+
+```c
+case UI_SCREEN_ATO:
+    ui_screen_ato_create(container, vm);
+    break;
+```
+
+No switch de update:
+
+```c
+case UI_SCREEN_ATO:
+    ui_screen_ato_update(vm);
+    break;
+```
+
+9. Critérios de aceite
+- Tile ATO abre tela ATO real.
+- Nenhum comentário de placeholder para ATO permanece.
+- Tela exibe estados mínimos: NORMAL, REFILLING, OVERFLOW, BLOCKED, ERROR, DISABLED.
+- Comando de refill é bloqueado em estados inseguros.
+- Teste TC-UI-ATO-001 documentado e executável.
+
+============================================================
+NC-003 — Wizard inicial não integrado ao ConfigManager
+============================================================
+
+1. Diagnóstico
+A tela Wizard mostra “Etapa atual: nao integrada” e “Aguardando integracao com ConfigManager”. A SRS exige revisão obrigatória de defaults e bloqueio de operação sem Wizard concluído.
+
+2. Arquivos a alterar
+- firmware/main/ui/hmi/screens/ui_screen_wizard.c
+- firmware/main/ui/hmi/screens/ui_screen_wizard.h
+- firmware/main/services/config_manager.c
+- firmware/main/services/config_manager.h
+- firmware/main/app_main.c
+- firmware/main/services/command_validator.c
+- firmware/main/services/relay_safety_service.c
+
+3. Criar enum formal de etapas
+Em `config_manager.h` ou `wizard_state.h`:
+
+```c
+typedef enum {
+    WIZARD_STEP_WELCOME = 0,
+    WIZARD_STEP_PASSWORD,
+    WIZARD_STEP_THERMAL,
+    WIZARD_STEP_ATO,
+    WIZARD_STEP_ELECTRIC,
+    WIZARD_STEP_REVIEW,
+    WIZARD_STEP_COMPLETE
+} wizard_step_t;
+
+wizard_step_t config_get_wizard_step(void);
+esp_err_t config_set_wizard_step(wizard_step_t step);
+esp_err_t config_wizard_apply_step(wizard_step_t step, config_root_t *cfg);
+esp_err_t config_wizard_finish(const config_root_t *cfg);
+```
+
+4. Implementar bloqueio no boot/app_main
+Após carregar configuração:
+
+```c
+config_root_t cfg;
+esp_err_t cfg_err = config_manager_load_root(&cfg);
+if (cfg_err != ESP_OK) {
+    config_root_set_defaults(&cfg);
+    cfg.wizard_completed = false;
+    (void)config_manager_commit_root_transactional(&cfg);
+}
+
+if (!cfg.wizard_completed) {
+    g_gs.operation_blocked_by_wizard = true;
+    ui_screen_manager_show(UI_SCREEN_WIZARD);
+    relay_all_off();
+}
+```
+
+5. Alterar command_validator para bloquear operação
+
+```c
+bool command_validator_can_toggle_relay(uint8_t plug_id)
+{
+    const config_root_t *cfg = config_manager_get_cached_root();
+    if (!cfg || !cfg->wizard_completed) {
+        return false;
+    }
+
+    if (global_state_is_safeoff_or_emergency()) {
+        return false;
+    }
+
+    return plug_id >= 1 && plug_id <= 10;
+}
+```
+
+6. Substituir tela Wizard placeholder por fluxo real
+Em `ui_screen_wizard.c`, remover textos fixos de não integração. Usar renderização por etapa.
+
+```c
+static lv_obj_t *lbl_title;
+static lv_obj_t *lbl_body;
+static lv_obj_t *btn_next;
+static lv_obj_t *btn_back;
+static lv_obj_t *btn_finish;
+
+static void wizard_render_step(wizard_step_t step)
+{
+    switch (step) {
+    case WIZARD_STEP_WELCOME:
+        lv_label_set_text(lbl_title, "Wizard Inicial");
+        lv_label_set_text(lbl_body, "Revise os parametros obrigatorios antes de liberar a operacao.");
+        break;
+    case WIZARD_STEP_PASSWORD:
+        lv_label_set_text(lbl_title, "Seguranca Web");
+        lv_label_set_text(lbl_body, "Configure senha/admin e politica minima de autenticacao.");
+        break;
+    case WIZARD_STEP_THERMAL:
+        lv_label_set_text(lbl_title, "Perfil Termico");
+        lv_label_set_text(lbl_body, "Revise setpoint, histerese e limites criticos.");
+        break;
+    case WIZARD_STEP_ATO:
+        lv_label_set_text(lbl_title, "ATO");
+        lv_label_set_text(lbl_body, "Revise sensor, timeout de refill e protecoes de overflow/bloqueio.");
+        break;
+    case WIZARD_STEP_ELECTRIC:
+        lv_label_set_text(lbl_title, "Perfil Eletrico");
+        lv_label_set_text(lbl_body, "Selecione 127 V, 220 V ou bivolt manual e revise limites.");
+        break;
+    case WIZARD_STEP_REVIEW:
+        lv_label_set_text(lbl_title, "Revisao Final");
+        lv_label_set_text(lbl_body, "Confirme a configuracao antes de liberar a operacao.");
+        break;
+    case WIZARD_STEP_COMPLETE:
+        lv_label_set_text(lbl_title, "Wizard Concluido");
+        lv_label_set_text(lbl_body, "Operacao liberada conforme configuracao validada.");
+        break;
+    }
+}
+```
+
+7. Finalização transacional do Wizard
+
+```c
+static void wizard_finish_cb(lv_event_t *e)
+{
+    (void)e;
+    config_root_t cfg;
+    if (config_manager_load_root(&cfg) != ESP_OK) {
+        config_root_set_defaults(&cfg);
+    }
+
+    cfg.wizard_completed = true;
+    cfg.crc32 = config_root_crc32(&cfg);
+
+    if (config_manager_commit_root_transactional(&cfg) == ESP_OK) {
+        config_set_wizard_step(WIZARD_STEP_COMPLETE);
+        g_gs.operation_blocked_by_wizard = false;
+        ui_screen_manager_show(UI_SCREEN_MAIN_MENU);
+    } else {
+        /* Exibir falha e manter bloqueado */
+        g_gs.operation_blocked_by_wizard = true;
+        relay_all_off();
+    }
+}
+```
+
+8. Critérios de aceite
+- Não existe mais texto “nao integrada” ou “Aguardando integracao”.
+- Wizard persiste estado real.
+- Operação de relés é bloqueada enquanto Wizard incompleto.
+- Wizard concluído libera operação somente após ConfigRoot válido.
+- Falha de gravação mantém relés OFF e operação bloqueada.
+
+============================================================
+NC-004 — Divergência PZEM-004T v3.0 versus v4.0
+============================================================
+
+1. Diagnóstico
+Arquitetura menciona PZEM-004T v3.0, enquanto SRS normativa consolidada usa PZEM-004T v4.0. Isso cria conflito de baseline.
+
+2. Arquivos a alterar
+- firmware/ARCHITECTURE.md
+- firmware/main/drivers/driver_pzem.c
+- firmware/main/drivers/driver_pzem.h
+- firmware/main/include/hardware_config.h
+- firmware/main/include/pin_map.h
+- firmware/docs/RTM.md
+- firmware/docs/TEST_PLAN.md
+- qualquer arquivo que contenha `PZEM-004T v3.0`
+
+3. Ação textual obrigatória
+Buscar e substituir referências normativas:
+
+De:
+```text
+PZEM-004T v3.0
+```
+
+Para:
+```text
+PZEM-004T v4.0
+```
+
+4. Criar constantes canônicas
+Em `hardware_config.h`:
+
+```c
+#define HW_PZEM_MODEL_NAME       "PZEM-004T"
+#define HW_PZEM_MODEL_VERSION    "v4.0"
+#define HW_PZEM_UART_PORT        UART_NUM_1
+#define HW_PZEM_UART_BAUDRATE    9600
+#define HW_PZEM_UART_DATA_BITS   UART_DATA_8_BITS
+#define HW_PZEM_UART_PARITY      UART_PARITY_DISABLE
+#define HW_PZEM_UART_STOP_BITS   UART_STOP_BITS_1
+#define HW_PZEM_MODBUS_ADDR      0x01
+```
+
+5. Validar driver PZEM
+Em `driver_pzem.c`, garantir inicialização coerente:
+
+```c
+esp_err_t pzem_init(void)
+{
+    uart_config_t cfg = {
+        .baud_rate = HW_PZEM_UART_BAUDRATE,
+        .data_bits = HW_PZEM_UART_DATA_BITS,
+        .parity = HW_PZEM_UART_PARITY,
+        .stop_bits = HW_PZEM_UART_STOP_BITS,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+
+    ESP_RETURN_ON_ERROR(uart_driver_install(HW_PZEM_UART_PORT, 512, 512, 0, NULL, 0), TAG, "uart install");
+    ESP_RETURN_ON_ERROR(uart_param_config(HW_PZEM_UART_PORT, &cfg), TAG, "uart config");
+    ESP_RETURN_ON_ERROR(uart_set_pin(HW_PZEM_UART_PORT,
+                                     PIN_PZEM_UART_TX_GPIO,
+                                     PIN_PZEM_UART_RX_GPIO,
+                                     UART_PIN_NO_CHANGE,
+                                     UART_PIN_NO_CHANGE), TAG, "uart pins");
+    return ESP_OK;
+}
+```
+
+6. Criar teste textual de baseline
+Criar script simples `tools/check_normative_strings.py`:
+
+```python
+from pathlib import Path
+import sys
+
+forbidden = ["PZEM-004T v3.0"]
+roots = [Path("firmware/main"), Path("firmware/docs"), Path("firmware/ARCHITECTURE.md")]
+failed = False
+
+for root in roots:
+    files = [root] if root.is_file() else list(root.rglob("*"))
+    for f in files:
+        if not f.is_file():
+            continue
+        if f.suffix.lower() not in [".c", ".h", ".md", ".txt"]:
+            continue
+        text = f.read_text(errors="ignore")
+        for token in forbidden:
+            if token in text:
+                print(f"FORBIDDEN TOKEN {token} in {f}")
+                failed = True
+
+sys.exit(1 if failed else 0)
+```
+
+7. Critérios de aceite
+- Nenhuma referência ativa a PZEM v3.0.
+- Driver, docs e RTM referenciam v4.0.
+- Teste textual falha se v3.0 reaparecer.
+- Pinagem UART mantém GPIO17/TX e GPIO18/RX conforme SRS.
+
+============================================================
+NC-005 — Corpus de auditoria mistura código próprio com LVGL/vendor/assets
+============================================================
+
+1. Diagnóstico
+O corpus anexado contém `managed_components/lvgl__lvgl`, exemplos, PNGs, fontes e testes de terceiros. Isso prejudica auditabilidade e pode distorcer métricas de compliance.
+
+2. Arquivos a alterar/criar
+Criar:
+- firmware/docs/THIRD_PARTY_MANIFEST.md
+- firmware/docs/AUDIT_SCOPE.md
+- firmware/tools/concatena_auditoria.ps1 ou ajustar concatena.ps1 existente
+- firmware/docs/SBOM_MINIMAL.md
+
+Alterar:
+- script de concatenação usado para gerar projeto_concatenado_part_XX_of_10.txt
+
+3. Escopo correto da auditoria
+Incluir como código próprio:
+- firmware/main/**/*.c
+- firmware/main/**/*.h
+- firmware/components próprios/**/*.c
+- firmware/components próprios/**/*.h
+- firmware/include/**/*.h
+- firmware/docs/SRS*.txt, se necessário como fonte normativa
+- firmware/docs/RTM.md
+- firmware/docs/TEST_PLAN.md
+
+Excluir do corpus funcional:
+- firmware/managed_components/**
+- firmware/build/**
+- firmware/.git/**
+- *.png, *.jpg, *.jpeg, *.gif, *.ttf, *.bin, *.elf, *.map, *.o, *.a
+- exemplos upstream LVGL
+- testes upstream LVGL
+
+4. Sugestão de PowerShell para escopo auditável
+
+```powershell
+param(
+    [string]$Root = ".",
+    [string]$Out = "auditoria_codigo_proprio.txt"
+)
+
+$includeExtensions = @(".c", ".h", ".cpp", ".hpp", ".md", ".txt", ".cmake")
+$excludeDirs = @(
+    "managed_components",
+    "build",
+    ".git",
+    ".vscode",
+    "node_modules"
+)
+$excludeExtensions = @(
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ttf", ".bin", ".elf", ".map", ".o", ".a", ".zip"
+)
+
+if (Test-Path $Out) { Remove-Item $Out -Force }
+
+$files = Get-ChildItem -Path $Root -Recurse -File | Where-Object {
+    $full = $_.FullName
+    $ext = $_.Extension.ToLowerInvariant()
+
+    foreach ($dir in $excludeDirs) {
+        if ($full -match "[\\/]$([regex]::Escape($dir))[\\/]") { return $false }
+    }
+
+    if ($excludeExtensions -contains $ext) { return $false }
+    return $includeExtensions -contains $ext
+} | Sort-Object FullName
+
+"TOTAL_ARQUIVOS_AUDITAVEIS=$($files.Count)" | Out-File -FilePath $Out -Encoding UTF8
+
+foreach ($f in $files) {
+    "`n===== FILE: $($f.FullName) =====`n" | Out-File -FilePath $Out -Append -Encoding UTF8
+    Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue | Out-File -FilePath $Out -Append -Encoding UTF8
+}
+
+Write-Host "Arquivo gerado: $Out"
+Write-Host "Total de arquivos auditáveis: $($files.Count)"
+```
+
+5. THIRD_PARTY_MANIFEST.md sugerido
+
+```md
+# Third Party Manifest — DDIno
+
+| Componente | Caminho | Uso | Licença | Compila no firmware? | Observação |
+|---|---|---|---|---|---|
+| LVGL | managed_components/lvgl__lvgl | Biblioteca gráfica/HMI | MIT | Sim, conforme configuração ESP-IDF | Não auditar como código próprio |
+| Exemplos LVGL | managed_components/lvgl__lvgl/examples | Referência upstream | MIT | Não esperado | Excluir do corpus funcional |
+| Demos LVGL | managed_components/lvgl__lvgl/demos | Referência upstream | MIT | Não esperado | Excluir do corpus funcional |
+| Assets LVGL | managed_components/lvgl__lvgl/**/assets | Recursos upstream | Variável conforme upstream | Não auditar como app | Controlar como dependência |
+```
+
+6. AUDIT_SCOPE.md sugerido
+
+```md
+# Escopo de Auditoria Funcional — DDIno
+
+## Incluído
+- main/**/*.c
+- main/**/*.h
+- include/**/*.h
+- components próprios
+- docs normativos do projeto
+- RTM e plano de testes próprios
+
+## Excluído
+- managed_components/lvgl__lvgl/**
+- exemplos upstream
+- demos upstream
+- testes upstream
+- assets binários
+- build artifacts
+
+## Regra
+Dependências são auditadas por versão/licença/integração, não por requisito funcional da SRS do produto.
+```
+
+7. Critérios de aceite
+- Novo corpus contém apenas código próprio e docs normativos relevantes.
+- LVGL permanece referenciada como dependência, não como implementação própria.
+- Relatório de compliance separa:
+  - aplicação;
+  - dependências;
+  - documentação;
+  - evidências.
+
+============================================================
+GATE FINAL DE COMPLIANCE
+============================================================
+
+Após aplicar as correções:
+
+1. Rodar build limpo
+Comando sugerido:
+```bash
+idf.py fullclean
+idf.py build
+```
+
+2. Rodar busca de placeholders proibidos
+```bash
+grep -Rni "placeholder\|nao integrada\|Aguardando integracao\|PZEM-004T v3.0" firmware/main firmware/docs firmware/ARCHITECTURE.md
+```
+
+Critério: nenhum resultado em código/documento ativo, exceto changelog histórico claramente marcado como obsoleto.
+
+3. Validar RTM
+Cada requisito corrigido deve ter:
+- RF/RNF;
+- arquivo;
+- função;
+- teste;
+- evidência;
+- status COMPLIANT.
+
+4. Recalcular compliance
+Fórmula:
+```text
+compliance = requisitos_compliant / requisitos_totais * 100
+nao_conformidade = 100 - compliance
+```
+
+Com 105 requisitos:
+- 103/105 = 98,09%
+- 104/105 = 99,05%
+- 105/105 = 100%
+
+Após corrigir os 5 itens deste plano, a meta esperada é 105/105, desde que não surjam novas não conformidades.
+
+============================================================
+CHECKLIST RESUMIDO POR ITEM
+============================================================
+
+[ ] NC-001 ConfigRoot criado, validado, versionado e transacional
+[ ] NC-001 Wizard/API/FSMs consomem ConfigRoot
+[ ] NC-001 RF-DATA-CONFIG-ROOT-001 atualizado para COMPLIANT
+
+[ ] NC-002 UI_SCREEN_ATO criado
+[ ] NC-002 Tile ATO aponta para UI_SCREEN_ATO
+[ ] NC-002 Tela ATO exibe estados reais e bloqueia comando inseguro
+
+[ ] NC-003 Wizard sem placeholders
+[ ] NC-003 Wizard integrado ao ConfigManager
+[ ] NC-003 Operação bloqueada enquanto Wizard incompleto
+[ ] NC-003 Wizard grava ConfigRoot validado
+
+[ ] NC-004 PZEM normalizado para v4.0
+[ ] NC-004 Nenhuma referência ativa a v3.0
+[ ] NC-004 Driver e docs coerentes com UART GPIO17/18, 9600 8N1
+
+[ ] NC-005 Corpus de auditoria separado
+[ ] NC-005 managed_components excluído do corpus funcional
+[ ] NC-005 THIRD_PARTY_MANIFEST.md criado
+[ ] NC-005 AUDIT_SCOPE.md criado
+
+============================================================
+PRÓXIMO ARTEFATO RECOMENDADO
+============================================================
+Gerar um prompt de execução para OpenCode/Copilot Coding Agent com este plano, instruindo a IA codificadora a:
+- não inventar requisitos;
+- alterar somente os arquivos apontados;
+- preservar compatibilidade ESP-IDF;
+- compilar após cada bloco;
+- registrar evidências;
+- atualizar RTM e TEST_PLAN;
+- parar e reportar se encontrar conflito com a SRS.

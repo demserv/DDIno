@@ -1,237 +1,248 @@
-// @requirement RF-GLOBAL-005 ViewModel com dados mock centralizados (sem hardcode nas telas)
+// @requirement RF-GLOBAL-005 ViewModel centralizado — UI consome dados reais do sistema
 #include "ui_view_model.h"
-#include <string.h>
-#include <stdio.h>
-
-void ui_view_model_init_defaults(ui_root_vm_t *vm)
-{
-    memset(vm, 0, sizeof(ui_root_vm_t));
-
-    /* Topbar */
-    vm->topbar.wifi_ok = true;
-    snprintf(vm->topbar.datetime_text, sizeof(vm->topbar.datetime_text), "26/06/2026 19:30");
-    vm->topbar.feed_mode_active = false;
-    vm->topbar.feed_remaining_s = 0;
-
-    /* Footer */
-    vm->footer.system_state = UI_SYSTEM_NORMAL;
-    snprintf(vm->footer.uptime_text, sizeof(vm->footer.uptime_text), "02h 34m");
-    vm->footer.active_alerts_count = 2;
-    vm->footer.page_index = 0;
-    vm->footer.page_count = 7;
-
-    /* Dashboard */
-    vm->dashboard.current_temp_c = 26.5f;
-    vm->dashboard.setpoint_temp_c = 25.0f;
-    vm->dashboard.thermal_state = UI_THERMAL_IDLE;
-    vm->dashboard.voltage_v = 127.2f;
-    vm->dashboard.current_a = 1.94f;
-    vm->dashboard.power_w = 247.0f;
-    vm->dashboard.power_factor = 0.92f;
-    vm->dashboard.ato_state = UI_ATO_IDLE;
-    snprintf(vm->dashboard.ato_text, sizeof(vm->dashboard.ato_text), "ATO OK");
-
-    /* Devices */
-    vm->devices.plug_count = 10;
-    {
-        /* P01 Aquecedor */
-        vm->devices.plugs[0].plug_id = 1;
-        snprintf(vm->devices.plugs[0].code, sizeof(vm->devices.plugs[0].code), "P01");
-        snprintf(vm->devices.plugs[0].name, sizeof(vm->devices.plugs[0].name), "Aquecedor");
-        snprintf(vm->devices.plugs[0].role_tag, sizeof(vm->devices.plugs[0].role_tag), "Termico");
-        vm->devices.plugs[0].state = UI_PLUG_ON;
-        vm->devices.plugs[0].current_a = 0.85f;
-        vm->devices.plugs[0].is_critical = true;
-        vm->devices.plugs[0].current_valid = true;
-
-        /* P02 Cooler */
-        vm->devices.plugs[1].plug_id = 2;
-        snprintf(vm->devices.plugs[1].code, sizeof(vm->devices.plugs[1].code), "P02");
-        snprintf(vm->devices.plugs[1].name, sizeof(vm->devices.plugs[1].name), "Cooler");
-        snprintf(vm->devices.plugs[1].role_tag, sizeof(vm->devices.plugs[1].role_tag), "Termico");
-        vm->devices.plugs[1].state = UI_PLUG_OFF;
-        vm->devices.plugs[1].current_a = 0.0f;
-        vm->devices.plugs[1].is_critical = true;
-        vm->devices.plugs[1].current_valid = true;
-
-        /* P03 Bomba Principal */
-        vm->devices.plugs[2].plug_id = 3;
-        snprintf(vm->devices.plugs[2].code, sizeof(vm->devices.plugs[2].code), "P03");
-        snprintf(vm->devices.plugs[2].name, sizeof(vm->devices.plugs[2].name), "Bomba Principal");
-        snprintf(vm->devices.plugs[2].role_tag, sizeof(vm->devices.plugs[2].role_tag), "Circulacao");
-        vm->devices.plugs[2].state = UI_PLUG_ON;
-        vm->devices.plugs[2].current_a = 0.42f;
-        vm->devices.plugs[2].current_valid = true;
-
-        /* P04 Iluminacao */
-        vm->devices.plugs[3].plug_id = 4;
-        snprintf(vm->devices.plugs[3].code, sizeof(vm->devices.plugs[3].code), "P04");
-        snprintf(vm->devices.plugs[3].name, sizeof(vm->devices.plugs[3].name), "Iluminacao LED");
-        snprintf(vm->devices.plugs[3].role_tag, sizeof(vm->devices.plugs[3].role_tag), "Iluminacao");
-        vm->devices.plugs[3].state = UI_PLUG_ON;
-        vm->devices.plugs[3].current_a = 0.31f;
-        vm->devices.plugs[3].current_valid = true;
-
-        /* P05 Bomba Skimmer */
-        vm->devices.plugs[4].plug_id = 5;
-        snprintf(vm->devices.plugs[4].code, sizeof(vm->devices.plugs[4].code), "P05");
-        snprintf(vm->devices.plugs[4].name, sizeof(vm->devices.plugs[4].name), "Bomba Skimmer");
-        snprintf(vm->devices.plugs[4].role_tag, sizeof(vm->devices.plugs[4].role_tag), "Filtragem");
-        vm->devices.plugs[4].state = UI_PLUG_ON;
-        vm->devices.plugs[4].current_a = 0.29f;
-        vm->devices.plugs[4].current_valid = true;
-
-        /* P06 UV */
-        vm->devices.plugs[5].plug_id = 6;
-        snprintf(vm->devices.plugs[5].code, sizeof(vm->devices.plugs[5].code), "P06");
-        snprintf(vm->devices.plugs[5].name, sizeof(vm->devices.plugs[5].name), "Esterilizador UV");
-        snprintf(vm->devices.plugs[5].role_tag, sizeof(vm->devices.plugs[5].role_tag), "Filtragem");
-        vm->devices.plugs[5].state = UI_PLUG_OFF;
-        vm->devices.plugs[5].current_a = 0.0f;
-        vm->devices.plugs[5].current_valid = true;
-
-        /* P07 Bomba Dosadora */
-        vm->devices.plugs[6].plug_id = 7;
-        snprintf(vm->devices.plugs[6].code, sizeof(vm->devices.plugs[6].code), "P07");
-        snprintf(vm->devices.plugs[6].name, sizeof(vm->devices.plugs[6].name), "Bomba Dosadora");
-        snprintf(vm->devices.plugs[6].role_tag, sizeof(vm->devices.plugs[6].role_tag), "Dosagem");
-        vm->devices.plugs[6].state = UI_PLUG_ON;
-        vm->devices.plugs[6].current_a = 0.07f;
-        vm->devices.plugs[6].current_valid = true;
-
-        /* P08 Bomba Circulacao */
-        vm->devices.plugs[7].plug_id = 8;
-        snprintf(vm->devices.plugs[7].code, sizeof(vm->devices.plugs[7].code), "P08");
-        snprintf(vm->devices.plugs[7].name, sizeof(vm->devices.plugs[7].name), "Bomba Circulacao");
-        snprintf(vm->devices.plugs[7].role_tag, sizeof(vm->devices.plugs[7].role_tag), "Circulacao");
-        vm->devices.plugs[7].state = UI_PLUG_ON;
-        vm->devices.plugs[7].current_a = 0.18f;
-        vm->devices.plugs[7].current_valid = true;
-
-        /* P09 Reserva */
-        vm->devices.plugs[8].plug_id = 9;
-        snprintf(vm->devices.plugs[8].code, sizeof(vm->devices.plugs[8].code), "P09");
-        snprintf(vm->devices.plugs[8].name, sizeof(vm->devices.plugs[8].name), "Reserva A");
-        snprintf(vm->devices.plugs[8].role_tag, sizeof(vm->devices.plugs[8].role_tag), "Reserva");
-        vm->devices.plugs[8].state = UI_PLUG_OFF;
-        vm->devices.plugs[8].current_a = 0.0f;
-        vm->devices.plugs[8].current_valid = true;
-
-        /* P10 Reserva */
-        vm->devices.plugs[9].plug_id = 10;
-        snprintf(vm->devices.plugs[9].code, sizeof(vm->devices.plugs[9].code), "P10");
-        snprintf(vm->devices.plugs[9].name, sizeof(vm->devices.plugs[9].name), "Reserva B");
-        snprintf(vm->devices.plugs[9].role_tag, sizeof(vm->devices.plugs[9].role_tag), "Reserva");
-        vm->devices.plugs[9].state = UI_PLUG_OFF;
-        vm->devices.plugs[9].current_a = 0.0f;
-        vm->devices.plugs[9].current_valid = true;
-    }
-
-    /* Energy */
-    vm->energy.voltage_v = 127.2f;
-    vm->energy.current_a = 1.94f;
-    vm->energy.power_w = 247.0f;
-    vm->energy.frequency_hz = 60.0f;
-    vm->energy.power_factor = 0.92f;
-    {
-        const float kwh_values[UI_ENERGY_MONTHS] = {45.2f, 52.8f, 48.1f, 61.3f, 55.0f, 37.6f};
-        const char *labels[UI_ENERGY_MONTHS] = {"Jan", "Fev", "Mar", "Abr", "Mai", "Jun"};
-        for (int i = 0; i < UI_ENERGY_MONTHS; i++) {
-            vm->energy.monthly_kwh[i] = kwh_values[i];
-            snprintf(vm->energy.month_labels[i], 8, "%s", labels[i]);
-            vm->energy.monthly_data_valid[i] = true;
-        }
-    }
-
-    /* Alerts */
-    {
-        /* Active alert 0: ALM-055 CRITICAL - as required by prompt */
-        snprintf(vm->alerts.active_alerts[0].id, sizeof(vm->alerts.active_alerts[0].id), "ALM-055");
-        vm->alerts.active_alerts[0].severity = UI_SEVERITY_CRITICAL;
-        snprintf(vm->alerts.active_alerts[0].severity_text, sizeof(vm->alerts.active_alerts[0].severity_text), "CRITICAL");
-        snprintf(vm->alerts.active_alerts[0].message, sizeof(vm->alerts.active_alerts[0].message), "Sobrecarga eletrica detectada");
-        snprintf(vm->alerts.active_alerts[0].timestamp, sizeof(vm->alerts.active_alerts[0].timestamp), "19:25");
-        vm->alerts.active_alerts[0].acked = false;
-        snprintf(vm->alerts.active_alerts[0].action_hint, sizeof(vm->alerts.active_alerts[0].action_hint), "Reduzir consumo eletrico imediatamente");
-
-        /* Active alert 1 */
-        snprintf(vm->alerts.active_alerts[1].id, sizeof(vm->alerts.active_alerts[1].id), "ALM-042");
-        vm->alerts.active_alerts[1].severity = UI_SEVERITY_WARNING;
-        snprintf(vm->alerts.active_alerts[1].severity_text, sizeof(vm->alerts.active_alerts[1].severity_text), "WARNING");
-        snprintf(vm->alerts.active_alerts[1].message, sizeof(vm->alerts.active_alerts[1].message), "Consumo elevado no plug P03");
-        snprintf(vm->alerts.active_alerts[1].timestamp, sizeof(vm->alerts.active_alerts[1].timestamp), "19:10");
-        vm->alerts.active_alerts[1].acked = true;
-        snprintf(vm->alerts.active_alerts[1].action_hint, sizeof(vm->alerts.active_alerts[1].action_hint), "Verificar bomba principal");
-
-        vm->alerts.active_count = 2;
-        vm->alerts.critical_count = 1;
-        vm->alerts.high_count = 0;
-        vm->alerts.warning_count = 1;
-        vm->alerts.info_count = 0;
-
-        /* History alert */
-        snprintf(vm->alerts.history_alerts[0].id, sizeof(vm->alerts.history_alerts[0].id), "ALM-012");
-        vm->alerts.history_alerts[0].severity = UI_SEVERITY_HIGH;
-        snprintf(vm->alerts.history_alerts[0].severity_text, sizeof(vm->alerts.history_alerts[0].severity_text), "HIGH");
-        snprintf(vm->alerts.history_alerts[0].message, sizeof(vm->alerts.history_alerts[0].message), "Temperatura acima do limite");
-        snprintf(vm->alerts.history_alerts[0].timestamp, sizeof(vm->alerts.history_alerts[0].timestamp), "18:45");
-        vm->alerts.history_alerts[0].acked = true;
-        snprintf(vm->alerts.history_alerts[0].action_hint, sizeof(vm->alerts.history_alerts[0].action_hint), "Verificar aquecedor P01");
-        vm->alerts.history_count = 1;
-    }
-
-    /* Diagnostics */
-    vm->diagnostics.temperature = UI_HEALTH_OK;
-    vm->diagnostics.ato = UI_HEALTH_OK;
-    vm->diagnostics.energy = UI_HEALTH_OK;
-    vm->diagnostics.plugs = UI_HEALTH_OK;
-    vm->diagnostics.persistence = UI_HEALTH_UNKNOWN;
-    vm->diagnostics.security = UI_HEALTH_UNKNOWN;
-    vm->diagnostics.selftest = UI_HEALTH_OK;
-    vm->diagnostics.buses = UI_HEALTH_OK;
-    vm->diagnostics.io = UI_HEALTH_UNKNOWN;
-
-    /* Config temperature */
-    vm->config_temperature.setpoint_c = 25.0f;
-    vm->config_temperature.temp_min_c = 24.0f;
-    vm->config_temperature.temp_max_c = 28.0f;
-    vm->config_temperature.temp_critical_c = 32.0f;
-    vm->config_temperature.hysteresis_c = 1.0f;
-    vm->config_temperature.temp_extreme_c = 35.0f;
-}
 
 #include "global_state.h"
 #include "alert_manager.h"
 #include "config_manager.h"
 #include "plug_manager.h"
-#include "fsm/thermal_fsm.h"
-#include "fsm/ato_fsm.h"
-#include "services/electric_fsm.h"
-#include "fsm/feed_fsm.h"
 #include "health_matrix.h"
+#include "time_manager.h"
+#include "driver_pzem.h"
+#include "plug_model.h"
+#include "alert_model.h"
+#include "ato_service.h"
+#include "esp_err.h"
+#include <time.h>
+#include <string.h>
 
 extern global_state_t g_gs;
-extern thermal_fsm_t g_thermal_fsm;
-extern ato_fsm_t g_ato_fsm;
-extern electric_fsm_t g_electric_fsm;
-extern feed_fsm_t g_feed_fsm;
+extern pzem_data_t g_pzem;
+
+static ui_health_state_t map_health(health_status_t st)
+{
+    switch (st) {
+        case HEALTH_OK:       return UI_HEALTH_OK;
+        case HEALTH_DEGRADED: return UI_HEALTH_DEGRADED;
+        case HEALTH_FAILED:   return UI_HEALTH_FAILED;
+        default:              return UI_HEALTH_UNKNOWN;
+    }
+}
+
+static ui_plug_state_t map_plug_state(plug_effective_state_t st)
+{
+    switch (st) {
+        case PLUG_EFFECTIVE_STATE_ON:       return UI_PLUG_ON;
+        case PLUG_EFFECTIVE_STATE_BLOCKED:  return UI_PLUG_BLOCKED;
+        case PLUG_EFFECTIVE_STATE_FAULT:
+        case PLUG_EFFECTIVE_STATE_UNAVAILABLE:
+            return UI_PLUG_ERROR;
+        default:                            return UI_PLUG_OFF;
+    }
+}
+
+static ui_alert_severity_t map_alert_severity(alert_severity_t sev)
+{
+    switch (sev) {
+        case ALERT_SEVERITY_WARNING:  return UI_SEVERITY_WARNING;
+        case ALERT_SEVERITY_HIGH:     return UI_SEVERITY_HIGH;
+        case ALERT_SEVERITY_CRITICAL: return UI_SEVERITY_CRITICAL;
+        default:                      return UI_SEVERITY_INFO;
+    }
+}
+
+static ui_thermal_state_t map_thermal_from_gs(void)
+{
+    if (!g_gs.temp_ok) {
+        return UI_THERMAL_CRITICAL;
+    }
+    const thermal_params_storage_t *tp = config_get_thermal();
+    float t = g_gs.temp_filtered_c;
+    if (t >= tp->temp_extreme_c && tp->extreme_enabled) {
+        return UI_THERMAL_CRITICAL;
+    }
+    if (t >= tp->temp_critical_c) {
+        return UI_THERMAL_CRITICAL;
+    }
+    if (t > tp->temp_normal_c + tp->hysteresis_c) {
+        return UI_THERMAL_ALERT;
+    }
+    if (t < tp->temp_normal_c - tp->hysteresis_c) {
+        return UI_THERMAL_COOLING;
+    }
+    return UI_THERMAL_IDLE;
+}
+
+static ui_ato_state_t map_ato_from_gs(void)
+{
+    if (!g_gs.ato_ok) {
+        return UI_ATO_ERROR;
+    }
+    return UI_ATO_IDLE;
+}
+
+static void format_uptime(uint64_t uptime_s, char *buf, size_t len)
+{
+    uint64_t h = uptime_s / 3600ULL;
+    uint64_t m = (uptime_s % 3600ULL) / 60ULL;
+    snprintf(buf, len, "%02llu h %02llu m", (unsigned long long)h, (unsigned long long)m);
+}
+
+void ui_view_model_init_defaults(ui_root_vm_t *vm)
+{
+    if (!vm) {
+        return;
+    }
+    memset(vm, 0, sizeof(*vm));
+    vm->footer.system_state = UI_SYSTEM_NORMAL;
+    vm->footer.page_count = 4;
+    vm->devices.plug_count = UI_MAX_PLUGS;
+}
 
 void ui_view_model_update_from_system(ui_root_vm_t *vm)
 {
-    if (!vm) return;
+    if (!vm) {
+        return;
+    }
 
     vm->topbar.wifi_ok = g_gs.wifi_ok;
     vm->topbar.feed_mode_active = g_gs.feed_active;
     vm->topbar.feed_remaining_s = g_gs.feed_remaining_s;
 
+    if (g_gs.time_valid) {
+        time_t ts = 0;
+        if (time_get(&ts) == ESP_OK) {
+            struct tm tm_info;
+            localtime_r(&ts, &tm_info);
+            snprintf(vm->topbar.datetime_text, sizeof(vm->topbar.datetime_text),
+                     "%02d/%02d/%04d %02d:%02d",
+                     tm_info.tm_mday, tm_info.tm_mon + 1, tm_info.tm_year + 1900,
+                     tm_info.tm_hour, tm_info.tm_min);
+        }
+    } else {
+        snprintf(vm->topbar.datetime_text, sizeof(vm->topbar.datetime_text),
+                 "Sem hora valida");
+    }
+
     vm->footer.system_state = (ui_system_state_t)g_gs.system_state;
     vm->footer.active_alerts_count = g_gs.active_alerts_count;
-    vm->footer.page_index = 0;
-    vm->footer.page_count = 1;
+    vm->footer.wizard_active = !g_gs.wizard_completed;
+    vm->footer.time_valid = g_gs.time_valid;
+    format_uptime(g_gs.uptime_s, vm->footer.uptime_text, sizeof(vm->footer.uptime_text));
 
     vm->dashboard.current_temp_c = g_gs.temp_filtered_c;
-    vm->dashboard.voltage_v = 0;
-    vm->dashboard.current_a = 0;
-    vm->dashboard.power_w = 0;
-    vm->dashboard.power_factor = 0;
+    const thermal_params_storage_t *tp = config_get_thermal();
+    vm->dashboard.setpoint_temp_c = tp->temp_normal_c;
+    vm->dashboard.thermal_state = map_thermal_from_gs();
+
+    if (g_pzem.valid) {
+        vm->dashboard.voltage_v = g_pzem.voltage_v;
+        vm->dashboard.current_a = g_pzem.current_a;
+        vm->dashboard.power_w = g_pzem.power_w;
+        vm->dashboard.power_factor = g_pzem.pf;
+    } else {
+        vm->dashboard.voltage_v = 0.0f;
+        vm->dashboard.current_a = 0.0f;
+        vm->dashboard.power_w = 0.0f;
+        vm->dashboard.power_factor = 0.0f;
+    }
+
+    vm->dashboard.ato_state = map_ato_from_gs();
+    if (g_gs.ato_ok) {
+        snprintf(vm->dashboard.ato_text, sizeof(vm->dashboard.ato_text), "ATO OK");
+    } else {
+        snprintf(vm->dashboard.ato_text, sizeof(vm->dashboard.ato_text), "ATO FALHA");
+    }
+
+    vm->energy.voltage_v = vm->dashboard.voltage_v;
+    vm->energy.current_a = vm->dashboard.current_a;
+    vm->energy.power_w = vm->dashboard.power_w;
+    vm->energy.power_factor = vm->dashboard.power_factor;
+    vm->energy.frequency_hz = g_pzem.valid ? g_pzem.frequency_hz : 0.0f;
+
+    vm->devices.plug_count = UI_MAX_PLUGS;
+    for (uint8_t i = 0; i < UI_MAX_PLUGS; i++) {
+        plug_id_t pid = (plug_id_t)(i + 1);
+        plug_model_t *plug = plug_manager_get(pid);
+        ui_plug_vm_t *pv = &vm->devices.plugs[i];
+        pv->plug_id = i + 1;
+        snprintf(pv->code, sizeof(pv->code), "P%02u", (unsigned)(i + 1));
+        if (plug) {
+            snprintf(pv->name, sizeof(pv->name), "%s", plug->name);
+            pv->state = map_plug_state(plug->effective_state);
+            pv->current_a = plug->current_a;
+            pv->current_valid = true;
+            pv->is_critical = (pid == PLUG_ID_P01 || pid == PLUG_ID_P02);
+        } else {
+            pv->name[0] = '\0';
+            pv->state = UI_PLUG_OFF;
+            pv->current_a = 0.0f;
+            pv->current_valid = false;
+            pv->is_critical = (pid == PLUG_ID_P01 || pid == PLUG_ID_P02);
+        }
+    }
+
+    alert_slot_t slots[UI_MAX_ALERTS];
+    uint16_t slot_count = 0;
+    alert_manager_get_active_slots(slots, &slot_count, UI_MAX_ALERTS);
+
+    vm->alerts.active_count = 0;
+    vm->alerts.critical_count = 0;
+    vm->alerts.warning_count = 0;
+    vm->alerts.high_count = 0;
+    vm->alerts.info_count = 0;
+
+    for (uint16_t i = 0; i < slot_count && vm->alerts.active_count < UI_MAX_ALERTS; i++) {
+        if (!slots[i].active) {
+            continue;
+        }
+        ui_alert_vm_t *av = &vm->alerts.active_alerts[vm->alerts.active_count++];
+        snprintf(av->id, sizeof(av->id), "ALM-%03d", (int)slots[i].alm_id);
+        av->severity = map_alert_severity(slots[i].severity);
+        snprintf(av->severity_text, sizeof(av->severity_text), "%s",
+                 slots[i].severity == ALERT_SEVERITY_CRITICAL ? "CRITICO" :
+                 slots[i].severity == ALERT_SEVERITY_HIGH ? "ALTO" :
+                 slots[i].severity == ALERT_SEVERITY_WARNING ? "AVISO" : "INFO");
+        snprintf(av->message, sizeof(av->message), "%s", slots[i].message);
+        snprintf(av->timestamp, sizeof(av->timestamp), "%llu",
+                 (unsigned long long)slots[i].last_seen_ts);
+        av->acked = slots[i].acked;
+        snprintf(av->action_hint, sizeof(av->action_hint), "%s", slots[i].action_hint);
+
+        switch (av->severity) {
+            case UI_SEVERITY_CRITICAL: vm->alerts.critical_count++; break;
+            case UI_SEVERITY_HIGH:     vm->alerts.high_count++; break;
+            case UI_SEVERITY_WARNING:  vm->alerts.warning_count++; break;
+            default:                   vm->alerts.info_count++; break;
+        }
+    }
+
+    vm->diagnostics.temperature = map_health(health_get(SUB_SENSOR_TEMP));
+    vm->diagnostics.ato = map_health(health_get(SUB_SENSOR_LEVEL));
+    vm->diagnostics.energy = map_health(health_get(SUB_SENSOR_VOLTAGE));
+    vm->diagnostics.plugs = map_health(health_get(SUB_RELAY_BOARD));
+    vm->diagnostics.persistence = map_health(health_get(SUB_SD));
+    vm->diagnostics.security = map_health(health_get(SUB_WIFI));
+    vm->diagnostics.selftest = g_gs.selftest_passed ? UI_HEALTH_OK : UI_HEALTH_DEGRADED;
+    vm->diagnostics.buses = map_health(health_get(SUB_BUS_SPI));
+    vm->diagnostics.io = g_gs.ui_ok ? UI_HEALTH_OK : UI_HEALTH_FAILED;
+
+    vm->config_temperature.setpoint_c = tp->temp_normal_c;
+    vm->config_temperature.temp_min_c = tp->temp_min_c;
+    vm->config_temperature.temp_max_c = tp->temp_max_c;
+    vm->config_temperature.temp_critical_c = tp->temp_critical_c;
+    vm->config_temperature.hysteresis_c = tp->hysteresis_c;
+    vm->config_temperature.temp_extreme_c = tp->temp_extreme_c;
+
+    vm->ato.state = map_ato_from_gs();
+    vm->ato.level_adc = (g_gs.ato_ok) ? (int32_t)vm->dashboard.current_a : -1;
+    {
+        bool pump = false;
+        ato_service_is_pump_on(&pump);
+        vm->ato.pump_on = pump;
+    }
+    {
+        bool ovf = false;
+        ato_service_is_overflow(&ovf);
+        vm->ato.overflow = ovf;
+    }
 }

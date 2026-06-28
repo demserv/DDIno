@@ -72,7 +72,7 @@
 #define HW_DS3231_BACKUP_BATTERY         (1U)
 
 // --- PZEM ---
-#define HW_PZEM_MODEL                    "PZEM-004T-v3"
+#define HW_PZEM_MODEL                    "PZEM-004T-v4"
 
 // --- SPI clocks ---
 #define HW_SPI_CLK_TFT_HZ                (20000000U)

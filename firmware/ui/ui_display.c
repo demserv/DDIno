@@ -58,13 +58,11 @@ static void ili9488_init(void)
     vTaskDelay(pdMS_TO_TICKS(120));
 
     ili9488_send_cmd_data(0x3A, 0x55);
-
     ili9488_send_cmd_data(0x36, 0x48);
-
     ili9488_send_cmd(0x29);
 }
 
-static void disp_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
+void ui_display_lvgl_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
 {
     uint8_t caset[4] = {
         (uint8_t)((area->x1 >> 8) & 0xFF),
@@ -90,7 +88,7 @@ static void disp_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     gpio_set_level(PIN_TFT_DC_GPIO, 1);
     spi_transaction_t t = {
         .length = pixel_count * 2 * 8,
-        .tx_buffer = color_p,
+        .tx_buffer = color_map,
     };
     hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
 
@@ -99,12 +97,13 @@ static void disp_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
 
 static void lvgl_tick_cb(void *arg)
 {
+    (void)arg;
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
 esp_err_t ui_display_init(void)
 {
-    ESP_LOGI(TAG, "Initializing display");
+    ESP_LOGI(TAG, "Initializing ILI9488 display");
 
     gpio_set_direction(PIN_TFT_DC_GPIO, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_TFT_RST_GPIO, GPIO_MODE_OUTPUT);
@@ -125,7 +124,7 @@ esp_err_t ui_display_init(void)
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = 480;
     disp_drv.ver_res = 320;
-    disp_drv.flush_cb = disp_flush_cb;
+    disp_drv.flush_cb = ui_display_lvgl_flush;
     disp_drv.draw_buf = &disp_buf;
     lv_disp_drv_register(&disp_drv);
 
@@ -137,13 +136,15 @@ esp_err_t ui_display_init(void)
     ESP_ERROR_CHECK(esp_timer_create(&tick_timer_args, &tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, LVGL_TICK_PERIOD_MS * 1000));
 
-    ESP_LOGI(TAG, "Display initialized");
+    ESP_LOGI(TAG, "ILI9488 display initialized");
     return ESP_OK;
 }
 
 void ui_display_set_brightness(uint8_t percent)
 {
-    if (percent > 100) percent = 100;
+    if (percent > 100) {
+        percent = 100;
+    }
     s_configured_brightness = percent;
     s_brightness_percent = percent;
     gpio_set_level(PIN_TFT_BL_GPIO, percent > 0 ? 1 : 0);
@@ -162,4 +163,10 @@ void ui_display_dim_on_inactivity(bool enable, uint32_t timeout_s)
         s_brightness_percent = s_configured_brightness;
         gpio_set_level(PIN_TFT_BL_GPIO, s_brightness_percent > 0 ? 1 : 0);
     }
+}
+
+esp_err_t ui_display_set_backlight(bool enabled)
+{
+    ui_display_set_brightness(enabled ? 100U : 0U);
+    return ESP_OK;
 }

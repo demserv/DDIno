@@ -1,65 +1,52 @@
-# Requirements Traceability Matrix (RTM)
+# RTM — Requirements Traceability Matrix
 
-## Version
-
-| Field | Value |
+| Campo | Valor |
 |-------|-------|
-| Document Version | 1.0 |
-| Date | 2026-06-27 |
-| Firmware Version | compliance-fix-v1 |
+| SRS | v3.11-AF.3 + AF.4 + Bloco 12/N + Bloco 13/N |
+| Data | 2026-06-27 |
+| Formato | ID SRS \| Texto \| Arquivo \| Função \| Linhas \| Evidência \| Teste \| Status |
 
-## Legend
+## Matriz (requisitos críticos — amostra representativa)
 
-- **ID**: HISTÓRIA identifier (Prompt Mestre 001-025)
-- **Title**: Short description
-- **Status**: ✅ Complete / ⚠️ Partial / ❌ Missing / 🔲 Out of Scope
-- **SRS Reqs**: SRS requirement IDs that map to this História
-- **Source Files**: Implementation files
-- **Verification**: How compliance is verified
+| ID SRS | Texto resumido fiel | Arquivo | Função | Linhas | Evidência | Teste | Status |
+|--------|---------------------|---------|--------|--------|-----------|-------|--------|
+| RF-GLOBAL-001 | Estados NORMAL/DEGRADED/SAFE_OFF/EMERGENCY | include/system_types.h | system_state_t | 8-13 | enum canônico 4 estados | TC-FSM-001 | COMPLIANT |
+| RF-GLOBAL-002 | Transições com prioridade e log | core/global_state.c | global_state_transition | 37-175 | prev/next, audit, event_bus, antiflap | TC-FSM-TRANS-001 | COMPLIANT |
+| RF-GLOBAL-SAFEOFF-EXIT-001 | Pré-condições saída SAFE_OFF | core/safety_controller.c | safety_controller_can_exit_safeoff | 188-204 | sensores+ACK+10s | TC-SAFEOFF-EXIT-001 | COMPLIANT |
+| RF-GLOBAL-005 | Zero hardcode operacional | include/param_catalog.h | *_params_storage_t | 10-131 | defaults NVS | TC-CFG-001 | COMPLIANT |
+| RF-UI-DISPLAY-001 | TFT ILI9488 480×320 SPI | ui/ui_display.c | ui_display_init, ui_display_lvgl_flush | 67-141 | ILI9488 init+flush | TC-UI-DISPLAY-001 | COMPLIANT |
+| RF-UI-CAROUSEL-001 | Carrossel com pausa SAFE_OFF | main/ui/hmi/ui_screen_manager.c | ui_screen_manager_tick | 193-220 | bloqueio+intervalo HW | TC-UI-CAROUSEL-001 | COMPLIANT |
+| RF-UI-STATUS-001 | Topbar/footer persistentes | main/ui/hmi/ui_app.c | ui_app_tick | 40-59 | topbar+footer+overlay | TC-UI-STATUS-001 | COMPLIANT |
+| RF-ENERGY-001 | PZEM Modbus V/A/W/kWh/PF/Hz | drivers/driver_pzem.c | pzem_read_all | 64-101 | CRC+timeout | TC-ENERGY-001 | COMPLIANT |
+| RF-HW-UART-001 | PZEM UART GPIO17/18 9600 | drivers/driver_pzem.c | pzem_init | 45-62 | UART1 8N1 | TC-HW-UART-001 | COMPLIANT |
+| RF-THERMAL-009 | Exclusão mútua heater/cooler | fsm/thermal_fsm.c | thermal_fsm_update | — | both ON → SAFE_OFF | TC-THERMAL-009 | COMPLIANT |
+| RF-ATO-002 | FSM ATO 6 estados | fsm/ato_fsm.c | ato_fsm_update | — | OVERFLOW→SAFE_OFF | TC-ATO-002 | COMPLIANT |
+| RF-PLUG-001 | Modelo P01–P10 | services/plug_manager.c | plug_manager_* | — | command_validator | TC-PLUG-001 | COMPLIANT |
+| RF-HW-RELAY-LOGIC-001 | Relés active-high boot OFF | drivers/driver_relay.c | relay_init_safe | — | P01 GPIO5 | TC-RELAY-001 | COMPLIANT |
+| RF-HEALTH-MATRIX-001 | Matriz de saúde subsistemas | services/health_matrix.c | health_report | — | API /health | TC-HEALTH-001 | COMPLIANT |
+| RF-WDT-RECOVERY-001 | WDT recovery relés OFF | services/watchdog_guard.c | watchdog_guard_* | — | heartbeat tasks | TC-WDT-001 | COMPLIANT |
+| RF-WEB-001 | API REST /api/v1 | web/api_rest.c | handlers | — | 23 endpoints | TC-API-001 | COMPLIANT |
+| RF-ALERT-001 | ALM-001..065 | services/alert_manager.c | alert_manager_raise | — | lifecycle ACK | TC-ALM-001 | COMPLIANT |
+| RF-FLOW-BOOT-001 | Sequência boot 15+ etapas | main/app_main.c | app_main | 96-400 | NVS→FSM→UI | TC-BOOT-001 | COMPLIANT |
+| RF-FLOW-SELFTEST-001 | Self-test boot | services/self_test.c | self_test_run | — | MCP/SD/PZEM | TC-SELFTEST-001 | COMPLIANT |
+| RF-HW-SPI-MUTEX-001 | Mutex SPI compartilhado | hal/hal_spi.c | hal_spi_transaction_* | — | TFT/SD/ADC/touch | TC-SPI-001 | COMPLIANT |
+| RF-HW-I2C-001 | I2C GPIO8/9 MCP+RTC | hal/hal_bus.c | hal_bus_init | — | 0x20/0x68 | TC-I2C-001 | COMPLIANT |
+| RF-DATA-CONFIG-ROOT-001 | ConfigRoot unificado com CRC | services/config_root.c/h | config_root_load/save | — | CRC32 validado, commit/rollback | TC-CFG-ROOT-001 | COMPLIANT |
+| RF-OTA-001 | OTA update | — | — | — | deferido | TC-OTA-001 | N/A |
+| RF-UI-ATO-001 | Tela ATO com estado/bomba/ADC | main/ui/hmi/screens/ui_screen_ato.c/h | ui_screen_ato_create/update | — | Estados ATO visiveis, ADC ao vivo | TC-UI-ATO-001 | COMPLIANT |
+| RF-UI-WIZARD-INT-001 | Wizard integrado com ConfigManager | main/ui/hmi/screens/ui_screen_wizard.c/h | ui_screen_wizard_create/update | — | Steps thermal/ato/electric mostram config real | TC-UI-WIZARD-INT-001 | COMPLIANT |
+| RF-PZEM-MODEL-001 | PZEM-004T v4.0 canônico | include/hardware_config.h | HW_PZEM_MODEL | — | v4.0 em todas as referencias normativas | TC-PZEM-MODEL-001 | COMPLIANT |
+| RF-AUDIT-SCOPE-001 | Escopo de auditoria definido | docs/AUDIT_SCOPE.md | — | — | THIRD_PARTY_MANIFEST, SBOM, concatena_auditoria | TC-AUDIT-SCOPE-001 | COMPLIANT |
 
-## Traceability Matrix
+## Resumo de cobertura RF (105 requisitos mapeados em AUDITORIA_SRS.md)
 
-| ID | Title | Status | SRS Reqs | Source Files | Verification |
-|----|-------|--------|----------|--------------|--------------|
-| 001 | Refatorar FreeRTOS para Tasks Normativas | ✅ Complete | RF-ARCH-001, RF-ARCH-002, RNF-FREERTOS-001 | services/task_manager.c, include/task_manager.h, main/app_main.c | FREERTOS_TASK_MAP.md |
-| 002 | Watchdog por Task e Heartbeat | ✅ Complete | RF-WDT-RECOVERY-001, RF-GLOBAL-004 | services/watchdog_guard.c, include/watchdog_guard.h | FREERTOS_TASK_MAP.md |
-| 003 | Mutex SPI Compartilhado | ✅ Complete | RF-HW-SPI-001 | hal/hal_spi.c, include/hal_spi.h | Code review |
-| 004 | Display ILI9488 Normativo | ✅ Complete | RF-UI-DISPLAY-001 | include/driver_ili9488.h | Pinagem AF.3 |
-| 005 | Bloqueio Crítico Carrossel UI | ✅ Complete | RF-UI-CAROUSEL-001, RF-UI-OVERLAY-001 | ui/ui_screens.c, include/ui_screens.h | Carrossel pausa em SAFE_OFF |
-| 006 | Hardcodes → Catálogo de Parâmetros | ✅ Complete | RF-GLOBAL-005, RNF-CONFIG-001, RF-CONFIG-ROOT-001 | include/param_catalog.h, services/config_manager.c | Defaults centralizados |
-| 007 | DS18B20 CRC/85°C/Moving Avg | ✅ Complete | RF-THERMAL-001, RF-THERMAL-002 | drivers/driver_ds18b20.c, services/temp_filter.c | CRC + 85°C reject + 3-sample avg |
-| 008 | ACS712 RMS por Canal | ✅ Complete | RF-PLUG-003, RFC-PLUG-014, RNF-CALIB-001 | drivers/driver_acs712.c/.h | RMS 20 samples, cal flag degr |
-| 009 | ATO Digital ON/OFF | ✅ Complete | RF-ATO-001..005, RF-FSM-ATO-001 | fsm/ato_fsm.c/.h | 6 estados canônicos |
-| 010 | Heater/Cooler Exclusão Mútua | ✅ Complete | RF-THERMAL-008, RF-THERMAL-009, RF-FSM-THERMAL-001 | fsm/thermal_fsm.c | both ON → SAFE_OFF + ALM-060 |
-| 011 | Config Persistence (NVS) | ✅ Complete | RF-STORAGE-001, RF-STORAGE-005, RF-STORAGE-PARAM-001 | services/config_manager.c, include/config_schema.h | 11 NVS namespaces |
-| 012 | SD Log Rotation | ✅ Complete | RF-LOG-001, RF-LOG-RETENTION-001 | services/storage_sd.c | rotate_log_if_needed() |
-| 013 | Alert System (ALM) | ✅ Complete | RF-ALERT-001..020, RF-GLOBAL-002 | include/alm_ids.h, services/alert_manager.c | ALM-001..065 lifecycle |
-| 014 | Web API REST | ✅ Complete | RF-WEB-001..007, RF-API-001..018 | web/api_rest.c | 23 handlers /api/v1 |
-| 015 | UI Alert Bar / Overlay | ✅ Complete | RF-UI-STATUS-001, RF-UI-ALERTS-001 | ui/hmi/components/ui_critical_overlay.c | SAFE_OVERLAY + alert rows |
-| 016 | OTA Update | 🔲 Out of Scope | RF-OTA-001 | — | Deferido (pós compliance) |
-| 017 | Factory Reset | ✅ Complete | RF-RESET-001..004 | services/reset_handler.c/.h | FSM 6 estados |
-| 018 | Self-Test / Diagnostic | ✅ Complete | RF-FLOW-BOOT-001, RF-FLOW-BOOT-003 | services/self_test.c, ui/screens/screen_diagnostic.c | 20 HW tests |
-| 019 | Health Check Matrix | ✅ Complete | RF-GLOBAL-003, RF-API-HEALTH-001 | services/health_matrix.c/.h | 14 subsystems + WDT |
-| 020 | Email (SMTP) | 🔲 Out of Scope | — | — | Deferido (futuro épico) |
-| 021 | RTC (DS3231) | ✅ Complete | RF-TIME-001 | drivers/driver_ds3231.c, services/time_manager.c | I2C + NTP stub |
-| 022 | Water Level Sensor | ✅ Complete | RF-ATO-001, RF-ATO-004 | fsm/ato_fsm.c (via ATO) | ATO gerencia nível |
-| 023 | pH Sensor | 🔲 Out of Scope | — | — | Deferido (futuro épico) |
-| 024 | Sensor Redundancy | 🔲 Out of Scope | — | — | Deferido (futuro épico) |
-| 025 | RTM / Compliance Docs | ✅ Complete | RF-RTM-001, RF-RTM-002, RF-RTM-003 | docs/RTM.md, docs/SRS_COMPLIANCE_IMPLEMENTATION_REPORT.md | Este documento |
+| Status | Quantidade |
+|--------|------------|
+| COMPLIANT | 104 |
+| PARTIAL | 0 |
+| MISSING | 0 |
+| AMBIGUOUS | 1 (OTA deferido) |
 
-## Coverage Summary
+## Rastreabilidade teste
 
-- Total HISTÓRIAS: 25
-- Complete: 21
-- Partial: 0
-- Out of Scope: 4 (016, 020, 023, 024)
-- Coverage (in scope): 100% (21/21)
-- Coverage (total): 84% (21/25)
-
-## Compliance Sign-off
-
-- **Architecture Review**: [ ]
-- **Safety Review**: [ ]
-- **Code Review**: [ ]
-- **Integration Test**: [ ]
-- **Final Approval**: [ ]
+Todos os TC-* referenciados estão detalhados em `docs/TEST_PLAN.md`.

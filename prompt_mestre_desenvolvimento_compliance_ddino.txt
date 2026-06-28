@@ -1,0 +1,1364 @@
+PROMPT MESTRE DE DESENVOLVIMENTO — CORREÇÃO DE COMPLIANCE SRS DDIno
+Projeto: Monitor Aquário Inteligente / DDIno
+Plataforma: ESP32-S3 / ESP-IDF
+Linguagem: C/C++ compatível com ESP-IDF
+UI/HMI: LVGL
+Baseline normativa: SRS v3.11-AF.3 + AF.4 + Bloco 12/N + Bloco 13/N
+Meta de compliance: >= 98%
+
+================================================================================
+INSTRUÇÃO INICIAL PARA A IA CODIFICADORA
+================================================================================
+
+Você assumirá, obrigatoriamente e simultaneamente, os seguintes papéis técnicos:
+
+1. ARQUITETO DE SOFTWARE EMBARCADO
+   - Especialista em arquitetura modular para ESP-IDF.
+   - Especialista em firmware safety-critical.
+   - Especialista em rastreabilidade SRS → código → testes.
+   - Responsável por garantir que as alterações respeitem a arquitetura existente, sem criar atalhos, acoplamentos indevidos ou soluções improvisadas.
+
+2. ENGENHEIRO DE SOFTWARE EMBARCADO SÊNIOR
+   - Especialista em C/C++ para ESP32-S3.
+   - Especialista em ESP-IDF, FreeRTOS, NVS, UART, SPI, I2C, drivers e serviços embarcados.
+   - Especialista em LVGL para UI/HMI embarcada.
+   - Responsável por implementar código compilável, seguro, legível, modular e aderente ao padrão existente do projeto.
+
+3. ANALISTA SÊNIOR DE SISTEMAS
+   - Especialista em interpretação rigorosa de SRS.
+   - Especialista em compliance, RTM, plano de testes, critérios de aceite e evidências.
+   - Responsável por garantir que cada alteração feche explicitamente os pontos de não conformidade da auditoria.
+
+================================================================================
+FONTES OBRIGATÓRIAS DE VERDADE
+================================================================================
+
+Você deve considerar como fontes obrigatórias, nesta ordem:
+
+1. SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+2. SRS v3.11 COMPLETA — GO CODING READY.txt
+3. Relatório de auditoria gerado anteriormente
+4. Plano de ação detalhado gerado anteriormente
+5. Código-fonte local do repositório
+
+================================================================================
+REGRAS ABSOLUTAS DE EXECUÇÃO
+================================================================================
+
+1. NÃO INVENTAR
+   - Não invente requisitos.
+   - Não invente GPIOs.
+   - Não invente thresholds fora dos exemplos do plano de ação, salvo se já existirem na SRS ou no código.
+   - Não invente ALMs.
+   - Não invente estados globais.
+   - Não invente endpoints.
+   - Não invente arquitetura paralela.
+   - Não invente comportamento safety-critical sem base na SRS, auditoria ou plano de ação.
+
+2. NÃO DELIRAR
+   - Se algo não estiver na SRS, na auditoria, no plano de ação ou no código, não trate como requisito.
+   - Se houver conflito, prevalece a SRS consolidada final.
+   - Se alguma sugestão de código do plano precisar ser adaptada ao padrão real do projeto, adapte minimamente, mantendo a intenção técnica.
+   - Nunca substitua uma solução especificada por “melhor prática genérica”.
+
+3. NÃO REMOVER CONTEÚDO VÁLIDO
+   - Não apague módulos existentes sem necessidade.
+   - Não remova requisitos, comentários normativos, RTM ou testes existentes.
+   - Não destrua compatibilidade com funcionalidades já implementadas.
+   - Preserve a arquitetura em camadas: HAL, drivers, core, FSMs, services, UI/HMI, Web/API, persistência e QA.
+
+4. SEGUIR O PLANO DE AÇÃO
+   - As correções devem seguir os exemplos de código e instruções do plano de ação.
+   - Se o código real já possuir funções equivalentes, reutilize-as.
+   - Se alguma função sugerida já existir com outro nome, adapte sem duplicar desnecessariamente.
+   - Se houver divergência entre exemplo e código real, aplique a menor alteração segura.
+
+5. EXECUTAR EM SEQUÊNCIA SEM PAUSAS
+   - Execute as tarefas na ordem definida neste prompt.
+   - Não pare para pedir confirmação.
+   - Não deixe TODO, FIXME, placeholder ou “a implementar”.
+   - Ao final de cada bloco, registre o que foi alterado.
+   - Ao final de todos os blocos, cheque item a item se o plano de ação foi cumprido.
+
+6. BUILD E QUALIDADE
+   - O código final deve compilar em ESP-IDF.
+   - Não introduza warnings evitáveis.
+   - Não introduza dependências externas desnecessárias.
+   - Não use bibliotecas não previstas.
+   - Não quebre CMake/component registration.
+   - Atualize includes e CMakeLists se criar novos arquivos .c/.h.
+   - Respeite guardas C++ com extern "C" em headers C.
+
+================================================================================
+OBJETIVO FINAL
+================================================================================
+
+Corrigir todos os itens abaixo para que o projeto possa atingir compliance >= 98%:
+
+NC-001 — RF-DATA-CONFIG-ROOT-001 permanece parcial
+NC-002 — Tela ATO está como placeholder no menu principal
+NC-003 — Wizard inicial não integrado ao ConfigManager
+NC-004 — Divergência PZEM-004T v3.0 versus PZEM-004T v4.0
+NC-005 — Corpus de auditoria mistura código próprio com LVGL/vendor/assets
+
+================================================================================
+FASE 0 — PREPARAÇÃO E LEITURA OBRIGATÓRIA
+================================================================================
+
+Antes de alterar qualquer arquivo:
+
+1. Localize e leia os arquivos normativos:
+   - SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+   - SRS v3.11 COMPLETA — GO CODING READY.txt
+
+2. Localize e leia:
+   - relatório de auditoria;
+   - plano de ação detalhado;
+   - RTM existente, se houver;
+   - TEST_PLAN existente, se houver;
+   - COMPLIANCE_REPORT, se houver;
+   - AUDITORIA_SRS.md, se houver.
+
+3. Identifique os arquivos reais do projeto equivalentes aos nomes abaixo:
+   - firmware/main/services/config_manager.c
+   - firmware/main/services/config_manager.h
+   - firmware/main/app_main.c
+   - firmware/main/ui/hmi/screens/ui_screen_main_menu.c
+   - firmware/main/ui/hmi/screens/ui_screen_wizard.c
+   - firmware/main/ui/hmi/ui_screen_manager.c
+   - firmware/main/ui/hmi/ui_screen_manager.h
+   - firmware/main/ui/hmi/ui_view_model.c
+   - firmware/main/ui/hmi/ui_view_model.h
+   - firmware/main/web/api_rest.c
+   - firmware/main/drivers/driver_pzem.c
+   - firmware/main/drivers/driver_pzem.h
+   - firmware/main/include/hardware_config.h
+   - firmware/main/include/pin_map.h
+   - firmware/ARCHITECTURE.md
+
+4. Se algum arquivo não existir exatamente nesse caminho:
+   - procure pelo arquivo equivalente;
+   - mantenha o nome real do projeto;
+   - não crie duplicidade sem necessidade;
+   - registre no relatório final o caminho real usado.
+
+5. Antes de alterar, faça uma busca por:
+   - placeholder
+   - nao integrada
+   - Aguardando integracao
+   - PZEM-004T v3.0
+   - TODO
+   - FIXME
+   - not implemented
+   - ESP_ERR_NOT_SUPPORTED
+
+6. Classifique cada ocorrência:
+   - código próprio ativo;
+   - documentação normativa ativa;
+   - documentação histórica;
+   - vendor/third-party;
+   - build artifact.
+
+Somente corrija ocorrências relevantes ao escopo do produto. Não altere vendor upstream desnecessariamente.
+
+================================================================================
+FASE 1 — NC-005 — SEPARAR ESCOPO DE AUDITORIA
+================================================================================
+
+Objetivo:
+Corrigir a não conformidade de auditabilidade causada pela mistura de código próprio com LVGL/vendor/assets no corpus de auditoria.
+
+Arquivos a criar:
+- firmware/docs/THIRD_PARTY_MANIFEST.md
+- firmware/docs/AUDIT_SCOPE.md
+- firmware/docs/SBOM_MINIMAL.md
+- firmware/tools/concatena_auditoria.ps1 ou ajustar script equivalente existente
+
+Tarefa 1.1 — Criar AUDIT_SCOPE.md
+
+Crie o arquivo firmware/docs/AUDIT_SCOPE.md com conteúdo equivalente a:
+
+# Escopo de Auditoria Funcional — DDIno
+
+## Incluído
+
+- firmware/main/**/*.c
+- firmware/main/**/*.h
+- firmware/include/**/*.h
+- components próprios do projeto
+- docs normativos do projeto
+- RTM e plano de testes próprios
+
+## Excluído
+
+- firmware/managed_components/lvgl__lvgl/**
+- exemplos upstream
+- demos upstream
+- testes upstream
+- assets binários
+- build artifacts
+- .git
+- build
+- arquivos .png, .jpg, .jpeg, .gif, .ttf, .bin, .elf, .map, .o, .a
+
+## Regra
+
+Dependências são auditadas por versão, licença, integração e configuração, não como implementação funcional própria da SRS do produto.
+
+Tarefa 1.2 — Criar THIRD_PARTY_MANIFEST.md
+
+Crie firmware/docs/THIRD_PARTY_MANIFEST.md com conteúdo equivalente a:
+
+# Third Party Manifest — DDIno
+
+| Componente | Caminho | Uso | Licença | Compila no firmware? | Observação |
+|---|---|---|---|---|---|
+| LVGL | managed_components/lvgl__lvgl | Biblioteca gráfica/HMI | MIT | Sim, conforme configuração ESP-IDF | Não auditar como código próprio |
+| Exemplos LVGL | managed_components/lvgl__lvgl/examples | Referência upstream | MIT | Não esperado | Excluir do corpus funcional |
+| Demos LVGL | managed_components/lvgl__lvgl/demos | Referência upstream | MIT | Não esperado | Excluir do corpus funcional |
+| Assets LVGL | managed_components/lvgl__lvgl/**/assets | Recursos upstream | Conforme upstream | Não auditar como app | Controlar como dependência |
+
+Se houver outros managed_components no projeto, inclua-os.
+
+Tarefa 1.3 — Criar SBOM_MINIMAL.md
+
+Crie firmware/docs/SBOM_MINIMAL.md contendo, no mínimo:
+
+- Nome do componente;
+- caminho;
+- versão, se identificável localmente;
+- licença, se identificável localmente;
+- finalidade;
+- status: próprio ou terceiro.
+
+Não invente versão se não estiver disponível. Use:
+PENDENTE — DADO NÃO FORNECIDO NO DOCUMENTO FONTE
+
+Tarefa 1.4 — Criar ou ajustar script de concatenação auditável
+
+Crie ou ajuste firmware/tools/concatena_auditoria.ps1 com a seguinte lógica:
+
+- incluir apenas extensões textuais relevantes;
+- excluir managed_components;
+- excluir build;
+- excluir .git;
+- excluir binários;
+- gerar contagem de arquivos auditáveis;
+- concatenar arquivos com separador claro.
+
+Use como base e corrija qualquer erro de sintaxe PowerShell, se necessário:
+
+```powershell
+param(
+    [string]$Root = ".",
+    [string]$Out = "auditoria_codigo_proprio.txt"
+)
+
+$includeExtensions = @(".c", ".h", ".cpp", ".hpp", ".md", ".txt", ".cmake")
+
+$excludeDirs = @(
+    "managed_components",
+    "build",
+    ".git",
+    ".vscode",
+    "node_modules"
+)
+
+$excludeExtensions = @(
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp",
+    ".ttf", ".bin", ".elf", ".map", ".o", ".a", ".zip"
+)
+
+if (Test-Path $Out) {
+    Remove-Item $Out -Force
+}
+
+$files = Get-ChildItem -Path $Root -Recurse -File | Where-Object {
+    $full = $_.FullName
+    $ext = $_.Extension.ToLowerInvariant()
+
+    foreach ($dir in $excludeDirs) {
+        if ($full -match "[\\/]$([regex]::Escape($dir))[\\/]") {
+            return $false
+        }
+    }
+
+    if ($excludeExtensions -contains $ext) {
+        return $false
+    }
+
+    return $includeExtensions -contains $ext
+} | Sort-Object FullName
+
+"TOTAL_ARQUIVOS_AUDITAVEIS=$($files.Count)" |
+    Out-File -FilePath $Out -Encoding UTF8
+
+foreach ($f in $files) {
+    "`n===== FILE: $($f.FullName) =====`n" |
+        Out-File -FilePath $Out -Append -Encoding UTF8
+
+    Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue |
+        Out-File -FilePath $Out -Append -Encoding UTF8
+}
+
+Write-Host "Arquivo gerado: $Out"
+Write-Host "Total de arquivos auditáveis: $($files.Count)"
+```
+
+Critérios de aceite da Fase 1:
+- AUDIT_SCOPE.md criado.
+- THIRD_PARTY_MANIFEST.md criado.
+- SBOM_MINIMAL.md criado.
+- Script de concatenação funcional.
+- managed_components excluído do corpus funcional.
+- Não alterar código upstream LVGL.
+
+================================================================================
+FASE 2 — NC-004 — NORMALIZAR PZEM-004T v4.0
+================================================================================
+
+Objetivo:
+Eliminar conflito entre PZEM-004T v3.0 e PZEM-004T v4.0.
+
+Arquivos prováveis a alterar:
+- firmware/ARCHITECTURE.md
+- firmware/main/drivers/driver_pzem.c
+- firmware/main/drivers/driver_pzem.h
+- firmware/main/include/hardware_config.h
+- firmware/main/include/pin_map.h
+- firmware/docs/RTM.md
+- firmware/docs/TEST_PLAN.md
+
+Tarefa 2.1 — Buscar conflito
+
+Procure em todo o código próprio e documentação normativa ativa:
+PZEM-004T v3.0
+
+Tarefa 2.2 — Corrigir documentação normativa ativa
+
+Substitua referências normativas ativas de:
+PZEM-004T v3.0
+
+para:
+PZEM-004T v4.0
+
+Não altere histórico se estiver claramente marcado como obsoleto/histórico, mas garanta que nenhum arquivo ativo use v3.0 como baseline.
+
+Tarefa 2.3 — Criar constantes canônicas
+
+Em hardware_config.h, ou arquivo equivalente de configuração de hardware, adicione ou ajuste:
+
+```c
+#define HW_PZEM_MODEL_NAME       "PZEM-004T"
+#define HW_PZEM_MODEL_VERSION    "v4.0"
+#define HW_PZEM_UART_PORT        UART_NUM_1
+#define HW_PZEM_UART_BAUDRATE    9600
+#define HW_PZEM_UART_DATA_BITS   UART_DATA_8_BITS
+#define HW_PZEM_UART_PARITY      UART_PARITY_DISABLE
+#define HW_PZEM_UART_STOP_BITS   UART_STOP_BITS_1
+#define HW_PZEM_MODBUS_ADDR      0x01
+```
+
+Se o projeto já possuir constantes equivalentes:
+- não duplique;
+- ajuste os nomes existentes;
+- preserve compatibilidade.
+
+Tarefa 2.4 — Validar driver PZEM
+
+Em driver_pzem.c, garanta que a inicialização UART siga:
+
+```c
+esp_err_t pzem_init(void)
+{
+    uart_config_t cfg = {
+        .baud_rate = HW_PZEM_UART_BAUDRATE,
+        .data_bits = HW_PZEM_UART_DATA_BITS,
+        .parity = HW_PZEM_UART_PARITY,
+        .stop_bits = HW_PZEM_UART_STOP_BITS,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+
+    ESP_RETURN_ON_ERROR(
+        uart_driver_install(HW_PZEM_UART_PORT, 512, 512, 0, NULL, 0),
+        TAG,
+        "uart install"
+    );
+
+    ESP_RETURN_ON_ERROR(
+        uart_param_config(HW_PZEM_UART_PORT, &cfg),
+        TAG,
+        "uart config"
+    );
+
+    ESP_RETURN_ON_ERROR(
+        uart_set_pin(
+            HW_PZEM_UART_PORT,
+            PIN_PZEM_UART_TX_GPIO,
+            PIN_PZEM_UART_RX_GPIO,
+            UART_PIN_NO_CHANGE,
+            UART_PIN_NO_CHANGE
+        ),
+        TAG,
+        "uart pins"
+    );
+
+    return ESP_OK;
+}
+```
+
+Se o código real já possui pzem_init, adapte sem quebrar funções existentes.
+
+Tarefa 2.5 — Criar teste textual
+
+Crie tools/check_normative_strings.py:
+
+```python
+from pathlib import Path
+import sys
+
+forbidden = ["PZEM-004T v3.0"]
+
+roots = [
+    Path("firmware/main"),
+    Path("firmware/docs"),
+    Path("firmware/ARCHITECTURE.md"),
+]
+
+failed = False
+
+for root in roots:
+    if not root.exists():
+        continue
+
+    files = [root] if root.is_file() else list(root.rglob("*"))
+
+    for f in files:
+        if not f.is_file():
+            continue
+
+        if f.suffix.lower() not in [".c", ".h", ".md", ".txt"]:
+            continue
+
+        text = f.read_text(errors="ignore")
+
+        for token in forbidden:
+            if token in text:
+                print(f"FORBIDDEN TOKEN {token} in {f}")
+                failed = True
+
+sys.exit(1 if failed else 0)
+```
+
+Critérios de aceite da Fase 2:
+- Nenhuma referência normativa ativa a PZEM-004T v3.0.
+- PZEM v4.0 usado como baseline.
+- UART preservada em GPIO17/GPIO18, 9600 8N1.
+- check_normative_strings.py criado e funcional.
+
+================================================================================
+FASE 3 — NC-002 — IMPLEMENTAR TELA ATO REAL
+================================================================================
+
+Objetivo:
+Remover placeholder do menu principal e criar tela ATO real em LVGL.
+
+Arquivos a alterar:
+- firmware/main/ui/hmi/screens/ui_screen_main_menu.c
+- firmware/main/ui/hmi/ui_screen_manager.h
+- firmware/main/ui/hmi/ui_screen_manager.c
+- firmware/main/ui/hmi/ui_view_model.h
+- firmware/main/ui/hmi/ui_view_model.c
+
+Arquivos a criar:
+- firmware/main/ui/hmi/screens/ui_screen_ato.c
+- firmware/main/ui/hmi/screens/ui_screen_ato.h
+
+Tarefa 3.1 — Adicionar enum UI_SCREEN_ATO
+
+No enum de telas, inclua:
+
+```c
+UI_SCREEN_ATO,
+```
+
+Não quebre valores existentes se houver persistência ou lógica dependente de enum. Se necessário, insira no ponto mais seguro e atualize todos os arrays/switches.
+
+Tarefa 3.2 — Corrigir target do menu principal
+
+Em ui_screen_main_menu.c, encontre o target do tile ATO.
+
+Substituir qualquer lógica equivalente a:
+
+```c
+UI_SCREEN_CONFIG_TEMPERATURE, /* ATO -> placeholder vai para config temp */
+```
+
+por:
+
+```c
+UI_SCREEN_ATO,
+```
+
+Remova o comentário de placeholder.
+
+Tarefa 3.3 — Criar ViewModel ATO
+
+Em ui_view_model.h, incluir:
+
+```c
+typedef enum {
+    UI_ATO_STATE_NORMAL = 0,
+    UI_ATO_STATE_REFILLING,
+    UI_ATO_STATE_OVERFLOW,
+    UI_ATO_STATE_BLOCKED,
+    UI_ATO_STATE_ERROR,
+    UI_ATO_STATE_DISABLED
+} ui_ato_state_t;
+
+typedef struct {
+    ui_ato_state_t state;
+    bool sensor_water_present;
+    bool pump_commanded_on;
+    bool reservoir_empty;
+    bool overflow_detected;
+    bool blocked_detected;
+    uint32_t refill_elapsed_s;
+    uint32_t refill_timeout_s;
+    char active_alarm[16];
+} ui_ato_vm_t;
+```
+
+Adicionar em ui_root_vm_t:
+
+```c
+ui_ato_vm_t ato;
+```
+
+Se já existir estrutura equivalente:
+- reutilize;
+- não duplique;
+- apenas complete campos ausentes.
+
+Tarefa 3.4 — Popular ViewModel a partir da FSM ATO
+
+Em ui_view_model.c, adicione função ou ajuste update existente para preencher:
+
+- estado ATO;
+- sensor água presente/ausente;
+- bomba comandada;
+- reservatório vazio;
+- overflow;
+- blocked;
+- tempo refill;
+- timeout refill;
+- ALM ativo.
+
+Não acesse hardware direto pela UI. A UI deve consumir serviços/FSM/ViewModel.
+
+Tarefa 3.5 — Criar ui_screen_ato.h
+
+Use:
+
+```c
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_ato_update(ui_root_vm_t *vm);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+Tarefa 3.6 — Criar ui_screen_ato.c
+
+Use o modelo abaixo, adaptando apenas nomes reais de fonte, tema e eventos:
+
+```c
+#include "ui_screen_ato.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+#include <stdio.h>
+
+static lv_obj_t *lbl_state;
+static lv_obj_t *lbl_sensor;
+static lv_obj_t *lbl_pump;
+static lv_obj_t *lbl_timer;
+static lv_obj_t *lbl_alarm;
+static lv_obj_t *btn_refill;
+static lv_obj_t *btn_stop;
+
+static const char *ato_state_to_text(ui_ato_state_t s)
+{
+    switch (s) {
+    case UI_ATO_STATE_NORMAL: return "NORMAL";
+    case UI_ATO_STATE_REFILLING: return "REFILLING";
+    case UI_ATO_STATE_OVERFLOW: return "OVERFLOW";
+    case UI_ATO_STATE_BLOCKED: return "BLOCKED";
+    case UI_ATO_STATE_ERROR: return "ERROR";
+    case UI_ATO_STATE_DISABLED: return "DISABLED";
+    default: return "UNKNOWN";
+    }
+}
+
+static void refill_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_ATO_START_REFILL);
+}
+
+static void stop_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_ATO_STOP_REFILL);
+}
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "ATO / Nivel de Agua");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 6);
+
+    lbl_state = lv_label_create(parent);
+    lv_obj_set_pos(lbl_state, 20, 45);
+
+    lbl_sensor = lv_label_create(parent);
+    lv_obj_set_pos(lbl_sensor, 20, 75);
+
+    lbl_pump = lv_label_create(parent);
+    lv_obj_set_pos(lbl_pump, 20, 105);
+
+    lbl_timer = lv_label_create(parent);
+    lv_obj_set_pos(lbl_timer, 20, 135);
+
+    lbl_alarm = lv_label_create(parent);
+    lv_obj_set_pos(lbl_alarm, 20, 165);
+
+    btn_refill = lv_btn_create(parent);
+    lv_obj_set_size(btn_refill, 130, 36);
+    lv_obj_set_pos(btn_refill, 40, 220);
+    lv_obj_add_event_cb(btn_refill, refill_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *l1 = lv_label_create(btn_refill);
+    lv_label_set_text(l1, "Iniciar refill");
+    lv_obj_center(l1);
+
+    btn_stop = lv_btn_create(parent);
+    lv_obj_set_size(btn_stop, 130, 36);
+    lv_obj_set_pos(btn_stop, 300, 220);
+    lv_obj_add_event_cb(btn_stop, stop_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *l2 = lv_label_create(btn_stop);
+    lv_label_set_text(l2, "Parar ATO");
+    lv_obj_center(l2);
+
+    ui_screen_ato_update(vm);
+}
+
+void ui_screen_ato_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+
+    char buf[96];
+
+    snprintf(buf, sizeof(buf), "Estado: %s", ato_state_to_text(vm->ato.state));
+    lv_label_set_text(lbl_state, buf);
+
+    snprintf(buf, sizeof(buf), "Sensor agua: %s",
+             vm->ato.sensor_water_present ? "OK" : "BAIXO/SECO");
+    lv_label_set_text(lbl_sensor, buf);
+
+    snprintf(buf, sizeof(buf), "Bomba ATO: %s",
+             vm->ato.pump_commanded_on ? "ON" : "OFF");
+    lv_label_set_text(lbl_pump, buf);
+
+    snprintf(buf, sizeof(buf), "Refill: %lu/%lu s",
+             (unsigned long)vm->ato.refill_elapsed_s,
+             (unsigned long)vm->ato.refill_timeout_s);
+    lv_label_set_text(lbl_timer, buf);
+
+    snprintf(buf, sizeof(buf), "Alarme: %s",
+             vm->ato.active_alarm[0] ? vm->ato.active_alarm : "nenhum");
+    lv_label_set_text(lbl_alarm, buf);
+
+    bool unsafe =
+        vm->ato.state == UI_ATO_STATE_OVERFLOW ||
+        vm->ato.state == UI_ATO_STATE_BLOCKED ||
+        vm->ato.state == UI_ATO_STATE_ERROR ||
+        vm->ato.state == UI_ATO_STATE_DISABLED;
+
+    if (unsafe) {
+        lv_obj_add_state(btn_refill, LV_STATE_DISABLED);
+    } else {
+        lv_obj_clear_state(btn_refill, LV_STATE_DISABLED);
+    }
+}
+```
+
+Tarefa 3.7 — Registrar tela no screen manager
+
+Em ui_screen_manager.c:
+
+```c
+case UI_SCREEN_ATO:
+    ui_screen_ato_create(container, vm);
+    break;
+```
+
+No update:
+
+```c
+case UI_SCREEN_ATO:
+    ui_screen_ato_update(vm);
+    break;
+```
+
+Tarefa 3.8 — Atualizar CMakeLists
+
+Se o projeto registrar fontes manualmente, incluir:
+
+```text
+ui/hmi/screens/ui_screen_ato.c
+```
+
+Critérios de aceite da Fase 3:
+- Tile ATO abre UI_SCREEN_ATO.
+- Não existe placeholder ATO.
+- Tela ATO compila.
+- Tela ATO exibe estados reais via ViewModel.
+- Comando refill fica bloqueado em estados inseguros.
+- RTM/TEST_PLAN atualizados com TC-UI-ATO-001.
+
+================================================================================
+FASE 4 — NC-003 — INTEGRAR WIZARD AO CONFIGMANAGER
+================================================================================
+
+Objetivo:
+Remover Wizard fake/placeholder e implementar fluxo real integrado ao ConfigManager/ConfigRoot.
+
+Arquivos a alterar:
+- firmware/main/ui/hmi/screens/ui_screen_wizard.c
+- firmware/main/ui/hmi/screens/ui_screen_wizard.h
+- firmware/main/services/config_manager.c
+- firmware/main/services/config_manager.h
+- firmware/main/app_main.c
+- firmware/main/services/command_validator.c
+- firmware/main/services/relay_safety_service.c
+
+Tarefa 4.1 — Remover placeholders do Wizard
+
+Remova textos equivalentes a:
+
+- Etapa atual: nao integrada
+- Aguardando integracao com ConfigManager
+- qualquer placeholder funcional
+
+Tarefa 4.2 — Criar enum de etapas
+
+Em config_manager.h, wizard_state.h ou local equivalente:
+
+```c
+typedef enum {
+    WIZARD_STEP_WELCOME = 0,
+    WIZARD_STEP_PASSWORD,
+    WIZARD_STEP_THERMAL,
+    WIZARD_STEP_ATO,
+    WIZARD_STEP_ELECTRIC,
+    WIZARD_STEP_REVIEW,
+    WIZARD_STEP_COMPLETE
+} wizard_step_t;
+```
+
+Adicionar APIs:
+
+```c
+wizard_step_t config_get_wizard_step(void);
+esp_err_t config_set_wizard_step(wizard_step_t step);
+esp_err_t config_wizard_apply_step(wizard_step_t step, config_root_t *cfg);
+esp_err_t config_wizard_finish(const config_root_t *cfg);
+```
+
+Tarefa 4.3 — Bloquear operação enquanto Wizard incompleto
+
+Em app_main.c, após carregar config:
+
+```c
+config_root_t cfg;
+esp_err_t cfg_err = config_manager_load_root(&cfg);
+
+if (cfg_err != ESP_OK) {
+    config_root_set_defaults(&cfg);
+    cfg.wizard_completed = false;
+    (void)config_manager_commit_root_transactional(&cfg);
+}
+
+if (!cfg.wizard_completed) {
+    g_gs.operation_blocked_by_wizard = true;
+    ui_screen_manager_show(UI_SCREEN_WIZARD);
+    relay_all_off();
+}
+```
+
+Se g_gs.operation_blocked_by_wizard não existir:
+- criar campo compatível em global_state_t, se coerente;
+- ou usar mecanismo já existente de bloqueio global/configuração incompleta;
+- não inventar novo estado global.
+
+Tarefa 4.4 — Bloquear comandos
+
+Em command_validator.c:
+
+```c
+bool command_validator_can_toggle_relay(uint8_t plug_id)
+{
+    const config_root_t *cfg = config_manager_get_cached_root();
+
+    if (!cfg || !cfg->wizard_completed) {
+        return false;
+    }
+
+    if (global_state_is_safeoff_or_emergency()) {
+        return false;
+    }
+
+    return plug_id >= 1 && plug_id <= 10;
+}
+```
+
+Adapte ao nome real das funções existentes.
+
+Tarefa 4.5 — Renderizar etapas reais
+
+Em ui_screen_wizard.c:
+
+```c
+static lv_obj_t *lbl_title;
+static lv_obj_t *lbl_body;
+static lv_obj_t *btn_next;
+static lv_obj_t *btn_back;
+static lv_obj_t *btn_finish;
+
+static void wizard_render_step(wizard_step_t step)
+{
+    switch (step) {
+    case WIZARD_STEP_WELCOME:
+        lv_label_set_text(lbl_title, "Wizard Inicial");
+        lv_label_set_text(lbl_body,
+            "Revise os parametros obrigatorios antes de liberar a operacao.");
+        break;
+
+    case WIZARD_STEP_PASSWORD:
+        lv_label_set_text(lbl_title, "Seguranca Web");
+        lv_label_set_text(lbl_body,
+            "Configure senha/admin e politica minima de autenticacao.");
+        break;
+
+    case WIZARD_STEP_THERMAL:
+        lv_label_set_text(lbl_title, "Perfil Termico");
+        lv_label_set_text(lbl_body,
+            "Revise setpoint, histerese e limites criticos.");
+        break;
+
+    case WIZARD_STEP_ATO:
+        lv_label_set_text(lbl_title, "ATO");
+        lv_label_set_text(lbl_body,
+            "Revise sensor, timeout de refill e protecoes de overflow/bloqueio.");
+        break;
+
+    case WIZARD_STEP_ELECTRIC:
+        lv_label_set_text(lbl_title, "Perfil Eletrico");
+        lv_label_set_text(lbl_body,
+            "Selecione 127 V, 220 V ou bivolt manual e revise limites.");
+        break;
+
+    case WIZARD_STEP_REVIEW:
+        lv_label_set_text(lbl_title, "Revisao Final");
+        lv_label_set_text(lbl_body,
+            "Confirme a configuracao antes de liberar a operacao.");
+        break;
+
+    case WIZARD_STEP_COMPLETE:
+        lv_label_set_text(lbl_title, "Wizard Concluido");
+        lv_label_set_text(lbl_body,
+            "Operacao liberada conforme configuracao validada.");
+        break;
+    }
+}
+```
+
+Tarefa 4.6 — Finalizar Wizard com commit transacional
+
+```c
+static void wizard_finish_cb(lv_event_t *e)
+{
+    (void)e;
+
+    config_root_t cfg;
+
+    if (config_manager_load_root(&cfg) != ESP_OK) {
+        config_root_set_defaults(&cfg);
+    }
+
+    cfg.wizard_completed = true;
+    cfg.crc32 = config_root_crc32(&cfg);
+
+    if (config_manager_commit_root_transactional(&cfg) == ESP_OK) {
+        config_set_wizard_step(WIZARD_STEP_COMPLETE);
+        g_gs.operation_blocked_by_wizard = false;
+        ui_screen_manager_show(UI_SCREEN_MAIN_MENU);
+    } else {
+        g_gs.operation_blocked_by_wizard = true;
+        relay_all_off();
+    }
+}
+```
+
+Tarefa 4.7 — Garantir fail-safe
+
+Se Wizard incompleto ou gravação falhar:
+- relés OFF;
+- comandos bloqueados;
+- operação não liberada;
+- alerta/log se infraestrutura existir;
+- sem SAFE_OFF inventado se a SRS/código não definir esse caminho para Wizard incompleto.
+
+Critérios de aceite da Fase 4:
+- Wizard sem placeholders.
+- Wizard integrado a ConfigManager/ConfigRoot.
+- Operação bloqueada enquanto Wizard incompleto.
+- Conclusão do Wizard grava config válida.
+- Falha mantém sistema seguro.
+- RTM/TEST_PLAN atualizados.
+
+================================================================================
+FASE 5 — NC-001 — IMPLEMENTAR CONFIGROOT CANÔNICO
+================================================================================
+
+Objetivo:
+Fechar RF-DATA-CONFIG-ROOT-001.
+
+Arquivos a alterar:
+- firmware/main/services/config_manager.c
+- firmware/main/services/config_manager.h
+- firmware/main/app_main.c
+- firmware/main/web/api_rest.c
+- firmware/main/ui/hmi/screens/ui_screen_wizard.c
+
+Arquivos a criar:
+- firmware/main/include/config_root.h
+- firmware/main/services/config_root.c
+- firmware/main/services/config_root.h, se o projeto separar include público/privado
+- firmware/docs/CONFIG_ROOT_SCHEMA.md
+- teste unitário ou teste funcional equivalente
+
+Tarefa 5.1 — Criar config_root.h
+
+Use como base:
+
+```c
+#pragma once
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CONFIG_ROOT_SCHEMA_VERSION 1U
+#define CONFIG_ROOT_MAGIC 0x4444494EU
+
+typedef enum {
+    CONFIG_ELECTRIC_PROFILE_127V = 0,
+    CONFIG_ELECTRIC_PROFILE_220V = 1,
+    CONFIG_ELECTRIC_PROFILE_BIVOLT_MANUAL = 2
+} config_electric_profile_t;
+
+typedef struct {
+    float setpoint_c;
+    float hysteresis_c;
+    float critical_high_c;
+    float critical_low_c;
+    bool heater_enabled;
+    bool cooler_enabled;
+} config_thermal_t;
+
+typedef struct {
+    bool enabled;
+    uint16_t adc_threshold_on;
+    uint16_t adc_threshold_off;
+    uint32_t refill_timeout_s;
+    uint32_t blocked_timeout_s;
+} config_ato_t;
+
+typedef struct {
+    config_electric_profile_t profile;
+    float over_voltage_v;
+    float under_voltage_v;
+    float total_current_limit_a;
+    float min_power_factor;
+} config_electric_t;
+
+typedef struct {
+    uint8_t brightness_percent;
+    bool touch_enabled;
+    bool keypad_enabled;
+    uint32_t carousel_interval_ms;
+} config_ui_t;
+
+typedef struct {
+    bool auth_enabled;
+    uint32_t session_timeout_s;
+    uint32_t rate_limit_per_minute;
+} config_web_t;
+
+typedef struct {
+    uint32_t magic;
+    uint32_t schema_version;
+    uint32_t crc32;
+    bool wizard_completed;
+
+    config_thermal_t thermal;
+    config_ato_t ato;
+    config_electric_t electric;
+    config_ui_t ui;
+    config_web_t web;
+} config_root_t;
+
+void config_root_set_defaults(config_root_t *cfg);
+esp_err_t config_root_validate(const config_root_t *cfg);
+uint32_t config_root_crc32(const config_root_t *cfg);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+Tarefa 5.2 — Criar config_root.c
+
+Use como base o código do plano de ação, adaptando somente se necessário ao padrão real.
+
+A função config_root_validate deve validar:
+- magic;
+- schema_version;
+- CRC;
+- faixa térmica;
+- histerese;
+- limites térmicos;
+- thresholds ADC;
+- timeout ATO;
+- brilho UI;
+- pelo menos um método de entrada local, touch ou keypad;
+- rate limit web.
+
+Tarefa 5.3 — Integrar ao config_manager
+
+Adicionar APIs:
+
+```c
+esp_err_t config_manager_load_root(config_root_t *out_cfg);
+esp_err_t config_manager_save_root(const config_root_t *cfg);
+esp_err_t config_manager_commit_root_transactional(const config_root_t *cfg);
+esp_err_t config_manager_rollback_root(config_root_t *out_cfg);
+bool config_manager_is_wizard_completed(void);
+esp_err_t config_manager_set_wizard_completed(bool completed);
+const config_root_t *config_manager_get_cached_root(void);
+```
+
+Tarefa 5.4 — Implementar transação NVS
+
+Implemente lógica:
+
+1. root_pending
+2. tx_pending=true
+3. root_backup
+4. root_active
+5. tx_pending=false
+
+No boot:
+- se tx_pending=true, tentar recuperar de root_active;
+- se inválido, recuperar root_backup;
+- se inválido, defaults seguros;
+- registrar falha se infraestrutura de ALM/log existir.
+
+Tarefa 5.5 — Criar CONFIG_ROOT_SCHEMA.md
+
+Documentar:
+- campos;
+- versão;
+- defaults;
+- validação;
+- comportamento em CRC inválido;
+- rollback;
+- relação com Wizard;
+- relação com API;
+- relação com FSMs.
+
+Tarefa 5.6 — Atualizar consumidores
+
+Atualizar Wizard, API e validadores para usarem ConfigRoot.
+
+Evitar acesso direto disperso a NVS para configuração crítica.
+
+Critérios de aceite da Fase 5:
+- RF-DATA-CONFIG-ROOT-001 pode ser marcado COMPLIANT.
+- ConfigRoot tem schema, defaults, validação, CRC, commit e rollback.
+- Wizard usa ConfigRoot.
+- command_validator consulta ConfigRoot para bloquear operação se Wizard incompleto.
+- Build compila.
+
+================================================================================
+FASE 6 — RTM, TEST_PLAN E RELATÓRIOS
+================================================================================
+
+Objetivo:
+Atualizar rastreabilidade e evidências.
+
+Arquivos a atualizar, se existirem:
+- firmware/docs/RTM.md
+- firmware/docs/TEST_PLAN.md
+- firmware/COMPLIANCE_REPORT.md
+- firmware/docs/SRS_COMPLIANCE_IMPLEMENTATION_REPORT.md
+- firmware/AUDITORIA_SRS.md
+
+Tarefa 6.1 — Atualizar RTM
+
+Para cada item corrigido, registrar:
+
+- ID
+- descrição
+- arquivo
+- função
+- teste
+- evidência esperada
+- status
+
+Itens mínimos:
+
+RF-DATA-CONFIG-ROOT-001
+- Arquivos: config_root.h, config_root.c, config_manager.c/h
+- Funções: config_root_validate, config_manager_commit_root_transactional, config_manager_load_root
+- Teste: TC-CFG-ROOT-001
+- Status: COMPLIANT
+
+RF-UI-ATO-001 ou requisito equivalente
+- Arquivos: ui_screen_ato.c/h, ui_screen_main_menu.c, ui_screen_manager.c/h, ui_view_model.c/h
+- Funções: ui_screen_ato_create, ui_screen_ato_update
+- Teste: TC-UI-ATO-001
+- Status: COMPLIANT
+
+RF-UI-WIZARD-001..005 / RF-GLOBAL-006, conforme RTM real
+- Arquivos: ui_screen_wizard.c/h, config_manager.c/h, app_main.c, command_validator.c
+- Funções: wizard_render_step, wizard_finish_cb, config_set_wizard_step
+- Teste: TC-WIZARD-001, TC-WIZARD-BLOCK-001
+- Status: COMPLIANT
+
+RF-ENERGY-001 / RF-HW-UART-001
+- Arquivos: driver_pzem.c/h, hardware_config.h, pin_map.h, ARCHITECTURE.md
+- Funções: pzem_init, pzem_read_all
+- Teste: TC-ENERGY-001
+- Status: COMPLIANT
+
+AUDIT-SCOPE-001 ou item documental equivalente
+- Arquivos: AUDIT_SCOPE.md, THIRD_PARTY_MANIFEST.md, SBOM_MINIMAL.md, concatena_auditoria.ps1
+- Teste: TC-AUDIT-SCOPE-001
+- Status: COMPLIANT
+
+Tarefa 6.2 — Atualizar TEST_PLAN
+
+Adicionar ou atualizar testes:
+
+TC-CFG-ROOT-001
+- valida defaults;
+- valida CRC;
+- valida schema;
+- simula NVS corrompido;
+- simula rollback.
+
+TC-UI-ATO-001
+- tile ATO abre tela ATO;
+- tela mostra estados;
+- refill bloqueia em estados inseguros.
+
+TC-WIZARD-001
+- Wizard exibe etapas reais;
+- conclui gravação;
+- marca wizard_completed.
+
+TC-WIZARD-BLOCK-001
+- Wizard incompleto bloqueia relés/comandos.
+
+TC-PZEM-BASELINE-001
+- nenhuma referência normativa ativa a PZEM v3.0;
+- v4.0 é baseline.
+
+TC-AUDIT-SCOPE-001
+- script exclui managed_components;
+- script exclui binários;
+- script gera corpus de código próprio.
+
+Tarefa 6.3 — Atualizar relatório de compliance
+
+Registrar antes/depois:
+- antes: 5 itens não conformes/parciais;
+- depois: todos corrigidos, se de fato corrigidos;
+- compliance esperado: >= 98%;
+- se todos os 105 estiverem compliant: 100%.
+
+Não declare 100% se testes/build não confirmarem.
+
+================================================================================
+FASE 7 — BUILD, BUSCAS E VERIFICAÇÃO FINAL
+================================================================================
+
+Tarefa 7.1 — Build
+
+Execute:
+
+```bash
+idf.py fullclean
+idf.py build
+```
+
+Se o ambiente não permitir build, registre:
+- comando que deve ser executado;
+- motivo da impossibilidade;
+- arquivos alterados;
+- riscos.
+
+Tarefa 7.2 — Busca de termos proibidos
+
+Execute equivalente a:
+
+```bash
+grep -Rni "placeholder\|nao integrada\|Aguardando integracao\|PZEM-004T v3.0" firmware/main firmware/docs firmware/ARCHITECTURE.md
+```
+
+Critério:
+- nenhum resultado em código ativo ou documentação normativa ativa;
+- se existir em histórico, deve estar claramente marcado como obsoleto/histórico.
+
+Tarefa 7.3 — Checar TODO/FIXME
+
+Execute:
+
+```bash
+grep -Rni "TODO\|FIXME\|not implemented\|ESP_ERR_NOT_SUPPORTED" firmware/main firmware/docs
+```
+
+Classifique achados:
+- se forem relacionados às correções deste plano, corrigir;
+- se forem externos/não relacionados, registrar.
+
+Tarefa 7.4 — Conferir CMake
+
+Se novos .c foram criados:
+- verificar se entram no build;
+- atualizar CMakeLists.txt se necessário;
+- evitar arquivo órfão.
+
+Tarefa 7.5 — Conferência contra plano de ação
+
+Ao final, leia novamente o plano de ação e preencha checklist:
+
+[ ] NC-001 ConfigRoot criado, validado, versionado e transacional
+[ ] NC-001 Wizard/API/FSMs consomem ConfigRoot
+[ ] NC-001 RF-DATA-CONFIG-ROOT-001 atualizado para COMPLIANT
+
+[ ] NC-002 UI_SCREEN_ATO criado
+[ ] NC-002 Tile ATO aponta para UI_SCREEN_ATO
+[ ] NC-002 Tela ATO exibe estados reais e bloqueia comando inseguro
+
+[ ] NC-003 Wizard sem placeholders
+[ ] NC-003 Wizard integrado ao ConfigManager
+[ ] NC-003 Operação bloqueada enquanto Wizard incompleto
+[ ] NC-003 Wizard grava ConfigRoot validado
+
+[ ] NC-004 PZEM normalizado para v4.0
+[ ] NC-004 Nenhuma referência ativa a v3.0
+[ ] NC-004 Driver e docs coerentes com UART GPIO17/18, 9600 8N1
+
+[ ] NC-005 Corpus de auditoria separado
+[ ] NC-005 managed_components excluído do corpus funcional
+[ ] NC-005 THIRD_PARTY_MANIFEST.md criado
+[ ] NC-005 AUDIT_SCOPE.md criado
+
+================================================================================
+RELATÓRIO FINAL OBRIGATÓRIO
+================================================================================
+
+Ao terminar todas as tarefas, gere relatório final com:
+
+1. Resumo executivo
+   - status geral;
+   - compliance esperado;
+   - build executado ou não;
+   - pendências restantes.
+
+2. Arquivos alterados
+   - listar arquivo por arquivo;
+   - explicar alteração feita.
+
+3. Arquivos criados
+   - listar arquivo por arquivo;
+   - explicar finalidade.
+
+4. Correções por NC
+   - NC-001: o que foi feito;
+   - NC-002: o que foi feito;
+   - NC-003: o que foi feito;
+   - NC-004: o que foi feito;
+   - NC-005: o que foi feito.
+
+5. Evidências
+   - resultado de build;
+   - resultado das buscas;
+   - testes adicionados;
+   - RTM atualizada;
+   - TEST_PLAN atualizado.
+
+6. Checklist final
+   - marcar cada item como OK, PARCIAL ou NÃO ATENDIDO.
+   - Se algum item não for atendido, explicar exatamente por quê.
+
+7. Recomendação final
+   - informar se o projeto está apto a nova auditoria de compliance >= 98%.
+   - Não declarar conformidade total sem evidência.
+
+================================================================================
+ORDEM DE EXECUÇÃO OBRIGATÓRIA
+================================================================================
+
+Execute sem pausas nesta ordem:
+
+1. FASE 0 — Preparação e leitura
+2. FASE 1 — NC-005 Escopo de auditoria
+3. FASE 2 — NC-004 PZEM v4.0
+4. FASE 3 — NC-002 Tela ATO
+5. FASE 4 — NC-003 Wizard
+6. FASE 5 — NC-001 ConfigRoot
+7. FASE 6 — RTM, TEST_PLAN e relatórios
+8. FASE 7 — Build, buscas e verificação final
+9. Relatório final
+
+NÃO INTERROMPA ENTRE AS FASES.
+NÃO PEÇA CONFIRMAÇÃO.
+NÃO DEIXE PLACEHOLDERS.
+NÃO INVENTE REQUISITOS.
+NÃO ALTERE VENDOR UPSTREAM SEM NECESSIDADE.
+NÃO QUEBRE COMPILAÇÃO.
+NÃO DECLARE COMPLIANCE SEM EVIDÊNCIA.
+
+COMECE AGORA.
