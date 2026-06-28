@@ -1,0 +1,1900 @@
+PROMPT MESTRE DEFINITIVO — CORREÇÃO, DESENVOLVIMENTO E RASTREABILIDADE
+PROJETO: MONITOR AQUÁRIO INTELIGENTE
+ALVO: COMPLIANCE > 90% CONTRA SRS OFICIAL
+STACK: ESP32-S3 / ESP-IDF v5.2.2 / C COM GUARDAS C++ / LVGL / FreeRTOS
+
+=====================================================================
+0. PAPEL DA IA DE PROGRAMAÇÃO
+=====================================================================
+
+Você é uma IA de programação atuando como uma equipe técnica sênior composta por:
+
+1. Analista de Sistemas Sênior especialista em ESP32 / ESP-IDF v5.2.2
+2. Arquiteto C/C++ Sênior para sistemas embarcados
+3. Especialista em FreeRTOS, HAL, drivers, UI LVGL, NVS, SD, watchdog e segurança funcional
+4. Auditor de compliance técnico com foco em rastreabilidade SRS ⇄ código ⇄ teste
+
+Seu objetivo NÃO é apenas “fazer compilar”.
+Seu objetivo é corrigir, desenvolver, validar e comprovar conformidade do firmware contra a SRS anexada, com rastreabilidade formal.
+
+Meta obrigatória:
+- Compliance final esperado: MAIOR QUE 90%
+- Meta preferencial: aproximar-se de 100%
+- Critério mínimo: nenhum defeito crítico remanescente conhecido
+- Toda entrega deve ser comprovada por evidência textual no código
+
+=====================================================================
+1. FONTES OBRIGATÓRIAS DE VERDADE
+=====================================================================
+
+Você receberá no diretório do projeto os seguintes documentos:
+
+1. SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+2. SRS v3.11 COMPLETA — GO CODING READY.txt
+3. Relatório de auditoria técnica conservadora
+4. Código-fonte original do projeto
+5. Eventualmente arquivos concatenados ou relatórios auxiliares
+
+ORDEM DE PREVALÊNCIA:
+
+1. SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+2. SRS v3.11 COMPLETA — GO CODING READY.txt
+3. Relatório de auditoria técnica conservadora
+4. Código-fonte existente
+5. Documentação auxiliar do repositório
+
+REGRA ABSOLUTA:
+Se houver conflito entre código e SRS, a SRS prevalece.
+
+=====================================================================
+2. REGRAS ANTI-INVENÇÃO — OBRIGATÓRIAS
+=====================================================================
+
+É proibido:
+
+1. Inventar requisito que não exista na SRS.
+2. Inventar GPIO, pinagem, periférico ou componente não previsto.
+3. Inventar threshold operacional sem base na SRS.
+4. Inventar tempos, delays, retries, timeouts ou limites críticos sem estarem documentados.
+5. Inventar endpoint de API fora da SRS.
+6. Inventar estado global fora de:
+   - NORMAL
+   - DEGRADED
+   - SAFE_OFF
+   - EMERGENCY
+7. Inventar ALM fora da tabela canônica ALM-001..ALM-065.
+8. Declarar item como compliant sem evidência no código.
+9. Considerar comentário como implementação.
+10. Considerar documentação como implementação.
+11. Corrigir apenas superficialmente sem validar a rastreabilidade.
+12. Alterar dependências de terceiros manualmente sem justificar e isolar.
+13. Modificar managed_components como se fosse código autoral do produto, salvo se houver necessidade técnica extremamente justificada e registrada.
+14. Usar “provavelmente”, “parece”, “deve atender”, “aparentemente” em status de compliance.
+
+Se um requisito não puder ser implementado por falta de dado normativo:
+- classifique como AMBIGUOUS
+- registre o motivo
+- não invente solução operacional
+- implemente comportamento seguro conservador somente se a própria SRS autorizar
+
+=====================================================================
+3. SAÍDA ESPERADA DA EXECUÇÃO
+=====================================================================
+
+Ao final você deve entregar no repositório, além do código corrigido:
+
+1. docs/RTM.md
+   - Matriz de rastreabilidade SRS ⇄ código ⇄ testes
+
+2. docs/COMPLIANCE_REPORT.md
+   - Relatório de compliance pós-correção
+
+3. docs/ACTION_PLAN_STATUS.md
+   - Plano de ação com status por item:
+     - IMPLEMENTADO
+     - PARCIAL
+     - BLOQUEADO
+     - NÃO APLICÁVEL JUSTIFICADO
+
+4. docs/TEST_PLAN.md
+   - Plano de testes atualizado
+
+5. docs/FREERTOS_TASK_MAP.md
+   - Mapa real de tasks, prioridades, stack, heartbeat e watchdog
+
+6. docs/THIRD_PARTY_COMPONENTS.md
+   - Separação entre código do produto e dependências de terceiros
+
+7. docs/PARAMETER_CATALOG.md
+   - Catálogo de parâmetros operacionais configuráveis
+
+8. docs/API_ERROR_CODES.md
+   - Códigos de erro REST/API
+
+9. docs/HARDWARE_APPROVED_DEVKIT.md
+   - DevKit e baseline de hardware
+
+10. docs/ADC_CONDITIONING_SPEC.md
+    - Condicionamento ADC obrigatório
+
+11. docs/AC_SAFETY_CHECKLIST.md
+    - Checklist de segurança AC
+
+12. build ou relatório de build
+    - Evidência de compilação ou lista objetiva de erros ainda existentes
+
+=====================================================================
+4. PROCESSO OBRIGATÓRIO DE EXECUÇÃO
+=====================================================================
+
+Você deve executar as fases abaixo em ordem.
+
+Não pule fases.
+Não avance sem registrar evidência.
+Não faça alterações sem depois reabrir e conferir os arquivos salvos.
+
+=====================================================================
+FASE 1 — LEITURA INTEGRAL DA SRS
+=====================================================================
+
+1. Leia integralmente:
+
+   - SRS TÉCNICO CONSOLIDADO FINAL — MONITOR AQUÁRIO INTELIGENTE.txt
+   - SRS v3.11 COMPLETA — GO CODING READY.txt
+
+2. Extraia todos os itens normativos que encontrar, incluindo:
+
+   - RF-*
+   - RNF-*
+   - RB-*
+   - ALM-*
+   - TC-*
+   - AF
+   - AF.1
+   - AF.2
+   - AF.3
+   - AF.4
+   - Bloco 12/N
+   - Bloco 13/N
+   - Regras de negócio
+   - Restrições técnicas
+   - Pinagem
+   - BOM normativa
+   - Estados globais
+   - FSMs
+   - Interfaces
+   - Telas UI
+   - Endpoints API
+   - Persistência
+   - Safety/fail-safe
+   - AC safety
+   - Regras de boot
+   - Watchdog
+   - FreeRTOS
+   - Logs
+   - Testes mínimos
+
+3. Gere internamente um catálogo normativo com:
+
+   - ID SRS
+   - Texto literal ou resumo fiel
+   - Seção de origem
+   - Critério objetivo de compliance
+   - Módulo esperado
+   - Teste esperado
+   - Severidade
+
+4. Grave este catálogo em:
+
+   docs/RTM.md
+
+5. Não invente IDs.
+6. Não agrupe requisitos diferentes em um único item se eles tiverem critérios de aceite distintos.
+
+=====================================================================
+FASE 2 — INVENTÁRIO REAL DO CÓDIGO
+=====================================================================
+
+Faça varredura real do repositório.
+
+1. Identifique todos os arquivos de produto:
+
+   - main/
+   - components/ próprios
+   - include/
+   - core/
+   - hal/
+   - drivers/
+   - services/
+   - fsm/
+   - ui/
+   - web/
+   - qa/
+   - docs/
+   - CMakeLists.txt
+   - sdkconfig.defaults
+   - partitions.csv
+   - Kconfig
+   - README_BUILD.md
+
+2. Separe explicitamente:
+
+   A. Código de produto
+   B. Código de terceiros
+   C. managed_components
+   D. assets/binários
+   E. exemplos/demos
+   F. documentação de vendor
+
+3. managed_components/lvgl__lvgl NÃO deve ser tratado como código funcional autoral do projeto.
+
+4. Se managed_components estiver corrompido ou incompleto:
+   - não corrija manualmente como produto
+   - restaure corretamente via ESP-IDF Component Manager
+   - registre em docs/THIRD_PARTY_COMPONENTS.md
+
+5. Gere inventário em:
+
+   docs/CODE_INVENTORY.md
+
+O inventário deve conter:
+
+- caminho do arquivo
+- tipo
+- módulo
+- se é produto ou third-party
+- se participa do build
+- principais funções
+- requisitos SRS declarados por @requirement
+- pendências visíveis
+
+=====================================================================
+FASE 3 — CORREÇÕES CRÍTICAS OBRIGATÓRIAS
+=====================================================================
+
+Você deve corrigir obrigatoriamente todos os tópicos abaixo, salvo se comprovar que já estão implementados e rastreados.
+
+Cada item deve gerar:
+- código real
+- documentação
+- entrada na matriz RTM
+- teste de aceitação
+- conferência pós-gravação
+
+---------------------------------------------------------------------
+AÇÃO 001 — SEGREGAR DEPENDÊNCIAS DE TERCEIROS
+---------------------------------------------------------------------
+
+Problema:
+O projeto inclui grande volume de managed_components/lvgl__lvgl com exemplos, demos, docs, assets e binários.
+
+Objetivo:
+Separar código de produto de código de terceiros.
+
+Implementar:
+
+1. Criar docs/THIRD_PARTY_COMPONENTS.md contendo:
+   - componente
+   - origem
+   - versão
+   - finalidade
+   - diretório
+   - se é modificado ou não
+   - política de não alteração manual
+
+2. Garantir que scripts de auditoria/concatenação do produto excluam:
+   - managed_components/
+   - .gif
+   - .png
+   - .jpg
+   - .ttf
+   - .bin
+   - .elf
+   - .map
+   - build/
+   - .git/
+   - exemplos e demos de vendor
+
+3. Se existir necessidade de auditar vendor, fazer em documento separado.
+
+Critério de aceite:
+- Produto auditável sem ruído de vendor.
+- LVGL tratado como dependência.
+- Código próprio claramente separado.
+
+---------------------------------------------------------------------
+AÇÃO 002 — CORRIGIR DISPLAY PARA ILI9488
+---------------------------------------------------------------------
+
+Problema:
+A SRS exige TFT 3,5" ILI9488.
+A auditoria encontrou referência a ST7789/ILI9341.
+
+Objetivo:
+Garantir que o display normativo seja ILI9488.
+
+Implementar:
+
+1. Procurar qualquer referência operacional a:
+   - ST7789
+   - ILI9341
+   - display alternativo
+   - resolução incompatível
+
+2. Corrigir documentação e código para ILI9488.
+
+3. Implementar ou ajustar módulo:
+
+   main/ui/hmi/ui_display.c
+   main/ui/hmi/ui_display.h
+
+4. O módulo deve expor:
+
+   esp_err_t ui_display_init(void);
+   esp_err_t ui_display_set_backlight(bool enabled);
+   void ui_display_flush_cb(lv_disp_drv_t *drv,
+                            const lv_area_t *area,
+                            lv_color_t *color_map);
+
+5. Validar pinagem conforme SRS:
+
+   - TFT_CS  = GPIO10
+   - TFT_DC  = GPIO16
+   - TFT_RST = GPIO21
+   - TFT_BL  = GPIO47
+   - SPI MOSI = GPIO11
+   - SPI MISO = GPIO12
+   - SPI SCK  = GPIO13
+
+6. Não inventar pinos.
+7. Se algum pino divergente existir, corrigir em pin_map.h.
+
+Critério de aceite:
+- Nenhuma referência operacional a ST7789/ILI9341 como baseline.
+- ILI9488 é o display oficial.
+- LVGL usa flush correto.
+- Erro de display alimenta health/UI e ALM relacionado quando previsto.
+
+Exemplo esperado:
+
+   esp_err_t ui_display_init(void)
+   {
+       esp_err_t err;
+
+       err = spi_bus_initialize(...);
+       if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+           return err;
+       }
+
+       err = ili9488_panel_init(...);
+       if (err != ESP_OK) {
+           health_matrix_set_status(HEALTH_SUBSYS_UI, HEALTH_FAILED);
+           alert_manager_raise(ALM_045, ...);
+           return err;
+       }
+
+       return ESP_OK;
+   }
+
+Não copie este exemplo cegamente.
+Adapte ao código real existente.
+
+---------------------------------------------------------------------
+AÇÃO 003 — COMPLETAR GLOBAL STATE E TRANSIÇÕES
+---------------------------------------------------------------------
+
+Problema:
+A auditoria encontrou indício de global_state_transition incompleta.
+
+Objetivo:
+Implementar fonte única de verdade do estado global.
+
+Requisitos SRS associados:
+- RF-GLOBAL-001
+- RF-GLOBAL-002
+- RF-GLOBAL-SAFEOFF-EXIT-001
+- RF-GLOBAL-SAFEOFF-EXIT-002
+- RF-GLOBAL-EMERG-EXIT-001
+- RF-GLOBAL-REARM-001
+- RNF-GLOBAL-ANTIFLAP-001
+- RF-SAFEOFF-CAUSE-001
+
+Implementar:
+
+1. Garantir enum único:
+
+   NORMAL
+   DEGRADED
+   SAFE_OFF
+   EMERGENCY
+
+2. Garantir prioridade:
+
+   EMERGENCY > SAFE_OFF > DEGRADED > NORMAL
+
+3. Garantir estrutura GlobalState com os campos obrigatórios da SRS, incluindo no mínimo:
+
+   system_state
+   maintenance_mode
+   electric_ok
+   selftest_passed
+   temp_ok
+   ato_ok
+   pzem_ok
+   sd_ok
+   wifi_ok
+   ui_ok
+   wizard_completed
+   observation_mode
+   monitor_only_mode
+   active_alm_categories
+   active_alerts_count
+   critical_alerts_count
+   last_reset_reason
+   uptime_s
+   config_schema_version
+   fw_version
+   srs_version
+   last_health_check_timestamp
+   time_valid
+   time_source
+   safeoff_reason
+   safeoff_entered_at
+   safeoff_source_alm
+
+4. Implementar mutex corretamente.
+
+5. Implementar:
+
+   esp_err_t global_state_init(void);
+   esp_err_t global_state_transition(...);
+   esp_err_t global_state_get_snapshot(global_state_t *out);
+   esp_err_t global_state_set_health_flag(...);
+
+6. Toda transição deve registrar:
+
+   - estado anterior
+   - estado novo
+   - causa
+   - ALM relacionado
+   - timestamp
+   - módulo de origem
+
+7. EMERGENCY não pode retornar direto a NORMAL.
+
+8. SAFE_OFF só sai se todas as pré-condições da SRS forem verdadeiras.
+
+9. O retorno de SAFE_OFF deve ir para:
+   - DEGRADED, se ainda existir condição degradada
+   - NORMAL, somente se nenhuma condição degradada/superior estiver ativa
+
+10. Implementar antiflap:
+   - tempo mínimo de estabilização
+   - janela de flap
+   - contagem de transições
+   - cooldown
+
+Todos os parâmetros operacionais devem vir da configuração, não de hardcode oculto.
+
+Critério de aceite:
+- Transições testáveis.
+- Log obrigatório.
+- Snapshot thread-safe.
+- Sem fonte paralela de estado.
+
+---------------------------------------------------------------------
+AÇÃO 004 — IMPLEMENTAR SAFETY CONTROLLER
+---------------------------------------------------------------------
+
+Objetivo:
+Centralizar decisão de estado global com base nas FSMs e subsistemas.
+
+Implementar:
+
+1. safety_controller deve receber sinais de:
+   - thermal_fsm
+   - ato_fsm
+   - electric_fsm
+   - watchdog
+   - config_manager
+   - self_test
+   - health_matrix
+   - MCP23017
+   - SD
+   - UI
+   - Web security
+
+2. Deve calcular estado final conforme prioridade.
+
+3. Deve forçar relay_all_off em SAFE_OFF e EMERGENCY.
+
+4. Deve preencher safeoff_reason.
+
+5. Deve gerar ALM correspondente.
+
+6. Deve publicar evento de transição.
+
+7. Deve impedir comandos manuais que violem safety.
+
+Critério de aceite:
+- Qualquer condição EMERGENCY força EMERGENCY.
+- Qualquer condição SAFE_OFF sem EMERGENCY força SAFE_OFF.
+- Condições DEGRADED só aplicam se não houver causa superior.
+- Nenhuma automação contraria SAFE_OFF/EMERGENCY.
+
+---------------------------------------------------------------------
+AÇÃO 005 — CORRIGIR DRIVER PZEM-004T v4.0
+---------------------------------------------------------------------
+
+Problema:
+A auditoria encontrou pzem_read_all aparentemente incompleto.
+
+Requisitos:
+- RF-ENERGY-001
+- RF-HW-UART-001
+
+Implementar leitura real de:
+
+- tensão
+- corrente total
+- potência
+- energia
+- frequência
+- fator de potência
+
+Obrigatório:
+
+1. UART:
+   - TX GPIO17
+   - RX GPIO18
+   - 9600 8N1
+
+2. Modbus RTU:
+   - montar comando
+   - enviar comando
+   - ler resposta
+   - validar tamanho
+   - validar CRC
+   - converter registradores
+   - tratar timeout
+
+3. Falha:
+   - data.valid = false
+   - health PZEM degradado/falho
+   - circuit breaker atualizado
+   - ALM correspondente quando aplicável
+
+4. Não bloquear watchdog.
+
+Funções esperadas:
+
+   esp_err_t pzem_init(void);
+   esp_err_t pzem_read_all(pzem_data_t *data);
+   static uint16_t pzem_crc16(const uint8_t *buf, size_t len);
+   static bool pzem_validate_response(...);
+
+Critério de aceite:
+- CRC inválido não alimenta electric_fsm.
+- Timeout não trava loop.
+- Campos retornam coerentes.
+- Health/API/UI refletem falha.
+
+---------------------------------------------------------------------
+AÇÃO 006 — IMPLEMENTAR UI SCREEN MANAGER COMPLETO
+---------------------------------------------------------------------
+
+Problema:
+A auditoria encontrou ui_screen_manager incompleto.
+
+Requisitos:
+- RF-UI-CAROUSEL-001
+- RF-UI-STATUS-001
+- RF-GLOBAL-003
+- RF-GLOBAL-004
+
+Implementar:
+
+1. Inicialização real:
+   - salvar root
+   - salvar view model
+   - registrar todas as telas
+   - criar tela inicial
+
+2. Registrar telas:
+   - dashboard
+   - devices página 1
+   - devices página 2
+   - energy
+   - main menu
+   - config temperature
+   - alerts
+   - feed active
+   - diagnostics
+   - system
+   - logs
+   - wizard
+
+3. show(screen):
+   - validar screen_id
+   - limpar content root
+   - criar tela
+   - atualizar current_screen
+   - atualizar footer/page index
+   - registrar erro se falhar
+
+4. refresh():
+   - atualizar tela atual
+   - atualizar topbar/footer/badge
+
+5. carrossel:
+   - avançar telas automaticamente quando permitido
+   - bloquear em SAFE_OFF
+   - bloquear em EMERGENCY
+   - bloquear em overlay crítico
+   - bloquear durante Wizard obrigatório
+   - respeitar interação do usuário
+
+6. Não acionar hardware direto pela UI.
+   UI emite evento/comando.
+   O comando passa por command_validator.
+
+Critério de aceite:
+- Todas as telas acessíveis.
+- Badge sempre visível.
+- SAFE_OFF interrompe carrossel.
+- EMERGENCY interrompe carrossel.
+- Wizard bloqueia operação quando obrigatório.
+
+---------------------------------------------------------------------
+AÇÃO 007 — IMPLEMENTAR VIEW MODEL REAL
+---------------------------------------------------------------------
+
+Problema:
+A auditoria encontrou ui_view_model_update_from_system vazio.
+
+Objetivo:
+A UI deve consumir dados reais do sistema.
+
+Implementar:
+
+1. ui_view_model_update_from_system deve coletar:
+
+   - GlobalState
+   - alertas ativos
+   - health matrix
+   - estado térmico
+   - temperatura bruta/filtrada
+   - estado ATO
+   - tensão/corrente/potência/energia/PF/Hz
+   - estado P01–P10
+   - feed mode
+   - maintenance mode
+   - wizard status
+   - SD/Wi-Fi/UI health
+   - tempo/RTC/NTP/uptime
+
+2. Nenhuma tela deve acessar diretamente drivers.
+3. Nenhuma tela deve acessar diretamente hardware.
+4. ViewModel deve ser a fonte dos dados renderizados na UI.
+
+Funções esperadas:
+
+   void ui_view_model_init_defaults(ui_root_vm_t *vm);
+   esp_err_t ui_view_model_update_from_system(ui_root_vm_t *vm);
+   esp_err_t ui_view_model_format_state_badge(...);
+   esp_err_t ui_view_model_format_alerts(...);
+
+Critério de aceite:
+- Dashboard reflete estado real.
+- Diagnóstico reflete health matrix.
+- Alertas aparecem corretamente.
+- Estado global aparece no badge.
+- Sem mocks em produção.
+
+---------------------------------------------------------------------
+AÇÃO 008 — IMPLEMENTAR TEMA UI
+---------------------------------------------------------------------
+
+Problema:
+A auditoria encontrou ui_theme_init sem corpo.
+
+Objetivo:
+Centralizar tema visual LVGL.
+
+Implementar:
+
+1. Inicializar estilos globais:
+   - topbar
+   - footer
+   - cards
+   - botões
+   - labels
+   - badges
+   - alertas
+   - overlays críticos
+
+2. Usar constantes do ui_theme.h.
+3. Não duplicar cores nas telas.
+4. Garantir PT-BR na UI.
+
+Critério de aceite:
+- ui_theme_init compila e aplica estilos.
+- Telas usam estilos centralizados.
+- SAFE_OFF e EMERGENCY não dependem apenas de cor; devem ter texto/ícone.
+
+---------------------------------------------------------------------
+AÇÃO 009 — IMPLEMENTAR COMMAND VALIDATOR ÚNICO
+---------------------------------------------------------------------
+
+Requisito:
+Todo comando deve passar por:
+
+UI/API → command_validator → service/FSM responsável → HAL/driver
+
+Implementar validações:
+
+1. SAFE_OFF bloqueia comandos de carga.
+2. EMERGENCY bloqueia comandos de carga.
+3. Monitor Only Mode bloqueia relés.
+4. Plug blocked=true bloqueia religamento automático.
+5. P01/P02 exigem regra crítica.
+6. Heater/cooler não podem ligar juntos.
+7. Wizard não concluído bloqueia automações críticas.
+8. Maintenance Mode aplica regras próprias.
+9. API e UI usam o mesmo validador.
+
+Funções esperadas:
+
+   command_result_t command_validator_validate(const command_t *cmd,
+                                               const global_state_t *state,
+                                               const config_root_t *cfg);
+
+Critério de aceite:
+- UI não chama driver diretamente.
+- API não chama driver diretamente.
+- Todos os comandos têm resultado explícito.
+- Falhas são logadas.
+
+---------------------------------------------------------------------
+AÇÃO 010 — IMPLEMENTAR FAIL-SAFE DE RELÉS
+---------------------------------------------------------------------
+
+Requisitos:
+- RNF-FAILSAFE-001
+- RNF-HW-BOOT-001
+- RF-HW-RELAY-LOGIC-001
+- RF-THERMAL-009
+
+Implementar:
+
+1. Relés active-high:
+   - RELAY_P01_ACTIVE_LEVEL = 1
+   - RELAY_P02_ACTIVE_LEVEL = 1
+   - RELAY_P03_P10_ACTIVE_LEVEL = 1
+
+2. Pinos:
+   - P01 GPIO5
+   - P02 GPIO6
+   - P03–P10 MCP23017 GPA0..GPA7
+
+3. Todos OFF no boot.
+
+4. relay_init_safe deve ser chamado antes de liberar FSMs.
+
+5. relay_all_off deve desligar tudo.
+
+6. HAL deve impedir heater e cooler simultâneos como última defesa.
+
+7. Nenhum serviço escreve nível bruto de GPIO.
+
+8. Criar abstrações:
+
+   esp_err_t relay_logical_on(plug_id_t plug);
+   esp_err_t relay_logical_off(plug_id_t plug);
+   esp_err_t relay_all_off(void);
+   esp_err_t relay_apply_safe_state(void);
+
+Critério de aceite:
+- Boot mantém relés OFF.
+- SAFE_OFF e EMERGENCY desligam todos.
+- Heater/cooler simultâneos cortam ambos e geram ALM/log.
+- Nenhum acesso direto indevido aos GPIOs fora do HAL/driver.
+
+---------------------------------------------------------------------
+AÇÃO 011 — IMPLEMENTAR FREE RTOS TASK MAP REAL
+---------------------------------------------------------------------
+
+A SRS exige tasks mínimas:
+
+- task_safety_core
+- task_sensors
+- task_plug_control
+- task_storage
+- task_ui
+- task_web
+- task_diag
+
+Implementar ou justificar tecnicamente se algum item for consolidado, mas sem violar a SRS.
+
+Obrigatório documentar:
+
+1. Nome da task
+2. Responsabilidade
+3. Prioridade
+4. Stack
+5. Core affinity, se usado
+6. Heartbeat
+7. Watchdog timeout
+8. Filas/semafóros usados
+9. Recursos compartilhados
+10. Condições de falha
+
+Criar/atualizar:
+
+   docs/FREERTOS_TASK_MAP.md
+
+Critério de aceite:
+- task_safety_core tem prioridade muito alta.
+- Sensors/plug control têm prioridade alta.
+- Storage não bloqueia fail-safe.
+- UI/Web não são ponto único de falha.
+- WDT distingue falha crítica e não crítica.
+
+---------------------------------------------------------------------
+AÇÃO 012 — IMPLEMENTAR WATCHDOG ADVANCED
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-WDT-RECOVERY-001
+- RF-FLOW-BOOT-004
+- watchdog_guard
+
+Implementar:
+
+1. Registro de tasks críticas.
+2. Heartbeat por task.
+3. Detecção de task travada.
+4. Reset reason.
+5. Contagem de resets repetidos.
+6. Observation Mode.
+7. Pós-WDT com relés OFF.
+8. Não religar automaticamente sem contexto seguro.
+
+Funções esperadas:
+
+   esp_err_t watchdog_guard_init(void);
+   esp_err_t watchdog_guard_register_task(...);
+   esp_err_t watchdog_guard_heartbeat(...);
+   esp_err_t watchdog_guard_evaluate(...);
+
+Critério de aceite:
+- Falha task_safety_core gera proteção crítica.
+- Falha Web não trava safety.
+- Falha UI não trava safety.
+- Recovery pós-WDT mantém cargas OFF.
+
+---------------------------------------------------------------------
+AÇÃO 013 — IMPLEMENTAR HEALTH MATRIX
+---------------------------------------------------------------------
+
+Requisito:
+RF-HEALTH-MATRIX-001
+
+Subsistemas mínimos:
+
+- temperatura
+- ATO
+- PZEM
+- ACS/MCP3208
+- MCP23017
+- SD
+- Wi-Fi
+- UI local
+- persistência
+- self-test
+- segurança web
+- watchdog/task health
+
+Estados mínimos:
+
+- OK
+- DEGRADED
+- FAILED
+- OPEN
+- HALF_OPEN
+- CLOSED
+
+Implementar:
+
+   esp_err_t health_matrix_init(void);
+   esp_err_t health_matrix_set_status(...);
+   esp_err_t health_matrix_get_snapshot(...);
+
+Critério de aceite:
+- /api/v1/health reflete matriz.
+- Tela diagnóstico reflete matriz.
+- Falha de um subsistema não apaga os demais.
+- Health alimenta GlobalState.
+
+---------------------------------------------------------------------
+AÇÃO 014 — IMPLEMENTAR PERSISTÊNCIA NVS / SD / RAM FALLBACK
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-STORAGE-001..005
+- RF-PERSIST-ROLLBACK-001
+- RF-PERSIST-SD-001
+- power-loss / rollback
+
+Implementar:
+
+1. NVS:
+   - namespaces
+   - schema version
+   - defaults documentados
+   - ESP_ERR_NVS_NOT_FOUND tratado
+   - validação de configuração
+
+2. SD:
+   - logs
+   - backups
+   - perfis
+   - exportações
+   - escrita atômica quando aplicável
+
+3. RAM fallback:
+   - buffer de eventos críticos quando SD falhar
+
+4. Rollback:
+   - config anterior válida
+   - recuperação após power-loss
+
+Critério de aceite:
+- Config inválida não libera FSMs.
+- SD offline não trava safety.
+- Eventos críticos não se perdem imediatamente quando SD falha.
+- Recovery documentado e testável.
+
+---------------------------------------------------------------------
+AÇÃO 015 — IMPLEMENTAR CONFIG MANAGER E PARAMETER CATALOG
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-STORAGE-PARAM-001
+- RF-DATA-CONFIG-ROOT-001
+- RF-GLOBAL-005
+- RF-GLOBAL-006
+
+Criar/validar:
+
+   docs/PARAMETER_CATALOG.md
+
+O catálogo deve conter:
+
+- nome do parâmetro
+- módulo
+- tipo
+- faixa permitida
+- default documentado
+- se é obrigatório no Wizard
+- persistência
+- impacto em safety
+- caso de teste
+
+Parâmetros obrigatórios incluem, no mínimo:
+
+- temperaturas mínima/máxima/normal/crítica
+- histerese térmica
+- ATO LOW/HIGH
+- margem overflow
+- timeout refill
+- limites elétricos
+- ACS offset/gain por canal
+- circuit breaker thresholds
+- antiflap
+- WDT
+- Feed Mode
+- Maintenance Mode
+- Monitor Only Mode
+
+Critério de aceite:
+- Sem hardcode operacional oculto.
+- Alterações via Wizard/API/UI surtem efeito sem rebuild.
+- Config inválida bloqueia FSM crítica.
+
+---------------------------------------------------------------------
+AÇÃO 016 — IMPLEMENTAR FSM TÉRMICA
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-THERMAL-001..009
+- RF-FSM-THERMAL-001
+- RNF-SAFETY-THERMAL-001
+
+Implementar:
+
+1. DS18B20:
+   - leitura nominal 500 ms
+   - CRC obrigatório
+   - rejeitar 85.0 °C
+   - rejeitar fora da faixa válida
+   - timeout marca falha térmica
+
+2. Média móvel:
+   - 3 leituras válidas
+   - buffer circular
+   - UI indica coletando dados quando insuficiente
+
+3. Classificação:
+   - normal
+   - alerta
+   - crítica
+   - extrema
+
+4. Controle:
+   - aquecedor P01
+   - cooler P02
+   - histerese
+   - sem hardcode
+
+5. Exclusão mútua:
+   - se heater_on e cooler_on simultâneos:
+     - cortar ambos
+     - gerar ALM
+     - logar
+     - SAFE_OFF se condição insegura
+
+Critério de aceite:
+- CRC inválido não alimenta FSM.
+- 85 °C rejeitado.
+- crítica força SAFE_OFF.
+- extrema força EMERGENCY.
+- heater/cooler nunca simultâneos.
+
+---------------------------------------------------------------------
+AÇÃO 017 — IMPLEMENTAR FSM ATO DIGITAL
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-ATO-001..005
+- RF-ATO-DIGITAL-001
+- RF-FSM-ATO-001
+
+Implementar estados:
+
+- NORMAL
+- REFILLING
+- ERROR
+- BLOCKED
+- OVERFLOW
+- DISABLED
+
+Entrada:
+- MCP3208 #2 CH2
+- ATO digital ON/OFF via ADC
+
+Obrigatório:
+
+1. Debounce/média configurável.
+2. Validação de faixa.
+3. HIGH > LOW.
+4. Timeout refill.
+5. Detecção reservatório vazio/bloqueio.
+6. OVERFLOW força SAFE_OFF.
+7. BLOCKED impede retomada normal sem política.
+8. DISABLED tem indicação visual persistente.
+
+Critério de aceite:
+- OVERFLOW gera SAFE_OFF.
+- Timeout gera ERROR/BLOCKED.
+- Config inválida bloqueia Wizard.
+- Logs e ALMs gerados.
+
+---------------------------------------------------------------------
+AÇÃO 018 — IMPLEMENTAR PROTEÇÃO ELÉTRICA
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-ENERGY-001..010
+- RF-FSM-ELECTRIC-001
+- ACS712 / MCP3208 / PZEM
+
+Implementar:
+
+1. PZEM total:
+   - V
+   - A
+   - W
+   - kWh/Wh
+   - Hz
+   - PF
+
+2. ACS712 P01–P10:
+   - ACS712 20 A
+   - alimentação 5 V
+   - saída condicionada para 0–3,3 V
+   - offset/gain calibrável por canal
+   - cálculo RMS obrigatório
+   - canal sem calibração válida = degradado/não confiável
+
+3. Proteção:
+   - sobrecorrente total
+   - sobrecorrente por plugue
+   - curto
+   - subtensão/sobretensão quando previsto
+   - religamento sequencial
+
+Critério de aceite:
+- Falha sensor não alimenta decisão como valor válido.
+- Sobrecorrente crítica força SAFE_OFF.
+- Curto crítico por plug gera bloqueio.
+- Religamento não religa plugs blocked.
+
+---------------------------------------------------------------------
+AÇÃO 019 — IMPLEMENTAR PLUG MANAGER
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-PLUG-001..014
+
+Implementar:
+
+1. Modelo P01–P10.
+2. Estados:
+   - OFF
+   - ON
+   - BLOCKED
+   - ERROR
+   - AUTO/MANUAL quando previsto
+3. Controle sempre via command_validator.
+4. P01/P02 críticos.
+5. P03–P10 via MCP23017.
+6. Corrente por plugue via ACS.
+7. blocked impede religamento automático.
+8. Logs e ALMs.
+
+Critério de aceite:
+- Nenhum comando direto de UI/API para relé.
+- Plug blocked não religa.
+- Corrente individual aparece na UI/API.
+- Falhas de relé/ACS geram health/ALM.
+
+---------------------------------------------------------------------
+AÇÃO 020 — IMPLEMENTAR FEED MODE
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-FEED-001..003
+- RF-FSM-FEED-001
+
+Implementar:
+
+1. Entrada via UI/API.
+2. Snapshot dos plugues afetados.
+3. Desligar bombas/cargas previstas.
+4. Timer configurável.
+5. Retorno controlado.
+6. Interromper se SAFE_OFF/EMERGENCY.
+7. LED amarelo piscando durante Feed Mode.
+8. Logs e ALMs.
+
+Critério de aceite:
+- Feed Mode não viola safety.
+- Retorno não religa blocked.
+- UI mostra tempo restante.
+- API reflete status.
+
+---------------------------------------------------------------------
+AÇÃO 021 — IMPLEMENTAR MAINTENANCE MODE
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-FLOW-MAINT-001
+- RNF-INDUSTRIAL-004
+- ALM-064
+
+Implementar:
+
+1. Ativação UI/API.
+2. Flag global maintenance_mode.
+3. Indicação persistente na UI.
+4. Suspensão controlada de automações permitidas.
+5. Safety continua prevalecendo.
+6. Logs e alertas.
+
+Critério de aceite:
+- Maintenance Mode não desativa safety.
+- UI mostra estado.
+- API mostra estado.
+- Saída retorna ao comportamento seguro.
+
+---------------------------------------------------------------------
+AÇÃO 022 — IMPLEMENTAR TIME MANAGER
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-TIME-001
+
+Prioridade de fonte:
+
+1. RTC DS3231 válido
+2. NTP válido usado para sincronizar RTC
+3. Hora manual, se implementada
+4. Uptime monotônico com time_valid=false
+
+Implementar:
+
+- DS3231 via I2C 0x68
+- validação de horário
+- time_valid
+- time_source
+- timestamp em logs
+- fallback determinístico
+
+Critério de aceite:
+- Sem tempo válido, logs usam uptime com indicação.
+- RTC válido prevalece.
+- NTP sincroniza RTC quando disponível.
+
+---------------------------------------------------------------------
+AÇÃO 023 — IMPLEMENTAR API WEB /api/v1
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-WEB-001..008
+- RNF-SECURITY-001..003
+- RF-SEC-AUTH-IMPL-001
+
+Implementar:
+
+Endpoints mínimos conforme SRS e arquitetura, sem inventar além do permitido:
+
+- GET /api/v1/state
+- GET /api/v1/health
+- GET /api/v1/plugs
+- POST /api/v1/plugs
+- GET /api/v1/sensors
+- GET /api/v1/energy
+- GET /api/v1/alerts
+- POST /api/v1/alerts/ack
+- GET /api/v1/config
+- POST /api/v1/config
+- POST /api/v1/command
+- endpoints de auth conforme SRS
+
+Obrigatório:
+
+1. Autenticação quando exigida.
+2. Rate limit.
+3. Logs de auditoria.
+4. Erros JSON padronizados.
+5. API não chama hardware direto.
+6. API usa command_validator.
+
+Critério de aceite:
+- SAFE_OFF bloqueia comando.
+- EMERGENCY bloqueia comando.
+- Monitor Only bloqueia carga.
+- /health mostra health matrix.
+- /state mostra GlobalState.
+
+---------------------------------------------------------------------
+AÇÃO 024 — IMPLEMENTAR UI OPERACIONAL COMPLETA
+---------------------------------------------------------------------
+
+Implementar telas mínimas:
+
+1. Dashboard
+   - estado global
+   - temperatura
+   - tendência
+   - energia
+   - ATO
+   - alertas
+   - status principais
+
+2. Devices página 1
+   - P01–P05
+   - estado
+   - corrente
+   - bloqueio
+
+3. Devices página 2
+   - P06–P10
+   - estado
+   - corrente
+   - bloqueio
+
+4. Energy
+   - V
+   - A
+   - W
+   - Wh/kWh
+   - PF
+   - Hz
+
+5. Alerts
+   - alertas ativos
+   - severidade
+   - ACK quando permitido
+
+6. Feed Active
+   - tempo restante
+   - plugues afetados
+   - cancelamento seguro
+
+7. Diagnostics
+   - health matrix
+
+8. System
+   - versão firmware
+   - versão SRS
+   - uptime
+   - reset reason
+   - heap se disponível
+
+9. Logs
+   - últimos eventos
+
+10. Wizard
+    - parâmetros obrigatórios
+    - validação
+    - persistência
+
+Critério de aceite:
+- Topbar/footer persistentes.
+- Badge sempre visível.
+- PT-BR.
+- Touch e keypad suportados conforme SRS.
+- SAFE_OFF/EMERGENCY exibem overlay inequívoco.
+
+---------------------------------------------------------------------
+AÇÃO 025 — IMPLEMENTAR SELF-TEST
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-FLOW-SELFTEST-001
+- TC-SELFTEST-001
+- ALM-063
+
+Self-test mínimo:
+
+- I2C scan MCP23017 0x20
+- DS3231 0x68
+- SPI dispositivos
+- MCP3208 #1/#2
+- SD
+- PZEM UART
+- display
+- touch
+- keypad
+- relés em modo seguro
+- NVS/config
+- WDT
+
+Critério de aceite:
+- Falha crítica bloqueia automações.
+- Falha não crítica degrada.
+- Resultado aparece em UI/API/log.
+
+---------------------------------------------------------------------
+AÇÃO 026 — IMPLEMENTAR ALERT MANAGER ALM-001..ALM-065
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-ALERT-001..006
+- ALM-001..ALM-065
+
+Implementar:
+
+1. IDs canônicos.
+2. Severidade.
+3. Categoria.
+4. Estado ativo/resolvido.
+5. ACK quando permitido.
+6. Log histórico.
+7. UI/API.
+8. Integração com GlobalState.
+
+Critério de aceite:
+- ALM crítico incrementa critical_alerts_count.
+- LED vermelho segue política.
+- SAFE_OFF source_alm preenchido.
+- API lista alertas.
+
+---------------------------------------------------------------------
+AÇÃO 027 — IMPLEMENTAR LOG MANAGER
+---------------------------------------------------------------------
+
+Requisitos:
+- RF-LOG-ELECTRIC-001
+- RNF-STORAGE-STRUCT-001
+
+Implementar:
+
+1. Logs operacionais.
+2. Logs de segurança.
+3. Logs de energia.
+4. JSONL/CSV quando previsto.
+5. SD como destino.
+6. RAM fallback.
+7. Timestamp.
+8. Evento de transição global.
+9. Evento de comando UI/API.
+10. Evento de ALM.
+
+Critério de aceite:
+- Transição global gera log.
+- Falha SD não trava.
+- Eventos críticos preservados em RAM fallback.
+
+---------------------------------------------------------------------
+AÇÃO 028 — IMPLEMENTAR SPI MUTEX
+---------------------------------------------------------------------
+
+Requisito:
+- RF-HW-SPI-MUTEX-001
+
+SPI compartilha:
+
+- TFT ILI9488 CS GPIO10
+- Touch XPT2046 CS GPIO38
+- microSD CS GPIO15
+- MCP3208 #1 CS GPIO41
+- MCP3208 #2 CS GPIO42
+
+Clocks:
+
+- TFT 20 MHz, validar até 40 MHz
+- microSD 10 MHz, validar até 20 MHz
+- XPT2046 2 MHz
+- MCP3208 1 MHz
+
+Obrigatório:
+
+1. Mutex em todas as transações SPI.
+2. Apenas um CS ativo por transação.
+3. CSs iniciam inativos.
+4. Falha SD não trava ADC.
+5. Transação SPI não bloqueia watchdog.
+
+Critério de aceite:
+- Todos os drivers SPI usam hal_spi_transaction_lock/unlock.
+- Não há transação sem mutex.
+- Timeout definido por configuração.
+
+---------------------------------------------------------------------
+AÇÃO 029 — IMPLEMENTAR I2C HAL
+---------------------------------------------------------------------
+
+Requisito:
+- RF-HW-I2C-001
+
+Pinagem:
+
+- SDA GPIO8
+- SCL GPIO9
+- MCP23017 0x20
+- DS3231 0x68
+
+Implementar:
+
+1. Init I2C.
+2. Mutex I2C se necessário.
+3. Scan/health.
+4. Timeout.
+5. Retry/backoff configurável.
+6. Falha MCP23017 crítica leva SAFE_OFF quando compromete relés.
+
+Critério de aceite:
+- MCP23017 detectado.
+- DS3231 detectado.
+- Falha gera health/ALM.
+- Não bloqueia safety.
+
+---------------------------------------------------------------------
+AÇÃO 030 — IMPLEMENTAR DOCUMENTAÇÃO E RASTREABILIDADE FINAL
+---------------------------------------------------------------------
+
+Ao final, atualizar obrigatoriamente:
+
+1. docs/RTM.md
+
+Formato obrigatório:
+
+| ID SRS | Texto resumido fiel | Arquivo | Função | Linhas | Evidência | Teste | Status |
+
+Status permitidos:
+
+- COMPLIANT
+- PARTIAL
+- NON-COMPLIANT
+- MISSING
+- AMBIGUOUS
+- CONFLICTING
+
+2. docs/COMPLIANCE_REPORT.md
+
+Deve conter:
+
+- total de itens SRS auditáveis
+- compliant
+- partial
+- non-compliant
+- missing
+- ambiguous
+- conflicting
+- compliance %
+- defeitos críticos
+- veredito
+
+3. docs/ACTION_PLAN_STATUS.md
+
+Para cada ação:
+
+- status
+- arquivos alterados
+- evidência
+- testes executados
+- pendências
+
+4. docs/TEST_PLAN.md
+
+Para cada TC:
+
+- requisito vinculado
+- pré-condição
+- passos
+- resultado esperado
+- evidência esperada
+- status
+
+=====================================================================
+5. REGRAS DE CODIFICAÇÃO OBRIGATÓRIAS
+=====================================================================
+
+1. Linguagem:
+   - C para firmware
+   - Headers compatíveis com C++
+   - Usar guardas:
+
+      #ifdef __cplusplus
+      extern "C" {
+      #endif
+
+      ...
+
+      #ifdef __cplusplus
+      }
+      #endif
+
+2. Retornos:
+   - Funções críticas retornam esp_err_t
+   - Nunca ignorar esp_err_t
+
+3. Logs:
+   - Usar ESP_LOGI/W/E com TAG
+   - Logar falhas críticas
+
+4. Segurança:
+   - Não usar strcpy, sprintf, gets
+   - Usar snprintf, strncpy com cuidado, validação de limite
+
+5. Concorrência:
+   - Recursos compartilhados com mutex/semaphore
+   - Timeouts claros
+   - Sem busy-wait
+   - Sem vTaskDelay(0)
+
+6. ISR:
+   - Sem alocação dinâmica
+   - Sem bloqueio
+
+7. Memória:
+   - Evitar malloc em loop crítico
+   - Monitorar stack/heap onde crítico
+
+8. Organização:
+   - Separar HAL, drivers, services, FSMs, UI e API
+   - UI/API não acessam hardware diretamente
+   - Drivers não conhecem lógica de negócio
+
+9. Build:
+   - CMakeLists coerentes
+   - Componentes próprios bem definidos
+   - sdkconfig.defaults documentado
+   - partitions.csv coerente com NVS/SD/OTA se aplicável
+
+=====================================================================
+6. CONFERÊNCIA OBRIGATÓRIA DE CADA ARQUIVO GERADO
+=====================================================================
+
+Para cada arquivo criado ou modificado, você deve:
+
+1. Salvar o arquivo.
+2. Reabrir o arquivo.
+3. Conferir se o conteúdo gravado é o esperado.
+4. Verificar sintaxe básica.
+5. Verificar includes.
+6. Verificar protótipos.
+7. Verificar guardas C++ nos headers.
+8. Verificar se funções declaradas existem implementadas.
+9. Verificar se não criou símbolos duplicados.
+10. Verificar se não quebrou CMake.
+11. Registrar no relatório:
+
+   - arquivo alterado
+   - motivo
+   - requisito associado
+   - evidência
+   - status da conferência
+
+Não finalize sem essa conferência.
+
+=====================================================================
+7. BUILD E VALIDAÇÃO
+=====================================================================
+
+Depois das alterações:
+
+1. Executar build do ESP-IDF, se o ambiente estiver disponível:
+
+   idf.py fullclean
+   idf.py set-target esp32s3
+   idf.py build
+
+2. Se build falhar:
+   - registrar erro exato
+   - corrigir
+   - repetir build
+   - não ocultar erro
+
+3. Se ambiente de build não estiver disponível:
+   - executar validação estática possível
+   - verificar CMakeLists
+   - verificar includes
+   - verificar assinaturas
+   - registrar limitação em COMPLIANCE_REPORT.md
+
+4. Executar busca por problemas:
+
+   - TODO
+   - FIXME
+   - XXX
+   - ST7789
+   - ILI9341
+   - hardcode operacional
+   - acesso direto a hardware pela UI/API
+   - funções vazias
+   - return faltando
+   - esp_err_t ignorado
+   - strcpy/sprintf/gets
+   - malloc em loop crítico
+   - vTaskDelay(0)
+
+=====================================================================
+8. RASTREABILIDADE FINAL OBRIGATÓRIA
+=====================================================================
+
+A IA deve provar o compliance usando evidência real.
+
+Para cada requisito implementado:
+
+1. Citar ID SRS.
+2. Citar arquivo.
+3. Citar função/estrutura.
+4. Citar trecho relevante.
+5. Citar teste.
+6. Declarar status.
+
+Exemplo de entrada RTM:
+
+ID SRS:
+RF-GLOBAL-002
+
+Texto:
+Transições de estado global devem registrar estado anterior, estado novo, causa, ALM relacionado e timestamp.
+
+Arquivo:
+core/global_state.c
+
+Função:
+global_state_transition()
+
+Evidência:
+- prev_state capturado
+- next_state armazenado
+- cause/source_alm/source_module gravados
+- log_manager_write_global_transition chamado
+- event_bus_publish EVENT_GLOBAL_STATE_CHANGED
+
+Teste:
+TC-FSM-TRANS-001
+
+Status:
+COMPLIANT
+
+Se qualquer campo faltar:
+Status NÃO pode ser COMPLIANT.
+
+=====================================================================
+9. CRITÉRIO DE COMPLIANCE
+=====================================================================
+
+Calcular compliance assim:
+
+Compliance (%) =
+(
+  COMPLIANT
+  + PARTIAL * 0.5
+)
+/
+Total de itens auditáveis
+* 100
+
+Mas atenção:
+
+1. Itens CRÍTICOS não podem ficar MISSING, NON-COMPLIANT ou CONFLICTING.
+2. Se houver defeito crítico remanescente, o veredito é REPROVADO mesmo com percentual alto.
+3. Meta mínima:
+   - compliance > 90%
+   - críticos resolvidos
+   - build sem erros ou erro documentado não relacionado ao escopo
+
+Gerar scorecard:
+
+Total itens auditáveis:
+COMPLIANT:
+PARTIAL:
+NON-COMPLIANT:
+MISSING:
+AMBIGUOUS:
+CONFLICTING:
+Compliance calculado:
+Defeitos críticos:
+Veredito:
+
+=====================================================================
+10. ORDEM DE IMPLEMENTAÇÃO RECOMENDADA
+=====================================================================
+
+Executar nesta ordem:
+
+P0 — Bloqueadores críticos
+
+1. Segregar managed_components / third-party
+2. Corrigir display para ILI9488
+3. Corrigir GlobalState e transições
+4. Corrigir Safety Controller
+5. Corrigir relés/fail-safe
+6. Corrigir command_validator
+7. Corrigir PZEM
+8. Corrigir UI Screen Manager
+9. Corrigir ViewModel
+10. Corrigir Theme/UI root
+
+P1 — Núcleo funcional
+
+11. FreeRTOS tasks
+12. Watchdog
+13. Health Matrix
+14. Persistência NVS/SD/RAM
+15. Config Manager + Parameter Catalog
+16. Thermal FSM
+17. ATO FSM
+18. Electric FSM
+19. Plug Manager
+20. Feed Mode
+21. Maintenance Mode
+22. Time Manager
+
+P2 — Interfaces e observabilidade
+
+23. API Web /api/v1
+24. UI operacional completa
+25. Self-test
+26. Alert Manager
+27. Log Manager
+28. SPI Mutex
+29. I2C HAL
+
+P3 — Finalização
+
+30. RTM
+31. TEST_PLAN
+32. COMPLIANCE_REPORT
+33. ACTION_PLAN_STATUS
+34. Build final
+35. Auditoria final conservadora
+
+=====================================================================
+11. CHECKLIST FINAL ANTES DE ENCERRAR
+=====================================================================
+
+Antes de encerrar, responda e grave no relatório:
+
+1. A SRS foi lida?
+2. Todos os RF/RNF/RB/ALM/TC foram catalogados?
+3. O código de produto foi separado de third-party?
+4. Display é ILI9488?
+5. ST7789/ILI9341 foram removidos como baseline?
+6. GlobalState está completo?
+7. Transições registram evidência?
+8. SAFE_OFF/EMERGENCY seguem prioridade?
+9. Relés ficam OFF no boot?
+10. Heater/cooler têm exclusão mútua?
+11. PZEM lê dados reais com CRC?
+12. UI Screen Manager funciona?
+13. ViewModel usa dados reais?
+14. Theme init existe?
+15. API usa command_validator?
+16. UI usa command_validator?
+17. FSM térmica está implementada?
+18. FSM ATO está implementada?
+19. Electric FSM está implementada?
+20. Plug Manager está implementado?
+21. Feed Mode está implementado?
+22. Maintenance Mode está implementado?
+23. Watchdog está implementado?
+24. Health Matrix está implementada?
+25. Persistência NVS/SD/RAM está implementada?
+26. Logs estão implementados?
+27. Alertas ALM estão implementados?
+28. SPI tem mutex?
+29. I2C tem timeout/retry?
+30. FreeRTOS task map foi gerado?
+31. TEST_PLAN foi atualizado?
+32. RTM foi atualizada?
+33. Compliance calculado é >90%?
+34. Há defeito crítico remanescente?
+35. Build foi executado?
+36. Cada arquivo alterado foi reaberto e conferido?
+
+Se qualquer resposta for negativa:
+- registrar como pendência
+- corrigir se possível
+- não declarar compliance >90% sem evidência
+
+=====================================================================
+12. FORMATO DA RESPOSTA FINAL DA IA
+=====================================================================
+
+Ao concluir, entregue:
+
+1. Resumo executivo
+2. Lista de arquivos criados
+3. Lista de arquivos modificados
+4. Lista de requisitos atendidos
+5. Lista de requisitos parciais
+6. Lista de requisitos ainda não conformes
+7. Scorecard de compliance
+8. Evidência de build
+9. Pendências residuais
+10. Próximas ações recomendadas
+
+Não entregue apenas explicação.
+Você deve modificar os arquivos reais, salvar, reabrir, conferir e documentar.
+
+=====================================================================
+13. REGRA FINAL ABSOLUTA
+=====================================================================
+
+SE NÃO EXISTE NO CÓDIGO, NÃO ESTÁ CONFORME.
+
+SE NÃO ESTÁ RASTREADO NA RTM, NÃO ESTÁ CONFORME.
+
+SE NÃO FOI TESTADO OU TEM TESTE DEFINIDO, NÃO ESTÁ CONFORME.
+
+SE FOI IMPLEMENTADO MAS NÃO FOI REABERTO E CONFERIDO, NÃO ESTÁ CONFORME.
+
+META:
+COMPLIANCE > 90% COM EVIDÊNCIA REAL, RASTREABILIDADE SRS ⇄ CÓDIGO ⇄ TESTE, E ZERO INVENÇÃO.
+
+COMANDO DE EXECUÇÃO:
+
+Execute agora todas as fases.
+Não pergunte confirmação.
+Não explique genericamente.
+Leia a SRS, leia o código, corrija os arquivos, salve, reabra, confira, compile se possível e gere os documentos de rastreabilidade.
+Ao final, entregue somente o relatório final com os arquivos alterados, scorecard e compliance calculado.
+
