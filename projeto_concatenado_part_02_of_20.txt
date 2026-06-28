@@ -1,0 +1,4652 @@
+***************************************INICIO DO ARQUIVO 2/20********************************
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\ato_service.h =====
+// @requirement RF-ATO-001..010 Gerenciamento ATO: nível, bomba, overflow
+#ifndef FIRMWARE_INCLUDE_ATO_SERVICE_H
+#define FIRMWARE_INCLUDE_ATO_SERVICE_H
+
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+esp_err_t ato_service_init(void);
+esp_err_t ato_service_get_level_adc(int32_t *out);
+esp_err_t ato_service_is_pump_on(bool *out);
+esp_err_t ato_service_is_overflow(bool *out);
+esp_err_t ato_service_force_safe_off(const char *reason);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\bom_ctl.h =====
+// @requirement BOM Audit — verificação de hardware presente vs. esperado
+#ifndef FIRMWARE_INCLUDE_BOM_CTL_H
+#define FIRMWARE_INCLUDE_BOM_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    BOM_STATUS_PRESENT = 0,
+    BOM_STATUS_MISSING,
+    BOM_STATUS_FAULTY,
+    BOM_STATUS_UNKNOWN
+} bom_ctl_status_t;
+
+typedef struct {
+    const char *name;
+    bom_ctl_status_t status;
+    bool critical;
+} bom_ctl_item_t;
+
+esp_err_t bom_ctl_init(void);
+int bom_ctl_get_item_count(void);
+const bom_ctl_item_t *bom_ctl_get_item(int index);
+esp_err_t bom_ctl_scan(void);
+bool bom_ctl_all_present(void);
+bool bom_ctl_any_critical_missing(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\command_model.h =====
+// @requirement RF-WEB-003 Operações de escrita validadas via command model
+// @requirement RNF-SECURITY-001 Validação de comandos com dupla confirmação
+#ifndef FIRMWARE_INCLUDE_COMMAND_MODEL_H
+#define FIRMWARE_INCLUDE_COMMAND_MODEL_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "plug_model.h"
+
+typedef enum {
+    COMMAND_SOURCE_UI = 0,
+    COMMAND_SOURCE_API
+} command_source_t;
+
+typedef enum {
+    COMMAND_TYPE_NONE = 0,
+    COMMAND_TYPE_SET_PLUG_STATE,
+    COMMAND_TYPE_ACK_ALERT,
+    COMMAND_TYPE_SET_MAINTENANCE_MODE
+} command_type_t;
+
+typedef struct {
+    command_source_t source;
+    command_type_t   type;
+    uint64_t         timestamp;
+    uint32_t         auth_context_id;
+} command_header_t;
+
+typedef struct {
+    command_header_t header;
+    plug_id_t        plug_id;
+    bool             requested_on;
+} command_set_plug_state_t;
+
+typedef struct {
+    command_header_t header;
+    uint16_t         alert_id;
+} command_ack_alert_t;
+
+typedef struct {
+    command_header_t header;
+    bool             maintenance_mode;
+} command_set_maintenance_mode_t;
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\conf_ctl.h =====
+// @requirement RF-CONF-001 a RF-CONF-020 Gerenciamento estendido de configuração
+#ifndef FIRMWARE_INCLUDE_CONF_CTL_H
+#define FIRMWARE_INCLUDE_CONF_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    CONF_PROFILE_DEFAULT = 0,
+    CONF_PROFILE_ECO,
+    CONF_PROFILE_HIGH_PERF,
+    CONF_PROFILE_CUSTOM
+} conf_ctl_profile_t;
+
+typedef struct {
+    char ssid[33];
+    char password[65];
+    bool dhcp_enabled;
+    char static_ip[16];
+    char gateway[16];
+    char netmask[16];
+} conf_ctl_network_t;
+
+typedef struct {
+    float temp_min_c;
+    float temp_max_c;
+    float temp_alarm_c;
+} conf_ctl_sensor_t;
+
+typedef struct {
+    uint32_t relay_on_delay_ms;
+    uint32_t relay_off_delay_ms;
+    bool emergency_off_enabled;
+} conf_ctl_actuator_t;
+
+typedef struct {
+    bool alert_audio_enabled;
+    uint32_t ack_timeout_s;
+    uint32_t spam_cooldown_ms;
+} conf_ctl_alert_t;
+
+typedef struct {
+    uint8_t brightness;
+    bool auto_sleep;
+    uint32_t sleep_timeout_s;
+} conf_ctl_display_t;
+
+typedef struct {
+    log_ctl_level_t level;
+    bool sd_logging;
+    uint32_t max_file_size_kb;
+} conf_ctl_log_t;
+
+typedef struct {
+    bool ota_enabled;
+    char ota_server_url[256];
+    uint32_t ota_check_interval_h;
+} conf_ctl_ota_t;
+
+typedef struct {
+    char timezone[64];
+    int8_t utc_offset_h;
+    bool ntp_enabled;
+    char ntp_server[128];
+} conf_ctl_datetime_t;
+
+typedef struct {
+    char language[8];
+    char temp_unit; /* 'C' or 'F' */
+} conf_ctl_locale_t;
+
+typedef struct {
+    conf_ctl_network_t network;
+    conf_ctl_sensor_t sensor;
+    conf_ctl_actuator_t actuator;
+    conf_ctl_alert_t alert;
+    conf_ctl_display_t display;
+    conf_ctl_log_t log;
+    conf_ctl_ota_t ota;
+    conf_ctl_datetime_t datetime;
+    conf_ctl_locale_t locale;
+} conf_ctl_config_t;
+
+const char *conf_ctl_get_name(void);
+esp_err_t conf_ctl_init(void);
+esp_err_t conf_ctl_load(conf_ctl_config_t *cfg);
+esp_err_t conf_ctl_save(const conf_ctl_config_t *cfg);
+esp_err_t conf_ctl_validate(const conf_ctl_config_t *cfg);
+esp_err_t conf_ctl_rollback(void);
+esp_err_t conf_ctl_export_json(char *buf, size_t buf_size);
+esp_err_t conf_ctl_import_json(const char *json);
+esp_err_t conf_ctl_set_profile(conf_ctl_profile_t profile);
+conf_ctl_profile_t conf_ctl_get_profile(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\config_schema.h =====
+// @requirement RF-GLOBAL-005 Schema de configuração sem hardcode operacional
+#ifndef FIRMWARE_INCLUDE_CONFIG_SCHEMA_H
+#define FIRMWARE_INCLUDE_CONFIG_SCHEMA_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#define CONFIG_SCHEMA_VERSION_MAX_LEN   (16U)
+#define CONFIG_WIZARD_PROFILE_NAME_LEN  (32U)
+
+typedef enum {
+    MAINS_VOLTAGE_127V = 127,
+    MAINS_VOLTAGE_220V = 220
+} mains_voltage_t;
+
+typedef struct {
+    char            schema_version[CONFIG_SCHEMA_VERSION_MAX_LEN];
+    bool            wizard_completed;
+    mains_voltage_t mains_voltage;
+    bool            monitor_only_mode;
+    bool            maintenance_mode;
+} config_schema_t;
+
+typedef enum {
+    SCHEMA_CHECK_OK = 0,
+    SCHEMA_CHECK_INVALID,
+    SCHEMA_CHECK_INCOMPATIBLE
+} schema_check_result_t;
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\data_ctl.h =====
+// @requirement DATA — Gerenciamento centralizado de dados: snapshots, export, limpeza
+#ifndef FIRMWARE_INCLUDE_DATA_CTL_H
+#define FIRMWARE_INCLUDE_DATA_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+    float temperature_c;
+    float current_a;
+    float power_w;
+    float energy_kwh;
+    float ph;
+    float tds_ppm;
+    uint32_t uptime_s;
+    int8_t wifi_rssi;
+} data_ctl_snapshot_t;
+
+esp_err_t data_ctl_init(void);
+esp_err_t data_ctl_take_snapshot(data_ctl_snapshot_t *out);
+esp_err_t data_ctl_export_snapshot(char *buf, size_t buf_size);
+esp_err_t data_ctl_clear_history(void);
+int data_ctl_get_history_count(void);
+esp_err_t data_ctl_purge_older_than(uint32_t age_hours);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\disp_ctl.h =====
+// @requirement RF-DISP-001 a RF-DISP-035 Gerenciamento de display: brilho, contraste, sleep, orientação
+#ifndef FIRMWARE_INCLUDE_DISP_CTL_H
+#define FIRMWARE_INCLUDE_DISP_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+    uint8_t brightness_percent;
+    uint8_t contrast;
+    bool backlight_on;
+    bool sleep_mode;
+} disp_ctl_state_t;
+
+const char *disp_ctl_get_name(void);
+esp_err_t disp_ctl_init(void);
+esp_err_t disp_ctl_set_brightness(uint8_t percent);
+uint8_t disp_ctl_get_brightness(void);
+esp_err_t disp_ctl_set_contrast(uint8_t contrast);
+uint8_t disp_ctl_get_contrast(void);
+esp_err_t disp_ctl_backlight_on(void);
+esp_err_t disp_ctl_backlight_off(void);
+esp_err_t disp_ctl_sleep(void);
+esp_err_t disp_ctl_wake(void);
+bool disp_ctl_is_sleeping(void);
+esp_err_t disp_ctl_get_state(disp_ctl_state_t *state);
+esp_err_t disp_ctl_set_rotation(int degrees);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\driver_ili9488.h =====
+#ifndef FIRMWARE_INCLUDE_DRIVER_ILI9488_H
+#define FIRMWARE_INCLUDE_DRIVER_ILI9488_H
+
+#define ILI9488_RESOLUTION_X     480
+#define ILI9488_RESOLUTION_Y     320
+#define ILI9488_COLOR_DEPTH      (16U)
+#define ILI9488_PIXEL_FORMAT     0x55
+
+#define ILI9488_CMD_SWRESET      0x01
+#define ILI9488_CMD_SLPOUT       0x11
+#define ILI9488_CMD_DISPON       0x29
+#define ILI9488_CMD_MADCTL       0x36
+#define ILI9488_CMD_COLMOD       0x3A
+#define ILI9488_CMD_CASET        0x2A
+#define ILI9488_CMD_RASET        0x2B
+#define ILI9488_CMD_RAMWR        0x2C
+
+#define ILI9488_MADCTL_BGR       (1 << 3)
+#define ILI9488_MADCTL_MY        (1 << 7)
+#define ILI9488_MADCTL_MX        (1 << 6)
+#define ILI9488_MADCTL_MV        (1 << 5)
+#define ILI9488_MADCTL_ML        (1 << 4)
+#define ILI9488_MADCTL_MH        (1 << 2)
+
+#define ILI9488_SPI_CLOCK_HZ     20000000
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\electric_service.h =====
+// @requirement RF-ELECTRIC-BIVOLT-001 Gerenciamento elétrico: proteção bivolt, limites
+#ifndef FIRMWARE_INCLUDE_ELECTRIC_SERVICE_H
+#define FIRMWARE_INCLUDE_ELECTRIC_SERVICE_H
+
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+esp_err_t electric_service_init(void);
+esp_err_t electric_service_get_power_w(float *out);
+esp_err_t electric_service_get_current_a(float *out);
+esp_err_t electric_service_get_voltage_v(float *out);
+esp_err_t electric_service_is_overload(bool *out);
+esp_err_t electric_service_force_safe_off(const char *reason);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\event_bus.h =====
+// @requirement RF-GLOBAL-002 Barramento de eventos para comunicação desacoplada entre módulos
+// @requirement RF-UI-INPUT-001 Eventos de UI propagados via event_bus
+#ifndef FIRMWARE_INCLUDE_EVENT_BUS_H
+#define FIRMWARE_INCLUDE_EVENT_BUS_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef uint32_t event_id_t;
+
+#define EVENT_ID_NONE           0
+#define EVENT_ID_SAFE_OFF       1
+#define EVENT_ID_EMERGENCY      2
+#define EVENT_ID_DEGRADED       3
+#define EVENT_ID_NORMAL         4
+#define EVENT_ID_ALERT_RAISED   5
+#define EVENT_ID_ALERT_ACKED    6
+#define EVENT_ID_PLUG_TOGGLED   7
+#define EVENT_ID_FEED_START     8
+#define EVENT_ID_FEED_END       9
+#define EVENT_ID_CONFIG_CHANGED 10
+#define EVENT_ID_WIZARD_DONE    11
+#define EVENT_ID_RESET_START    12
+#define EVENT_ID_TEMP_CRITICAL  13
+#define EVENT_ID_OVER_CURRENT   14
+#define EVENT_ID_ATO_OVERFLOW   15
+#define EVENT_ID_SD_MOUNTED     16
+#define EVENT_ID_SD_UNMOUNTED   17
+#define EVENT_ID_WDT_TIMEOUT    18
+#define EVENT_ID_BOOT_COMPLETE  19
+
+typedef void (*event_callback_t)(event_id_t evt, void *data, void *user_ctx);
+
+esp_err_t event_bus_init(void);
+esp_err_t event_bus_subscribe(event_id_t evt, event_callback_t cb, void *user_ctx);
+esp_err_t event_bus_unsubscribe(event_id_t evt, event_callback_t cb);
+esp_err_t event_bus_publish(event_id_t evt, void *data);
+esp_err_t event_bus_publish_isr(event_id_t evt, void *data);
+void event_bus_process_pending(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\event_log.h =====
+// @requirement RF-LOG-001 a RF-LOG-020 Modelo de log de eventos estruturado
+#ifndef FIRMWARE_INCLUDE_EVENT_LOG_H
+#define FIRMWARE_INCLUDE_EVENT_LOG_H
+
+#include <stdint.h>
+
+#define EVENT_LOG_SOURCE_MAX_LEN   (32U)
+#define EVENT_LOG_MESSAGE_MAX_LEN  (160U)
+
+typedef enum {
+    EVENT_SEVERITY_INFO = 0,
+    EVENT_SEVERITY_WARNING,
+    EVENT_SEVERITY_ERROR,
+    EVENT_SEVERITY_CRITICAL
+} event_severity_t;
+
+typedef struct {
+    uint64_t         timestamp;
+    event_severity_t severity;
+    char             source[EVENT_LOG_SOURCE_MAX_LEN];
+    char             msg[EVENT_LOG_MESSAGE_MAX_LEN];
+} event_log_entry_t;
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\global_state.h =====
+// @requirement RF-GLOBAL-001 Definição de estados globais
+// @requirement RF-GLOBAL-002 Transições de estado global com rastreabilidade
+#ifndef FIRMWARE_INCLUDE_GLOBAL_STATE_H
+#define FIRMWARE_INCLUDE_GLOBAL_STATE_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "esp_err.h"
+#include "system_types.h"
+#include "fsm/feed_fsm.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    WIZARD_STEP_NONE = 0,
+    WIZARD_STEP_WELCOME,
+    WIZARD_STEP_PASSWORD,
+    WIZARD_STEP_THERMAL,
+    WIZARD_STEP_ATO,
+    WIZARD_STEP_ELECTRIC,
+    WIZARD_STEP_REVIEW,
+    WIZARD_STEP_COMPLETE
+} wizard_step_t;
+
+typedef enum {
+    GS_HEALTH_TEMP = 0,
+    GS_HEALTH_ATO,
+    GS_HEALTH_PZEM,
+    GS_HEALTH_SD,
+    GS_HEALTH_WIFI,
+    GS_HEALTH_UI,
+    GS_HEALTH_ELECTRIC,
+    GS_HEALTH_SELFTEST
+} global_state_health_field_t;
+
+typedef struct {
+    system_state_t       system_state;
+    bool                 maintenance_mode;
+    bool                 electric_ok;
+    bool                 selftest_passed;
+    bool                 temp_ok;
+    bool                 ato_ok;
+    bool                 pzem_ok;
+    bool                 sd_ok;
+    bool                 wifi_ok;
+    bool                 ui_ok;
+    bool                 hw_ok;
+    bool                 wizard_completed;
+    bool                 observation_mode;
+    bool                 monitor_only_mode;
+    alm_category_mask_t  active_alm_categories;
+    uint16_t             active_alerts_count;
+    uint16_t             critical_alerts_count;
+    reset_reason_t       last_reset_reason;
+    uint64_t             uptime_s;
+    char                 config_schema_version[16];
+    char                 fw_version[32];
+    char                 srs_version[32];
+    uint64_t             last_health_check_timestamp;
+    bool                 time_valid;
+    time_source_t        time_source;
+    safeoff_reason_t     safeoff_reason;
+    char                 safeoff_entered_at[32];
+    char                 safeoff_source_alm[16];
+    bool                 feed_active;
+    uint32_t             feed_remaining_s;
+    feed_state_t         feed_state;
+    uint64_t             health_check_interval_s;
+    float                temp_filtered_c;
+    bool                 restart_in_progress;
+    wizard_step_t        wizard_step;
+    bool                 hw_alert_pending;
+    uint16_t             hw_alert_alm_id;
+    char                 hw_alert_msg[128];
+    char                 reset_status_msg[64];
+} global_state_t;
+
+esp_err_t global_state_init(void);
+void global_state_bind(global_state_t *gs);
+esp_err_t global_state_get_snapshot(global_state_t *out);
+const global_state_t *global_state_get_snapshot_ptr(void);
+esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t reason,
+                                   const char *source_alm, const char *source_module,
+                                   uint64_t now_s);
+esp_err_t global_state_set_health_flag(global_state_health_field_t field, bool ok);
+global_state_t *global_state_get_write_ptr(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\hardware_config.h =====
+// @requirement RNF-HARDWARE-001 Constantes físicas e de hardware (NÃO confundir com parâmetros operacionais)
+#ifndef FIRMWARE_INCLUDE_HARDWARE_CONFIG_H
+#define FIRMWARE_INCLUDE_HARDWARE_CONFIG_H
+
+#include <stdint.h>
+
+// ============================================================
+// hardware_config.h — Hardware invariants
+// ============================================================
+// GPIOs are in pin_map.h
+// Operational defaults are in param_catalog.h / ConfigRoot
+// ============================================================
+
+#define HW_PLATFORM_NAME                 "ESP32-S3-DevKitC-1 N16R8"
+#define HW_FW_TARGET                     "esp32s3"
+
+// --- I2C addresses ---
+#define HW_I2C_ADDR_MCP23017             (0x20U)
+#define HW_I2C_ADDR_DS3231               (0x68U)
+
+// --- Feature presence ---
+#define HW_FEATURE_RTC_DS3231_PRESENT    (1U)
+#define HW_FEATURE_BUZZER_PRESENT        (1U)
+#define HW_FEATURE_MONITOR_ONLY_MODE     (1U)
+
+// --- Relay characteristics ---
+#define HW_RELAY_P01_ACTIVE_LEVEL        (1U)
+#define HW_RELAY_P02_ACTIVE_LEVEL        (1U)
+#define HW_RELAY_P03_P10_ACTIVE_LEVEL    (1U)
+#define HW_RELAY_SAFE_OFF_LEVEL          (0U)
+#define HW_RELAY_COUNT_MAX               (10U)
+#define HW_RELAY_MODULE_INPUT_VOLTAGE_V  (5U)
+#define HW_RELAY_MODULE_HAS_OPTO         (1U)
+#define HW_RELAY_MODULE_HAS_JD_VCC       (1U)
+
+// --- ADC characteristics ---
+#define HW_ADC_VREF_MV                   (3300U)
+#define HW_ADC_MAX_COUNT                 (4095U)
+
+// --- ACS712 ---
+#define HW_ACS712_MODEL_20A              (1U)
+#define HW_ACS712_SUPPLY_MV              (5000U)
+#define HW_ACS712_CONDITIONED_TO_3V3     (1U)
+
+// --- ATO sensor ---
+#define HW_ATO_SIGNAL_MODE_DIGITAL_ON_OFF_ADC (1U)
+#define HW_ATO_SENSOR_SUPPLY_MV          (5000U)
+
+// --- Keypad ---
+#define HW_AD_KEYPAD_SUPPLY_MV           (5000U)
+#define HW_AD_KEYPAD_ADC_CONDITIONED     (1U)
+
+// --- Environmental ---
+#define HW_AC_PROTOBOARD_FORBIDDEN       (1U)
+#define HW_AC_DUPONT_FORBIDDEN           (1U)
+#define HW_AC_PLASTIC_ENCLOSURE          (1U)
+#define HW_MAINS_BIVOLT_SUPPORTED        (1U)
+#define HW_AC_MAX_CURRENT_PER_OUTLET_A   (10U)
+#define HW_AC_MAIN_INPUT_FUSE            (1U)
+#define HW_AC_FUSE_PER_OUTLET            (1U)
+#define HW_BUCK_3V3_REQUIRED             (1U)
+#define HW_BUCK_5V_REQUIRED              (1U)
+
+// --- DS18B20 ---
+#define HW_TEMP_SENSOR_COUNT             (1U)
+#define HW_DS18B20_RESOLUTION            (12U)
+#define HW_DS18B20_CONVERSION_MS         (750U)
+#define HW_DS18B20_CRC_REQUIRED          (1U)
+#define HW_DS18B20_REJECT_85C            (1U)
+
+// --- RTC ---
+#define HW_DS3231_BACKUP_BATTERY         (1U)
+
+// --- PZEM ---
+#define HW_PZEM_MODEL                    "PZEM-004T-v4"
+
+// --- SPI clocks ---
+#define HW_SPI_CLK_TFT_HZ                (20000000U)
+#define HW_SPI_CLK_SD_HZ                 (10000000U)
+#define HW_SPI_CLK_TOUCH_HZ              (2000000U)
+#define HW_SPI_CLK_MCP3208_HZ            (1000000U)
+
+// --- NVS ---
+#define HW_NVS_ERASE_IF_CORRUPT          (1U)
+
+// --- WDT ---
+#define HW_WDT_TIMEOUT_MS                (2000U)
+
+// --- SD card ---
+#define HW_SD_SPI_HOST                   (SPI2_HOST)
+#define HW_SD_MOUNT_POINT                "/sdcard"
+#define HW_SD_MAX_FILES                  (8U)
+#define HW_SD_ALLOC_UNIT                 (16384U)
+
+// --- HTTP ---
+#define HW_HTTP_PORT                     (80U)
+#define HW_HTTP_MAX_URI_HANDLERS         (32U)
+
+// --- LVGL ---
+#define HW_UI_LVGL_TASK_STACK            (4096U)
+#define HW_UI_LVGL_TASK_PRIORITY         (5U)
+#define HW_UI_LVGL_TICK_MS               (5U)
+
+// --- Safety timing (compile-time safety bounds, not user-configurable) ---
+#define HW_SAFEOFF_CAUSE_STABLE_S        (10U)
+#define HW_EMERGENCY_CAUSE_STABLE_S      (30U)
+#define HW_ANTIFLAP_COOLDOWN_MS          (3000U)
+#define HW_ANTIFLAP_WINDOW_MS            (60000U)
+#define HW_ANTIFLAP_MAX_TRANSITIONS      (3U)
+
+// --- Restart / reset ---
+#define HW_RESTART_COUNTDOWN_DEFAULT_S   (10U)
+#define HW_RESTART_CONFIRM_WINDOW_S      (10U)
+
+// --- UI defaults (override via ConfigRoot) ---
+#define HW_UI_BRIGHTNESS_DEFAULT         (100U)
+#define HW_UI_CAROUSEL_INTERVAL_MS       (15000U)
+#define HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS (5000U)
+
+// --- Logging ---
+#define HW_SD_LOG_INTERVAL_S             (300U)
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\health_matrix.h =====
+// @requirement RF-HEALTH-MATRIX-001..010, RF-WEB-005, RF-UI-DIAG-001
+#ifndef FIRMWARE_INCLUDE_HEALTH_MATRIX_H
+#define FIRMWARE_INCLUDE_HEALTH_MATRIX_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    HEALTH_OK = 0,
+    HEALTH_DEGRADED,
+    HEALTH_FAILED,
+    HEALTH_OPEN,
+    HEALTH_HALF_OPEN,
+    HEALTH_CLOSED,
+    HEALTH_UNKNOWN
+} health_status_t;
+
+typedef enum {
+    SUB_SENSOR_TEMP = 0,
+    SUB_SENSOR_PH,
+    SUB_SENSOR_LEVEL,
+    SUB_SENSOR_FLOW,
+    SUB_SENSOR_CURRENT,
+    SUB_SENSOR_VOLTAGE,
+    SUB_BUS_SPI,
+    SUB_BUS_I2C,
+    SUB_BUS_1WIRE,
+    SUB_NVS,
+    SUB_SD,
+    SUB_WIFI,
+    SUB_RTC,
+    SUB_RELAY_BOARD,
+    SUB_COUNT
+} subsystem_id_t;
+
+typedef struct {
+    health_status_t status;
+    uint32_t last_ok_ms;
+    uint32_t fail_count;
+    char detail[64];
+} health_entry_t;
+
+esp_err_t health_matrix_init(void);
+esp_err_t health_report(subsystem_id_t sub, health_status_t status, const char *reason);
+health_status_t health_get(subsystem_id_t sub);
+health_status_t health_aggregate(void);
+const health_entry_t *health_get_entry(subsystem_id_t sub);
+void health_matrix_update(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\health_model.h =====
+// @requirement RF-WEB-005 Modelo de health consolidado (heap, SD, WiFi, uptime)
+#ifndef FIRMWARE_INCLUDE_HEALTH_MODEL_H
+#define FIRMWARE_INCLUDE_HEALTH_MODEL_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef struct {
+    bool     electric_ok;
+    bool     temp_ok;
+    bool     ato_ok;
+    bool     pzem_ok;
+    bool     sd_ok;
+    bool     wifi_ok;
+    bool     ui_ok;
+    bool     selftest_passed;
+    uint64_t last_health_check_timestamp;
+} health_model_t;
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\log_ctl.h =====
+// @requirement RF-LOG-001 a RF-LOG-020 Sistema de logging estendido: níveis, rotação, persistência
+#ifndef FIRMWARE_INCLUDE_LOG_CTL_H
+#define FIRMWARE_INCLUDE_LOG_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    LOG_LEVEL_NONE = 0,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_WARN,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_DEBUG,
+    LOG_LEVEL_VERBOSE
+} log_ctl_level_t;
+
+typedef enum {
+    LOG_DEST_SERIAL = 0x01,
+    LOG_DEST_SD     = 0x02,
+    LOG_DEST_MEM    = 0x04,
+    LOG_DEST_WEB    = 0x08
+} log_ctl_dest_t;
+
+esp_err_t log_ctl_init(void);
+esp_err_t log_ctl_set_level(log_ctl_level_t level);
+log_ctl_level_t log_ctl_get_level(void);
+esp_err_t log_ctl_set_destination(uint8_t dest_mask);
+uint8_t log_ctl_get_destination(void);
+esp_err_t log_ctl_write(log_ctl_level_t level, const char *tag, const char *msg);
+esp_err_t log_ctl_write_fmt(log_ctl_level_t level, const char *tag, const char *fmt, ...);
+int log_ctl_get_entry_count(void);
+esp_err_t log_ctl_export(char *buf, size_t buf_size, int max_lines);
+esp_err_t log_ctl_clear(void);
+esp_err_t log_ctl_flush(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\param_catalog.h =====
+// @requirement RF-UI-WIZARD-001..005 Wizard step persistence
+#ifndef FIRMWARE_INCLUDE_PARAM_CATALOG_H
+#define FIRMWARE_INCLUDE_PARAM_CATALOG_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#define PARAM_CATALOG_VERSION "1.0.0"
+
+typedef struct {
+    float temp_normal_c;
+    float temp_critical_c;
+    float temp_extreme_c;
+    float temp_min_c;
+    float temp_max_c;
+    float hysteresis_c;
+    bool  extreme_enabled;
+} thermal_params_storage_t;
+
+typedef struct {
+    bool     enabled;
+    int32_t  low_level_adc;
+    int32_t  high_level_adc;
+    int32_t  overflow_margin_adc;
+    uint32_t refill_timeout_s;
+} ato_params_storage_t;
+
+typedef struct {
+    float total_power_limit_w;
+    float per_plug_current_limit_a;
+    float hysteresis_w;
+    float overvoltage_limit_v;
+    float undervoltage_limit_v;
+    uint32_t overvoltage_time_s;
+    uint32_t undervoltage_time_s;
+    float total_current_limit_a;
+    uint32_t total_current_time_s;
+    float pf_min;
+    uint32_t pf_time_s;
+    float fator_curto;
+    uint32_t tempo_deteccao_curto_ms;
+} electric_params_storage_t;
+
+typedef struct {
+    uint32_t min_on_time_s;
+    uint32_t min_off_time_s;
+} plug_limits_storage_t;
+
+typedef struct {
+    uint32_t tempo_espera_religamento_s;
+    uint32_t intervalo_religamento_s;
+    uint32_t tempo_monitoramento_pos_relig_s;
+} restart_params_storage_t;
+
+typedef struct {
+    uint32_t feed_duration_min;
+    uint32_t feed_cooldown_min;
+} feed_params_storage_t;
+
+typedef struct {
+    uint32_t session_timeout_min;
+    uint32_t max_login_attempts;
+    uint32_t login_block_duration_min;
+} security_params_storage_t;
+
+typedef struct {
+    uint32_t tempo_min_estabilizacao_s;
+    uint32_t janela_flap_s;
+    uint32_t max_transicoes_flap;
+    uint32_t cooldown_reentrada_s;
+} antiflap_params_storage_t;
+
+typedef struct {
+    uint32_t selftest_timeout_ms;
+} selftest_params_storage_t;
+
+typedef struct {
+    bool     wizard_completed;
+    uint16_t mains_voltage;
+    bool     monitor_only_mode;
+    bool     maintenance_mode;
+    uint8_t  wizard_step;
+} system_params_storage_t;
+
+#define PARAM_THERMAL_DEFAULT_TEMP_NORMAL_C      25.0f
+#define PARAM_THERMAL_DEFAULT_TEMP_CRITICAL_C    30.0f
+#define PARAM_THERMAL_DEFAULT_TEMP_EXTREME_C     35.0f
+#define PARAM_THERMAL_DEFAULT_TEMP_MIN_C         18.0f
+#define PARAM_THERMAL_DEFAULT_TEMP_MAX_C         35.0f
+#define PARAM_THERMAL_DEFAULT_HYSTERESIS_C       1.0f
+#define PARAM_THERMAL_DEFAULT_EXTREME_ENABLED    true
+
+#define PARAM_ATO_DEFAULT_ENABLED                true
+#define PARAM_ATO_DEFAULT_LOW_ADC                500
+#define PARAM_ATO_DEFAULT_HIGH_ADC               2500
+#define PARAM_ATO_DEFAULT_OVERFLOW_ADC           200
+#define PARAM_ATO_DEFAULT_REFILL_TIMEOUT_S       120
+
+#define PARAM_ELECTRIC_DEFAULT_TOTAL_POWER_W     1200.0f
+#define PARAM_ELECTRIC_DEFAULT_PER_PLUG_CURRENT  10.0f
+#define PARAM_ELECTRIC_DEFAULT_HYSTERESIS_W      50.0f
+#define PARAM_ELECTRIC_DEFAULT_OVERVOLTAGE_127V  140.0f
+#define PARAM_ELECTRIC_DEFAULT_OVERVOLTAGE_220V  250.0f
+#define PARAM_ELECTRIC_DEFAULT_UNDERVOLTAGE_127V 105.0f
+#define PARAM_ELECTRIC_DEFAULT_UNDERVOLTAGE_220V 190.0f
+#define PARAM_ELECTRIC_DEFAULT_OV_TIME_S         5
+#define PARAM_ELECTRIC_DEFAULT_UV_TIME_S         5
+#define PARAM_ELECTRIC_DEFAULT_TOTAL_CURRENT_A   15.0f
+#define PARAM_ELECTRIC_DEFAULT_TOTAL_CURRENT_TIME_S 5
+#define PARAM_ELECTRIC_DEFAULT_PF_MIN            0.5f
+#define PARAM_ELECTRIC_DEFAULT_PF_TIME_S         10
+#define PARAM_ELECTRIC_DEFAULT_FATOR_CURTO       2.0f
+#define PARAM_ELECTRIC_DEFAULT_TEMP_CURTO_MS     500
+
+#define PARAM_PLUG_DEFAULT_MIN_ON_S              30
+#define PARAM_PLUG_DEFAULT_MIN_OFF_S             30
+
+#define PARAM_RESTART_DEFAULT_ESPERA_S           30
+#define PARAM_RESTART_DEFAULT_INTERVALO_S        5
+#define PARAM_RESTART_DEFAULT_MONITOR_S          10
+
+#define PARAM_FEED_DEFAULT_DURATION_MIN          10
+
+#define PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT   60
+#define PARAM_SECURITY_DEFAULT_MAX_LOGIN         5
+#define PARAM_SECURITY_DEFAULT_BLOCK_DURATION    15
+
+#define PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S   10
+#define PARAM_ANTIFLAP_DEFAULT_JANELA_S          60
+#define PARAM_ANTIFLAP_DEFAULT_MAX_TRANSICOES    3
+#define PARAM_ANTIFLAP_DEFAULT_COOLDOWN_S        300
+
+#define PARAM_SELFTEST_DEFAULT_TIMEOUT_MS        10000
+
+#define PARAM_SYSTEM_DEFAULT_MAINS_VOLTAGE       127
+#define PARAM_SYSTEM_DEFAULT_MONITOR_ONLY        false
+#define PARAM_SYSTEM_DEFAULT_MAINTENANCE_MODE    false
+
+typedef struct {
+    float acs712_zero_offset_mv[10];
+    int32_t ato_zero_offset_adc;
+    float temp_offset_c;
+} calibration_params_storage_t;
+
+#define PARAM_CALIB_DEFAULT_ATO_ZERO_ADC     0
+#define PARAM_CALIB_DEFAULT_TEMP_OFFSET_C    0.0f
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\pending_actions.h =====
+// @requirement RF-PEND-001, RF-PEND-002, RB-PEND-001..003 Ações pendentes persistentes
+#ifndef FIRMWARE_INCLUDE_PENDING_ACTIONS_H
+#define FIRMWARE_INCLUDE_PENDING_ACTIONS_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    PENDING_SEND_TELEMETRY = 0,
+    PENDING_EXPORT_CONFIG,
+    PENDING_OTA_CHECK
+} pending_action_type_t;
+
+esp_err_t pending_actions_init(void);
+esp_err_t pending_actions_enqueue(pending_action_type_t type, const uint8_t *data, uint32_t len);
+esp_err_t pending_actions_dequeue(pending_action_type_t *type, uint8_t *data, uint32_t *len);
+int pending_actions_count(void);
+esp_err_t pending_actions_process_all(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\pin_map.h =====
+// @requirement RNF-HARDWARE-001 Pinagem canônica AF.3 — GPIO, I2C, SPI, UART, ADC
+#ifndef FIRMWARE_INCLUDE_PIN_MAP_H
+#define FIRMWARE_INCLUDE_PIN_MAP_H
+
+#define PIN_DS18B20_DQ_GPIO      (4)
+#define PIN_RELAY_P01_GPIO       (5)
+#define PIN_RELAY_P02_GPIO       (6)
+#define PIN_I2C_SDA_GPIO         (8)
+#define PIN_I2C_SCL_GPIO         (9)
+#define PIN_TFT_CS_GPIO          (10)
+#define PIN_SPI_MOSI_GPIO        (11)
+#define PIN_SPI_MISO_GPIO        (12)
+#define PIN_SPI_SCK_GPIO         (13)
+#define PIN_SD_CS_GPIO           (15)
+#define PIN_TFT_DC_GPIO          (16)
+#define PIN_PZEM_TX_GPIO         (17)
+#define PIN_PZEM_RX_GPIO         (18)
+#define PIN_TFT_RST_GPIO         (21)
+#define PIN_TOUCH_CS_GPIO        (38)
+#define PIN_TOUCH_IRQ_GPIO       (39)
+#define PIN_ADC1_CS_GPIO         (41)
+#define PIN_ADC2_CS_GPIO         (42)
+#define PIN_TFT_BL_GPIO          (47)
+
+#define MCP_P03_GPA_BIT          (0)
+#define MCP_P04_GPA_BIT          (1)
+#define MCP_P05_GPA_BIT          (2)
+#define MCP_P06_GPA_BIT          (3)
+#define MCP_P07_GPA_BIT          (4)
+#define MCP_P08_GPA_BIT          (5)
+#define MCP_P09_GPA_BIT          (6)
+#define MCP_P10_GPA_BIT          (7)
+#define MCP_LED_GREEN_GPB_BIT    (2)
+#define MCP_LED_YELLOW_GPB_BIT   (3)
+#define MCP_LED_RED_GPB_BIT      (4)
+#define MCP_BUZZER_GPB_BIT       (5)
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\plug_model.h =====
+// @requirement RF-PLUG-001 a RF-PLUG-014 Modelo de plugue com modos, estados, proteções
+#ifndef FIRMWARE_INCLUDE_PLUG_MODEL_H
+#define FIRMWARE_INCLUDE_PLUG_MODEL_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef enum {
+    PLUG_ID_P01 = 1,
+    PLUG_ID_P02,
+    PLUG_ID_P03,
+    PLUG_ID_P04,
+    PLUG_ID_P05,
+    PLUG_ID_P06,
+    PLUG_ID_P07,
+    PLUG_ID_P08,
+    PLUG_ID_P09,
+    PLUG_ID_P10
+} plug_id_t;
+
+typedef enum {
+    PLUG_EFFECTIVE_STATE_OFF = 0,
+    PLUG_EFFECTIVE_STATE_ON,
+    PLUG_EFFECTIVE_STATE_BLOCKED,
+    PLUG_EFFECTIVE_STATE_FAULT,
+    PLUG_EFFECTIVE_STATE_WAITING,
+    PLUG_EFFECTIVE_STATE_UNAVAILABLE
+} plug_effective_state_t;
+
+typedef enum {
+    PLUG_TYPE_BOMBA = 0,
+    PLUG_TYPE_AQUECEDOR,
+    PLUG_TYPE_COOLER,
+    PLUG_TYPE_FILTRO,
+    PLUG_TYPE_AIREADOR,
+    PLUG_TYPE_LUZ,
+    PLUG_TYPE_OUTRO
+} plug_type_t;
+
+typedef enum {
+    PLUG_MODE_AUTO = 0,
+    PLUG_MODE_MANUAL,
+    PLUG_MODE_TIMER,
+    PLUG_MODE_DELAY,
+    PLUG_MODE_OVERRIDE
+} plug_mode_t;
+
+typedef enum {
+    PLUG_VISUAL_STATE_ON_NORMAL = 0,
+    PLUG_VISUAL_STATE_OFF_NORMAL,
+    PLUG_VISUAL_STATE_OFF_FAULT,
+    PLUG_VISUAL_STATE_OFF_WAITING,
+    PLUG_VISUAL_STATE_BLOCKED
+} plug_visual_state_t;
+
+typedef struct {
+    plug_id_t               id;
+    char                    name[24];
+    plug_type_t             type;
+    plug_mode_t             mode;
+    bool                    command_allowed;
+    bool                    blocked_by_safe_state;
+    bool                    monitor_only_blocked;
+    plug_effective_state_t  effective_state;
+    plug_visual_state_t     visual_state;
+    bool                    is_critical;
+    bool                    blocked;
+    bool                    bypass_detected;
+    float                   current_a;
+    float                   power_w;
+    float                   rated_power_w;
+    float                   current_limit_a;
+    float                   min_operating_voltage_v;
+    float                   fator_curto;
+    uint32_t                tempo_deteccao_curto_ms;
+    uint32_t                min_on_time_s;
+    uint32_t                min_off_time_s;
+    uint32_t                overcurrent_count;
+    uint32_t                time_on_today_s;
+    uint32_t                timer_on_s;
+    uint32_t                timer_off_s;
+    uint32_t                delay_seconds;
+    float                   energy_wh_today;
+    float                   energy_wh_24h;
+    float                   energy_wh_total;
+    float                   max_energy_wh_day;
+    bool                    maintenance_exempt;
+    uint8_t                 role_override_source;
+} plug_model_t;
+
+#define PLUG_COUNT_TOTAL (10U)
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\relay_abstraction.h =====
+// @requirement RF-PLUG-001 Camada de abstração de relés — rota única de comutação
+// @requirement RF-PLUG-011 Dupla confirmação para relés críticos via abstraction
+#ifndef FIRMWARE_INCLUDE_RELAY_ABSTRACTION_H
+#define FIRMWARE_INCLUDE_RELAY_ABSTRACTION_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef uint8_t relay_id_t;
+#define RELAY_ID_P01 0
+#define RELAY_ID_P02 1
+#define RELAY_ID_P03 2
+#define RELAY_ID_P04 3
+#define RELAY_ID_P05 4
+#define RELAY_ID_P06 5
+#define RELAY_ID_P07 6
+#define RELAY_ID_P08 7
+#define RELAY_ID_P09 8
+#define RELAY_ID_P10 9
+#define RELAY_COUNT 10
+
+typedef enum {
+    RELAY_STATE_OFF = 0,
+    RELAY_STATE_ON = 1,
+    RELAY_STATE_BLOCKED = 2,
+    RELAY_STATE_FAULT = 3
+} relay_state_t;
+
+esp_err_t relay_abstraction_init(void);
+esp_err_t relay_abstraction_set(relay_id_t id, bool on);
+esp_err_t relay_abstraction_set_blocked(relay_id_t id, bool blocked);
+relay_state_t relay_abstraction_get_state(relay_id_t id);
+bool relay_abstraction_is_on(relay_id_t id);
+bool relay_abstraction_is_blocked(relay_id_t id);
+esp_err_t relay_abstraction_all_off(void);
+esp_err_t relay_abstraction_all_on(void);
+const char *relay_abstraction_get_name(relay_id_t id);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\sensor_ctl.h =====
+// @requirement RF-SENSOR-001 a RF-SENSOR-003 Medição coordenada de temperatura, corrente e potência
+#ifndef FIRMWARE_INCLUDE_SENSOR_CTL_H
+#define FIRMWARE_INCLUDE_SENSOR_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    SENSOR_TYPE_TEMPERATURE = 0,
+    SENSOR_TYPE_CURRENT,
+    SENSOR_TYPE_POWER,
+    SENSOR_TYPE_COUNT
+} sensor_ctl_type_t;
+
+typedef struct {
+    float temperature_c;
+    float current_a;
+    float power_w;
+} sensor_ctl_snapshot_t;
+
+const char *sensor_ctl_get_name(sensor_ctl_type_t type);
+esp_err_t sensor_ctl_init(void);
+esp_err_t sensor_ctl_read(sensor_ctl_type_t type, float *out);
+esp_err_t sensor_ctl_read_all(sensor_ctl_snapshot_t *snap);
+int sensor_ctl_get_last_error_count(sensor_ctl_type_t type);
+void sensor_ctl_reset_error_count(sensor_ctl_type_t type);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\storage_manager.h =====
+// @requirement RF-STORAGE-001..010, RB-STOR-001..017, RF-PERSIST-001, RF-PERSIST-ATOMIC-001, RF-PERSIST-EXPORT-001
+#ifndef FIRMWARE_INCLUDE_STORAGE_MANAGER_H
+#define FIRMWARE_INCLUDE_STORAGE_MANAGER_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    STORAGE_NS_CFG = 0,
+    STORAGE_NS_CAL,
+    STORAGE_NS_PROFILE,
+    STORAGE_NS_STATE,
+    STORAGE_NS_LOG,
+    STORAGE_NS_WIZARD,
+    STORAGE_NS_TIME,
+    STORAGE_NS_ALM,
+    STORAGE_NS_COUNT
+} storage_namespace_t;
+
+#define STORAGE_SCHEMA_CFG_VERSION     1
+#define STORAGE_SCHEMA_CAL_VERSION     1
+#define STORAGE_SCHEMA_PROFILE_VERSION 1
+#define STORAGE_SCHEMA_STATE_VERSION   1
+#define STORAGE_SCHEMA_LOG_VERSION     1
+#define STORAGE_SCHEMA_WIZARD_VERSION  1
+#define STORAGE_SCHEMA_TIME_VERSION    1
+#define STORAGE_SCHEMA_ALM_VERSION     1
+
+typedef struct {
+    uint32_t schema_version;
+    uint32_t crc32;
+    uint64_t timestamp_us;
+} storage_metadata_t;
+
+esp_err_t storage_manager_init(void);
+esp_err_t storage_manager_deinit(void);
+esp_err_t storage_open(storage_namespace_t ns, bool read_only);
+esp_err_t storage_commit(storage_namespace_t ns);
+esp_err_t storage_close(storage_namespace_t ns);
+
+esp_err_t storage_set_u32(storage_namespace_t ns, const char *key, uint32_t value);
+esp_err_t storage_get_u32(storage_namespace_t ns, const char *key, uint32_t *out, uint32_t default_value);
+esp_err_t storage_set_i32(storage_namespace_t ns, const char *key, int32_t value);
+esp_err_t storage_get_i32(storage_namespace_t ns, const char *key, int32_t *out, int32_t default_value);
+esp_err_t storage_set_str(storage_namespace_t ns, const char *key, const char *value);
+esp_err_t storage_get_str(storage_namespace_t ns, const char *key, char *out, size_t out_size, const char *default_value);
+esp_err_t storage_set_blob(storage_namespace_t ns, const char *key, const void *buf, size_t len);
+esp_err_t storage_get_blob(storage_namespace_t ns, const char *key, void *buf, size_t *len);
+
+uint32_t storage_get_schema_version(storage_namespace_t ns);
+esp_err_t storage_migrate_if_needed(storage_namespace_t ns);
+
+esp_err_t storage_export_to_buffer(storage_namespace_t ns, uint8_t *buf, size_t *len);
+esp_err_t storage_import_from_buffer(storage_namespace_t ns, const uint8_t *buf, size_t len);
+esp_err_t storage_erase_namespace(storage_namespace_t ns);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\system_types.h =====
+// @requirement RF-GLOBAL-001 Definição de estados globais (NORMAL, DEGRADED, SAFE_OFF, EMERGENCY)
+#ifndef FIRMWARE_INCLUDE_SYSTEM_TYPES_H
+#define FIRMWARE_INCLUDE_SYSTEM_TYPES_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef enum {
+    SYSTEM_STATE_NORMAL = 0,
+    SYSTEM_STATE_DEGRADED,
+    SYSTEM_STATE_SAFE_OFF,
+    SYSTEM_STATE_EMERGENCY
+} system_state_t;
+
+typedef uint32_t alm_category_mask_t;
+typedef uint32_t reset_reason_t;
+
+typedef enum {
+    TIME_SOURCE_NONE = 0,
+    TIME_SOURCE_RTC,
+    TIME_SOURCE_NTP,
+    TIME_SOURCE_MANUAL,
+    TIME_SOURCE_INVALID
+} time_source_t;
+
+typedef enum {
+    SAFEOFF_REASON_NONE = 0,
+    SAFEOFF_REASON_THERMAL_CRITICAL,
+    SAFEOFF_REASON_ATO_OVERFLOW,
+    SAFEOFF_REASON_ELECTRIC_TOTAL,
+    SAFEOFF_REASON_PLUG_SHORT,
+    SAFEOFF_REASON_MCP23017_FAIL,
+    SAFEOFF_REASON_CONFIG_INVALID,
+    SAFEOFF_REASON_SELFTEST_FAIL,
+    SAFEOFF_REASON_FSM_INVALID,
+    SAFEOFF_REASON_WDT_RECOVERY,
+    SAFEOFF_REASON_MANUAL_CRITICAL,
+    SAFEOFF_REASON_OVERVOLTAGE,
+    SAFEOFF_REASON_UNDERVOLTAGE,
+    SAFEOFF_REASON_THERMAL_EXTREME
+} safeoff_reason_t;
+
+typedef enum {
+    ERR_AUTH_REQUIRED = 0,
+    ERR_AUTH_INVALID,
+    ERR_AUTH_FORBIDDEN,
+    ERR_STATE_NOT_ALLOWED,
+    ERR_PLUG_BLOCKED,
+    ERR_VALIDATION_ERROR,
+    ERR_CONFIG_INVALID,
+    ERR_SCHEMA_INCOMPATIBLE,
+    ERR_STORAGE_UNAVAILABLE,
+    ERR_HARDWARE_UNAVAILABLE,
+    ERR_SAFE_MODE_ACTIVE,
+    ERR_MONITOR_ONLY_ACTIVE,
+    ERR_RATE_LIMITED,
+    ERR_INTERNAL_ERROR
+} canonical_error_code_t;
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\task_manager.h =====
+#ifndef FIRMWARE_INCLUDE_TASK_MANAGER_H
+#define FIRMWARE_INCLUDE_TASK_MANAGER_H
+
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#define TASK_ID_SAFETY_CORE    0
+#define TASK_ID_SENSORS        1
+#define TASK_ID_PLUG_CONTROL   2
+#define TASK_ID_STORAGE        3
+#define TASK_ID_UI             4
+#define TASK_ID_WEB            5
+#define TASK_ID_DIAG           6
+#define TASK_ID_COUNT          7
+
+#define TASK_PRI_SAFETY_CORE   (10U)
+#define TASK_PRI_SENSORS       (9U)
+#define TASK_PRI_PLUG_CONTROL  (8U)
+#define TASK_PRI_STORAGE       (6U)
+#define TASK_PRI_UI            (5U)
+#define TASK_PRI_WEB           (4U)
+#define TASK_PRI_DIAG          (2U)
+
+#define TASK_STACK_SAFETY_CORE   (4096U)
+#define TASK_STACK_SENSORS       (4096U)
+#define TASK_STACK_PLUG_CONTROL  (4096U)
+#define TASK_STACK_STORAGE       (4096U)
+#define TASK_STACK_UI            (8192U)
+#define TASK_STACK_WEB           (8192U)
+#define TASK_STACK_DIAG          (3072U)
+
+#define TASK_CORE_SAFETY_CORE   (1)
+#define TASK_CORE_SENSORS       (1)
+#define TASK_CORE_PLUG_CONTROL  (1)
+#define TASK_CORE_STORAGE       (1)
+#define TASK_CORE_UI            (0)
+#define TASK_CORE_WEB           (0)
+#define TASK_CORE_DIAG          (0)
+
+#define TASK_NAME_SAFETY_CORE   "safety_core"
+#define TASK_NAME_SENSORS       "sensors"
+#define TASK_NAME_PLUG_CONTROL  "plug_control"
+#define TASK_NAME_STORAGE       "storage"
+#define TASK_NAME_UI            "ui"
+#define TASK_NAME_WEB           "web"
+#define TASK_NAME_DIAG          "diag"
+
+#define TASK_PERIOD_MS_SAFETY_CORE   (50U)
+#define TASK_PERIOD_MS_SENSORS       (200U)
+#define TASK_PERIOD_MS_PLUG_CONTROL  (100U)
+#define TASK_PERIOD_MS_STORAGE       (1000U)
+#define TASK_PERIOD_MS_UI            (10U)
+#define TASK_PERIOD_MS_WEB           (50U)
+#define TASK_PERIOD_MS_DIAG          (1000U)
+
+#define TASK_WDT_TIMEOUT_MS_SAFETY_CORE   (2000U)
+#define TASK_WDT_TIMEOUT_MS_SENSORS       (3000U)
+#define TASK_WDT_TIMEOUT_MS_PLUG_CONTROL  (2000U)
+#define TASK_WDT_TIMEOUT_MS_STORAGE       (5000U)
+#define TASK_WDT_TIMEOUT_MS_UI            (5000U)
+#define TASK_WDT_TIMEOUT_MS_WEB           (10000U)
+#define TASK_WDT_TIMEOUT_MS_DIAG          (10000U)
+
+typedef struct {
+    int task_id;
+    const char *name;
+    UBaseType_t priority;
+    uint32_t stack_size;
+    BaseType_t core_id;
+    uint32_t period_ms;
+    uint32_t wdt_timeout_ms;
+    bool heartbeat_required;
+    TaskHandle_t handle;
+} task_definition_t;
+
+esp_err_t task_manager_register_fn(int task_id, TaskFunction_t task_fn);
+esp_err_t task_manager_launch_all(void);
+esp_err_t task_manager_create(TaskFunction_t task_fn, int task_id);
+TaskHandle_t task_manager_get_handle(int task_id);
+const char *task_manager_get_name(int task_id);
+int task_manager_get_id_by_name(const char *name);
+const task_definition_t *task_manager_get_definition(int task_id);
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\thermal_service.h =====
+// @requirement RF-THERMAL-001..010 Gerenciamento térmico: setpoint, leitura, heater/cooler
+#ifndef FIRMWARE_INCLUDE_THERMAL_SERVICE_H
+#define FIRMWARE_INCLUDE_THERMAL_SERVICE_H
+
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+esp_err_t thermal_service_init(void);
+esp_err_t thermal_service_get_setpoint(float *out_c);
+esp_err_t thermal_service_set_setpoint(float c);
+esp_err_t thermal_service_get_current(float *out_c);
+esp_err_t thermal_service_is_heating(bool *out);
+esp_err_t thermal_service_is_cooling(bool *out);
+esp_err_t thermal_service_force_safe_off(const char *reason);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\time_manager.h =====
+// @requirement RF-TIME-001..010 Gerenciamento de tempo: RTC, NTP, timezone
+#ifndef FIRMWARE_INCLUDE_TIME_MANAGER_H
+#define FIRMWARE_INCLUDE_TIME_MANAGER_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <time.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    TIME_SOURCE_NONE = 0,
+    TIME_SOURCE_RTC,
+    TIME_SOURCE_NTP,
+    TIME_SOURCE_USER
+} time_source_t;
+
+esp_err_t time_manager_init(void);
+esp_err_t time_get(time_t *out_unix_ts);
+esp_err_t time_set(time_t unix_ts, time_source_t src);
+esp_err_t time_get_source(time_source_t *out);
+bool time_is_valid(void);
+esp_err_t time_sync_ntp_async(const char *ntp_server);
+esp_err_t time_set_timezone(const char *tz);
+bool time_is_ntp_synced(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\util_ctl.h =====
+// @requirement RF-UTIL-001 a RF-UTIL-027 Utilitários de sistema: modelos, validação, conversão, CRC
+#ifndef FIRMWARE_INCLUDE_UTIL_CTL_H
+#define FIRMWARE_INCLUDE_UTIL_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+float util_map(float x, float in_min, float in_max, float out_min, float out_max);
+float util_constrain(float val, float min, float max);
+uint32_t util_min_u32(uint32_t a, uint32_t b);
+uint32_t util_max_u32(uint32_t a, uint32_t b);
+int32_t util_clamp_i32(int32_t val, int32_t min, int32_t max);
+bool util_antiflap(bool *last_stable, bool current, uint32_t *count, uint32_t threshold);
+uint16_t util_crc16(const uint8_t *data, uint16_t len);
+uint32_t util_crc32(const uint8_t *data, uint32_t len);
+void util_bcd_to_str(uint8_t bcd, char *out, size_t max_len);
+float util_celsius_to_fahrenheit(float c);
+float util_fahrenheit_to_celsius(float f);
+bool util_str_to_bool(const char *str);
+const char *util_bool_to_str(bool val);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\watchdog_guard.h =====
+#ifndef FIRMWARE_INCLUDE_WATCHDOG_GUARD_H
+#define FIRMWARE_INCLUDE_WATCHDOG_GUARD_H
+
+#include "esp_err.h"
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef enum {
+    WATCHDOG_SEVERITY_CRITICAL = 0,
+    WATCHDOG_SEVERITY_NON_CRITICAL
+} watchdog_severity_t;
+
+typedef struct {
+    int task_id;
+    uint32_t missed_beats;
+    uint32_t missed_threshold;
+    bool alarmed;
+    bool recovered;
+    watchdog_severity_t severity;
+} watchdog_status_t;
+
+esp_err_t watchdog_guard_init(void);
+void watchdog_guard_heartbeat(int task_id);
+uint32_t watchdog_guard_get_heartbeat(int task_id);
+watchdog_status_t watchdog_guard_check(int task_id);
+void watchdog_guard_set_threshold(int task_id, uint32_t missed_threshold);
+void watchdog_guard_set_severity(int task_id, watchdog_severity_t severity);
+uint32_t watchdog_guard_get_alive_count(void);
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\web_ctl.h =====
+// @requirement RF-WEB-001 a RF-WEB-008 Gerenciamento web estendido: exportação, SD, health check
+#ifndef FIRMWARE_INCLUDE_WEB_CTL_H
+#define FIRMWARE_INCLUDE_WEB_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+esp_err_t web_ctl_init(void);
+esp_err_t web_ctl_export_config(void);
+esp_err_t web_ctl_import_config(void);
+esp_err_t web_ctl_get_health_json(char *buf, size_t buf_size);
+bool web_ctl_is_sd_available(void);
+esp_err_t web_ctl_recover_creds(void);
+esp_err_t web_ctl_handle_sd_full(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\include\wifi_ctl.h =====
+// @requirement RF-WIFI-001 a RF-WIFI-015 Gerenciamento de WiFi: Station, AP, scan, credenciais
+#ifndef FIRMWARE_INCLUDE_WIFI_CTL_H
+#define FIRMWARE_INCLUDE_WIFI_CTL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    WIFI_MODE_NONE = 0,
+    WIFI_MODE_STA,
+    WIFI_MODE_AP,
+    WIFI_MODE_APSTA
+} wifi_ctl_mode_t;
+
+typedef struct {
+    char ssid[33];
+    char password[65];
+    uint8_t bssid[6];
+    int8_t rssi;
+    uint8_t channel;
+} wifi_ctl_ap_info_t;
+
+esp_err_t wifi_ctl_init(void);
+esp_err_t wifi_ctl_deinit(void);
+esp_err_t wifi_ctl_set_mode(wifi_ctl_mode_t mode);
+wifi_ctl_mode_t wifi_ctl_get_mode(void);
+
+esp_err_t wifi_ctl_sta_connect(const char *ssid, const char *password);
+esp_err_t wifi_ctl_sta_disconnect(void);
+bool wifi_ctl_sta_is_connected(void);
+int8_t wifi_ctl_sta_get_rssi(void);
+char *wifi_ctl_sta_get_ip(void);
+
+esp_err_t wifi_ctl_ap_start(const char *ssid, const char *password, uint8_t channel);
+esp_err_t wifi_ctl_ap_stop(void);
+
+esp_err_t wifi_ctl_scan_start(uint16_t timeout_ms);
+int wifi_ctl_scan_get_count(void);
+wifi_ctl_ap_info_t *wifi_ctl_scan_get_result(int index);
+void wifi_ctl_scan_free(void);
+
+esp_err_t wifi_ctl_save_creds(const char *ssid, const char *password);
+esp_err_t wifi_ctl_load_creds(char *ssid, size_t ssid_len, char *password, size_t pass_len);
+esp_err_t wifi_ctl_clear_creds(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\app_main.c =====
+#include <stdio.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_timer.h"
+#include "nvs_flash.h"
+#include "esp_netif.h"
+
+#include "pin_map.h"
+#include "global_state.h"
+#include "hardware_config.h"
+#include "hal_bus.h"
+#include "hal_spi.h"
+#include "driver_relay.h"
+#include "driver_mcp3208.h"
+#include "driver_acs712.h"
+#include "driver_ad_keypad.h"
+#include "driver_pzem.h"
+#include "core/safety_controller.h"
+#include "services/command_validator.h"
+#include "services/alert_manager.h"
+#include "services/safeoff_alm_map.h"
+#include "services/electric_fsm.h"
+#include "services/storage_sd.h"
+#include "services/cdn_energy.h"
+#include "services/config_manager.h"
+#include "services/task_manager.h"
+#include "services/wdt_advanced.h"
+#include "fsm/thermal_fsm.h"
+#include "drivers/driver_ds18b20.h"
+#include "drivers/driver_ds3231.h"
+#include "drivers/driver_buzzer_led.h"
+#include "fsm/ato_fsm.h"
+#include "web/api_rest.h"
+#include "ui/ui_display.h"
+#include "ui/ui_screens.h"
+#include "ui/ui_state_badge.h"
+#include "ui/hmi/ui_app.h"
+#include "core/circuit_breaker.h"
+#include "services/self_test.h"
+#include "services/temp_filter.h"
+#include "services/audit_log.h"
+#include "services/plug_manager.h"
+#include "fsm/feed_fsm.h"
+#include "fsm/restart_fsm.h"
+#include "services/feed_snapshot.h"
+#include "services/reset_handler.h"
+#include "event_bus.h"
+#include "health_matrix.h"
+#include "wifi_ctl.h"
+#include "sensor_ctl.h"
+#include "disp_ctl.h"
+#include "log_ctl.h"
+#include "conf_ctl.h"
+#include "web_ctl.h"
+#include "alm_ctl.h"
+#include "bom_ctl.h"
+#include "data_ctl.h"
+#include "thermal_service.h"
+#include "ato_service.h"
+#include "electric_service.h"
+#include "time_manager.h"
+#include "pending_actions.h"
+#include "sec_policy.h"
+#include "watchdog_guard.h"
+
+static const char *TAG = "app_main";
+
+global_state_t g_gs;
+pzem_data_t g_pzem;
+bool g_feed_request = false;
+restart_fsm_t g_restart_fsm;
+
+static thermal_fsm_t s_thermal_fsm;
+static ato_fsm_t s_ato_fsm;
+static electric_fsm_t s_electric_fsm;
+static feed_fsm_t s_feed_fsm;
+static thermal_params_t s_tcfg;
+static electric_params_t s_ecfg;
+static ato_params_t s_acfg;
+
+static esp_err_t init_nvs_safe(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS inconsistente, executando recovery");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    return err;
+}
+
+static void init_global_state(void)
+{
+    ESP_ERROR_CHECK(global_state_init());
+    global_state_bind(&g_gs);
+    memset(&g_gs, 0, sizeof(g_gs));
+    g_gs.system_state = SYSTEM_STATE_NORMAL;
+    g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
+    g_gs.last_reset_reason = (uint32_t)esp_reset_reason();
+    snprintf(g_gs.fw_version, sizeof(g_gs.fw_version), "F1.0.0");
+    snprintf(g_gs.srs_version, sizeof(g_gs.srs_version), "v3.11-AF.3+AF.4+B12/N+B13/N");
+    snprintf(g_gs.config_schema_version, sizeof(g_gs.config_schema_version), "1.0");
+
+    const system_params_storage_t *sys = config_get_system();
+    g_gs.wizard_completed = sys->wizard_completed;
+    g_gs.monitor_only_mode = sys->monitor_only_mode;
+    g_gs.feed_active = false;
+    g_gs.feed_remaining_s = 0;
+    g_gs.feed_state = FEED_STATE_IDLE;
+    g_gs.health_check_interval_s = 60;
+    g_gs.temp_filtered_c = 0.0f;
+    g_gs.restart_in_progress = false;
+    g_gs.wizard_step = (wizard_step_t)config_get_wizard_step();
+}
+
+static bool read_temp(float *temp_c)
+{
+    if (!temp_c) return false;
+    if (!circuit_breaker_is_available(CB_BUS_DS18B20)) return false;
+    if (ds18b20_read(temp_c)) {
+        circuit_breaker_record_success(CB_BUS_DS18B20);
+        return true;
+    }
+    circuit_breaker_record_failure(CB_BUS_DS18B20);
+    return false;
+}
+
+static bool read_ato_level(int32_t *level_adc)
+{
+    if (!level_adc) return false;
+    if (!circuit_breaker_is_available(CB_BUS_SPI_ADC)) return false;
+    uint16_t adc = 0;
+    esp_err_t err = mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_ATO, &adc);
+    if (err != ESP_OK) {
+        circuit_breaker_record_failure(CB_BUS_SPI_ADC);
+        return false;
+    }
+    circuit_breaker_record_success(CB_BUS_SPI_ADC);
+    *level_adc = (int32_t)adc;
+    return true;
+}
+
+static bool safeoff_cause_is_resolved(void)
+{
+    switch (g_gs.safeoff_reason) {
+        case SAFEOFF_REASON_THERMAL_CRITICAL:
+        case SAFEOFF_REASON_THERMAL_EXTREME: {
+            if (!g_gs.temp_ok) return false;
+            return g_gs.temp_filtered_c < (float)s_tcfg.temp_critical_c;
+        }
+        case SAFEOFF_REASON_ATO_OVERFLOW: {
+            if (!g_gs.ato_ok) return false;
+            int32_t level_adc = 0;
+            if (!read_ato_level(&level_adc)) return false;
+            int32_t overflow = (int32_t)s_acfg.high_level_adc + (int32_t)s_acfg.overflow_margin_adc;
+            return level_adc <= overflow;
+        }
+        case SAFEOFF_REASON_ELECTRIC_TOTAL:
+        case SAFEOFF_REASON_OVERVOLTAGE:
+        case SAFEOFF_REASON_UNDERVOLTAGE: {
+            if (!g_gs.pzem_ok) return false;
+            return g_pzem.power_w <= (float)s_ecfg.total_power_limit_w;
+        }
+        case SAFEOFF_REASON_PLUG_SHORT: {
+            if (!g_gs.pzem_ok) return false;
+            return g_pzem.current_a <= (float)s_ecfg.per_plug_current_limit_a;
+        }
+        case SAFEOFF_REASON_SELFTEST_FAIL:
+            return g_gs.selftest_passed;
+        default:
+            return true;
+    }
+}
+
+static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
+{
+    safety_inputs_t sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.safeoff_cause_resolved = safeoff_cause_is_resolved();
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.selftest_passed = g_gs.selftest_passed;
+    sin.manual_ack_received = true;
+    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+
+    if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
+        ESP_LOGW(TAG, "RESTART: sequencia completa -> NORMAL");
+        g_gs.system_state = SYSTEM_STATE_NORMAL;
+        g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
+        g_gs.restart_in_progress = false;
+        g_gs.safeoff_source_alm[0] = '\0';
+        plug_manager_set_restart_mask(0);
+        audit_log_event(AUDIT_SAFE_OFF, "Restart sequence complete -> NORMAL");
+        restart_fsm_abort(&g_restart_fsm);
+        return;
+    }
+
+    if (g_gs.restart_in_progress && (!sin.safeoff_cause_resolved || !sin.all_sensors_valid)) {
+        ESP_LOGW(TAG, "RESTART: condicoes perdidas, abortando religamento");
+        g_gs.restart_in_progress = false;
+        plug_manager_set_restart_mask(0);
+        relay_all_off();
+        audit_log_event(AUDIT_SAFE_OFF, "Restart aborted - conditions lost");
+        restart_fsm_abort(&g_restart_fsm);
+        return;
+    }
+
+    if (g_gs.restart_in_progress) {
+        restart_fsm_update(&g_restart_fsm, now_ms);
+        plug_manager_set_restart_mask(restart_fsm_energized_mask(&g_restart_fsm));
+        return;
+    }
+
+    if (safety_controller_can_exit_safeoff(&g_gs, &sin, now_s)) {
+        ESP_LOGW(TAG, "RESTART: condicoes de saida SAFE_OFF atendidas, religando");
+        g_gs.restart_in_progress = true;
+        audit_log_event(AUDIT_SAFE_OFF, "Restart sequence started");
+        restart_fsm_start(&g_restart_fsm, now_ms);
+    }
+}
+
+static void handle_emergency_exit(uint64_t now_s)
+{
+    safety_inputs_t sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.emergency_resolved = true;
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.manual_ack_received = true;
+    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+
+    if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
+        ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
+        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_FSM_INVALID, "ALM-003", "emergency_exit", now_s);
+    }
+}
+
+static void reset_handler_check(uint64_t now_ms)
+{
+    static bool s_was_up_held = false;
+    static uint64_t s_up_held_start_ms = 0;
+
+    reset_state_t rst = reset_handler_get_state();
+    uint16_t adc_val = 4096;
+    mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_KEYPAD, &adc_val);
+    bool up_pressed = (adc_val >= 100 && adc_val < 600);
+
+    if (rst == RESET_STATE_CONFIRM1) {
+        if (up_pressed && !s_was_up_held) {
+            reset_handler_confirm();
+            s_was_up_held = true;
+        } else if (!up_pressed) {
+            s_was_up_held = false;
+        }
+    } else if (rst == RESET_STATE_IDLE && up_pressed) {
+        if (!s_was_up_held) {
+            s_up_held_start_ms = now_ms;
+            s_was_up_held = true;
+        } else if (now_ms - s_up_held_start_ms >= 10000) {
+            reset_handler_start();
+            s_was_up_held = false;
+            s_up_held_start_ms = 0;
+        }
+    } else if (!up_pressed) {
+        s_was_up_held = false;
+        s_up_held_start_ms = 0;
+    }
+
+    int rem = reset_handler_remaining_s();
+    switch (rst) {
+        case RESET_STATE_CONFIRM1:
+            snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                     "FACTORY RESET: Solte UP e pressione novamente para confirmar");
+            break;
+        case RESET_STATE_CONFIRM2:
+            snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                     "Confirmado! Reset automatico em %ds...", rem);
+            break;
+        case RESET_STATE_COUNTDOWN:
+            snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                     "FACTORY RESET em %ds", rem);
+            break;
+        case RESET_STATE_ERASING:
+            snprintf(g_gs.reset_status_msg, sizeof(g_gs.reset_status_msg),
+                     "APAGANDO NVS...");
+            break;
+        default:
+            g_gs.reset_status_msg[0] = '\0';
+            break;
+    }
+}
+
+static void read_sensors(float *temp_c, int32_t *ato_level)
+{
+    *temp_c = 25.0f;
+    *ato_level = 0;
+
+    bool temp_valid = read_temp(temp_c);
+    static bool s_temp_was_valid_local = true;
+    if (temp_valid && !s_temp_was_valid_local) {
+        alert_manager_clear(ALM_013);
+    }
+    s_temp_was_valid_local = temp_valid;
+    g_gs.temp_ok = temp_valid;
+
+    if (temp_valid) {
+        g_gs.temp_filtered_c = temp_filter_update(*temp_c);
+    }
+
+    bool ato_valid = read_ato_level(ato_level);
+    g_gs.ato_ok = ato_valid;
+}
+
+static void update_plug_currents(float *plug_currents)
+{
+    if (!circuit_breaker_is_available(CB_BUS_SPI_ADC)) return;
+    for (uint8_t plug = 1; plug <= 10; plug++) {
+        float cur = 0;
+        acs712_read_plug(plug, &cur);
+        plug_currents[plug - 1] = cur;
+    }
+}
+
+static void read_pzem(void)
+{
+    if (!circuit_breaker_is_available(CB_BUS_UART_PZEM)) return;
+    memset(&g_pzem, 0, sizeof(g_pzem));
+    esp_err_t perr = pzem_read_all(&g_pzem);
+    if (perr != ESP_OK) {
+        circuit_breaker_record_failure(CB_BUS_UART_PZEM);
+    } else {
+        circuit_breaker_record_success(CB_BUS_UART_PZEM);
+    }
+    g_gs.pzem_ok = g_pzem.valid;
+}
+
+static void update_energy_accumulators(const float *plug_currents)
+{
+    double total_wh = 0;
+    float voltage = (g_pzem.valid && g_pzem.voltage_v > 0.0f) ? g_pzem.voltage_v : (float)config_get_system()->mains_voltage;
+    for (uint8_t p = 1; p <= 10; p++) {
+        cdn_energy_update(p, plug_currents[p-1], voltage, 50);
+        total_wh += cdn_energy_get_wh(p);
+    }
+    g_pzem.energy_wh = (float)total_wh;
+}
+
+static void update_feed_snapshot(uint64_t now_ms, uint64_t now_s)
+{
+    static uint64_t s_last_feed_snap_ms = 0;
+    feed_state_t fst = feed_fsm_get_state(&s_feed_fsm);
+    if ((fst == FEED_STATE_ACTIVE || fst == FEED_STATE_COOLDOWN) &&
+        (now_ms - s_last_feed_snap_ms > 5000)) {
+        feed_snapshot_save(&s_feed_fsm, now_s, g_gs.time_valid);
+        s_last_feed_snap_ms = now_ms;
+    } else if (fst == FEED_STATE_IDLE && s_last_feed_snap_ms != 0) {
+        feed_snapshot_clear();
+        s_last_feed_snap_ms = 0;
+    }
+
+    if (g_feed_request && g_gs.system_state == SYSTEM_STATE_NORMAL) {
+        if (feed_fsm_start(&s_feed_fsm, now_ms)) {
+            audit_log_event(AUDIT_FEED_MODE, "Feed mode started");
+        }
+        g_feed_request = false;
+    }
+
+    g_gs.feed_active = (feed_fsm_get_state(&s_feed_fsm) == FEED_STATE_ACTIVE);
+    g_gs.feed_state = feed_fsm_get_state(&s_feed_fsm);
+    g_gs.feed_remaining_s = feed_fsm_remaining_s(&s_feed_fsm, now_ms);
+}
+
+static void update_led_signaling(uint64_t now_ms)
+{
+    static uint64_t s_last_blink_ms = 0;
+    static bool s_blink_on = false;
+
+    if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
+        if (now_ms - s_last_blink_ms > 500) {
+            s_blink_on = !s_blink_on;
+            s_last_blink_ms = now_ms;
+            if (s_blink_on) led_all_on();
+            else led_all_off();
+        }
+    } else if (g_gs.system_state == SYSTEM_STATE_DEGRADED) {
+        led_set(LED_YELLOW);
+    } else {
+        led_set(LED_GREEN);
+    }
+}
+
+static void log_energy_if_due(uint64_t now_s)
+{
+    static uint64_t s_last_log_s = 0;
+    if (now_s - s_last_log_s >= HW_SD_LOG_INTERVAL_S) {
+        cdn_energy_log_to_sd();
+        s_last_log_s = now_s;
+    }
+}
+
+static void check_hw_alert(uint64_t now_s)
+{
+    const thermal_output_t *tout = thermal_fsm_get_output(&s_thermal_fsm);
+    bool thermal_sensor_fault = (tout && tout->sensor_fault);
+
+    if (thermal_sensor_fault && !g_gs.hw_alert_pending
+        && g_gs.system_state < SYSTEM_STATE_SAFE_OFF
+        && g_gs.system_state != SYSTEM_STATE_EMERGENCY) {
+        const alert_slot_t *slot = alert_manager_get_slot(ALM_013);
+        if (!slot) {
+            g_gs.hw_alert_pending = true;
+            g_gs.hw_alert_alm_id = ALM_013;
+            snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
+                     "Sensor de temperatura sem comunicacao. Toque para continuar.");
+            alert_manager_raise_full(ALM_013, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_PROCESS,
+                                     g_gs.hw_alert_msg, 0.0f,
+                                     "Verificar sensor DS18B20",
+                                     0, true, false, now_s);
+            audit_log_event(AUDIT_SAFE_OFF, "Temp sensor fail -> alerta critico (hw_alert)");
+        }
+    }
+}
+
+static void update_safety_outputs(const float *plug_currents, const thermal_output_t *tout,
+                                   const ato_output_t *aout, const electric_output_t *eout,
+                                   uint64_t now_s, uint64_t now_ms, system_state_t *prev_state)
+{
+    bool thermal_sensor_fault = (tout && tout->sensor_fault);
+
+    safety_inputs_t sin;
+    memset(&sin, 0, sizeof(sin));
+    sin.emergency_condition = (tout && tout->force_emergency);
+    sin.safeoff_condition = ((tout && tout->force_safe_off && !thermal_sensor_fault)
+                         || (aout && aout->force_safe_off)
+                         || (eout && eout->force_safe_off));
+    sin.degraded_condition = false;
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.selftest_passed = g_gs.selftest_passed;
+    sin.emergency_resolved = !sin.emergency_condition;
+    sin.safeoff_cause_resolved = !sin.safeoff_condition;
+
+    if (tout && tout->force_safe_off && !thermal_sensor_fault) {
+        sin.safeoff_reason_if_any = tout->safeoff_reason;
+    } else if (aout && aout->force_safe_off) {
+        sin.safeoff_reason_if_any = aout->safeoff_reason;
+    } else if (eout && eout->force_safe_off) {
+        sin.safeoff_reason_if_any = eout->safeoff_reason;
+    } else {
+        sin.safeoff_reason_if_any = SAFEOFF_REASON_NONE;
+    }
+    sin.transition_cause = "runtime_tick";
+
+    if (tout && tout->force_emergency) sin.safeoff_source_alm = "ALM-028";
+    else if (tout && tout->force_safe_off && !thermal_sensor_fault) sin.safeoff_source_alm = "ALM-026";
+    else if (aout && aout->force_safe_off) sin.safeoff_source_alm = "ALM-037";
+    else if (eout && eout->force_safe_off) {
+        sin.safeoff_source_alm = (eout->suggested_alm == ALM_052) ? "ALM-052" : "ALM-055";
+    }
+
+    safety_controller_evaluate(&g_gs, &sin, now_s);
+
+    if (g_gs.system_state != *prev_state) {
+        static const char *state_names[] = {"NORMAL","DEGRADED","SAFE_OFF","EMERGENCY"};
+        const char *from_s = (*prev_state < 4) ? state_names[*prev_state] : "?";
+        const char *to_s = (g_gs.system_state < 4) ? state_names[g_gs.system_state] : "?";
+        audit_log_state_change(from_s, to_s, sin.transition_cause);
+        if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
+            ui_carousel_pause();
+        } else if (*prev_state >= SYSTEM_STATE_SAFE_OFF && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
+            ui_carousel_resume();
+        }
+        ui_state_badge_update();
+        *prev_state = g_gs.system_state;
+    }
+
+    if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF && g_gs.safeoff_reason != SAFEOFF_REASON_NONE) {
+        int16_t alm = safeoff_reason_to_alm_id(g_gs.safeoff_reason);
+        if (alm > 0) {
+            alert_manager_raise((uint16_t)alm, true, now_s);
+        }
+    }
+}
+
+static void task_safety_core_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "safety_core task iniciada");
+
+    system_state_t prev_state = g_gs.system_state;
+
+    static uint32_t s_heartbeat_check_cycle = 0;
+
+    while (1) {
+        const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        const uint64_t now_s = now_ms / 1000ULL;
+
+        wdt_advanced_reset(TASK_ID_SAFETY_CORE);
+        watchdog_guard_heartbeat(TASK_ID_SAFETY_CORE);
+
+        circuit_breaker_update();
+        event_bus_process_pending();
+        health_matrix_update();
+
+        s_heartbeat_check_cycle++;
+        if (s_heartbeat_check_cycle % 20 == 0) {
+            for (int i = 0; i < TASK_ID_COUNT; i++) {
+                if (i == TASK_ID_SAFETY_CORE) continue;
+                if (i == TASK_ID_DIAG && !watchdog_guard_get_heartbeat(i)) continue;
+                watchdog_status_t st = watchdog_guard_check(i);
+                if (st.alarmed) {
+                    if (st.severity == WATCHDOG_SEVERITY_CRITICAL) {
+                        ESP_LOGE(TAG, "Task %d critica sem heartbeat -> SAFE_OFF", i);
+                        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_WDT_RECOVERY,
+                                                   "ALM-043", "task_hang", now_s);
+                    } else {
+                        ESP_LOGW(TAG, "Task %d sem heartbeat -> alerta ALM-043", i);
+                        const char *tn = task_manager_get_name(i);
+                        alert_manager_raise_full(ALM_043, ALERT_SEVERITY_HIGH,
+                                                 ALERT_CATEGORY_SYSTEM,
+                                                 "Task sem heartbeat", 0.0f,
+                                                 tn ? tn : "unknown",
+                                                 0, false, true, now_s);
+                    }
+                }
+                if (st.recovered && g_gs.system_state != SYSTEM_STATE_SAFE_OFF) {
+                    alert_manager_clear(ALM_043);
+                }
+            }
+        }
+
+        reset_handler_tick(now_ms);
+        reset_handler_check(now_ms);
+
+        if (reset_handler_is_pending()) {
+            wdt_advanced_reset(TASK_ID_SAFETY_CORE);
+            feed_fsm_update(&s_feed_fsm, now_ms);
+            lv_timer_handler();
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
+        if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
+            handle_emergency_exit(now_s);
+        }
+        if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
+            handle_safeoff_exit(now_s, now_ms);
+        }
+
+        float temp_c = 25.0f;
+        int32_t ato_level = 0;
+        float plug_currents[10] = {0};
+
+        read_sensors(&temp_c, &ato_level);
+
+        thermal_input_t tin = {
+            .sample_valid = g_gs.temp_ok,
+            .temp_c = g_gs.temp_filtered_c,
+            .now_ms = now_ms
+        };
+        ato_input_t ain = {
+            .sample_valid = g_gs.ato_ok,
+            .level_adc = ato_level,
+            .now_ms = now_ms
+        };
+
+        if (!g_gs.wizard_completed) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
+        thermal_fsm_update(&s_thermal_fsm, &tin);
+        ato_fsm_update(&s_ato_fsm, &ain);
+
+        update_plug_currents(plug_currents);
+        read_pzem();
+
+        electric_input_t ein;
+        memset(&ein, 0, sizeof(ein));
+        ein.sample_valid = g_pzem.valid;
+        ein.total_power_w = g_pzem.power_w;
+        ein.total_energy_wh = g_pzem.energy_wh;
+        ein.plug_count = 10;
+        ein.voltage_v = g_pzem.voltage_v;
+        ein.frequency_hz = g_pzem.frequency_hz;
+        ein.pf = g_pzem.pf;
+        ein.now_ms = now_ms;
+        memcpy(ein.plug_currents_a, plug_currents, sizeof(ein.plug_currents_a));
+        electric_fsm_update(&s_electric_fsm, &ein);
+
+        const thermal_output_t *tout = thermal_fsm_get_output(&s_thermal_fsm);
+        const ato_output_t *aout = ato_fsm_get_output(&s_ato_fsm);
+        const electric_output_t *eout = electric_fsm_get_output(&s_electric_fsm);
+
+        update_safety_outputs(plug_currents, tout, aout, eout, now_s, now_ms, &prev_state);
+        check_hw_alert(now_s);
+
+        g_gs.active_alerts_count = alert_manager_active_count();
+        g_gs.critical_alerts_count = alert_manager_critical_count();
+        g_gs.uptime_s = now_s;
+
+        update_energy_accumulators(plug_currents);
+        feed_fsm_update(&s_feed_fsm, now_ms);
+        update_feed_snapshot(now_ms, now_s);
+
+        plug_manager_set_thermal_request(PLUG_ID_P02,
+            tout ? tout->request_heater_on : false,
+            tout ? tout->request_cooler_on : false);
+        plug_manager_tick(now_s, g_gs.system_state, g_gs.feed_active);
+
+        if (now_s % g_gs.health_check_interval_s == 0) {
+            g_gs.last_health_check_timestamp = now_s;
+            g_gs.sd_ok = storage_sd_is_mounted();
+        }
+
+        log_energy_if_due(now_s);
+        update_led_signaling(now_ms);
+
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+static void task_sensors_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "sensors task iniciada");
+
+    float temp_c = 25.0f;
+    int32_t ato_level = 0;
+    float plug_currents[10] = {0};
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_SENSORS);
+        watchdog_guard_heartbeat(TASK_ID_SENSORS);
+
+        read_sensors(&temp_c, &ato_level);
+        update_plug_currents(plug_currents);
+        read_pzem();
+
+        g_gs.temp_filtered_c = temp_c;
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SENSORS));
+    }
+}
+
+static void task_plug_control_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "plug_control task iniciada");
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_PLUG_CONTROL);
+        watchdog_guard_heartbeat(TASK_ID_PLUG_CONTROL);
+
+        plug_manager_tick(g_gs.uptime_s, g_gs.system_state, g_gs.feed_active);
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_PLUG_CONTROL));
+    }
+}
+
+static void task_storage_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "storage task iniciada");
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_STORAGE);
+        watchdog_guard_heartbeat(TASK_ID_STORAGE);
+
+        cdn_energy_log_to_sd();
+        storage_sd_backup_config();
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_STORAGE));
+    }
+}
+
+static void task_ui_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "ui task iniciada");
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_UI);
+        watchdog_guard_heartbeat(TASK_ID_UI);
+        ui_screen_update_all();
+        ui_app_tick();
+        lv_timer_handler();
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_UI));
+    }
+}
+
+static void task_web_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "web task iniciada");
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_WEB);
+        watchdog_guard_heartbeat(TASK_ID_WEB);
+
+        lv_timer_handler();
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_WEB));
+    }
+}
+
+static void task_diag_fn(void *pv)
+{
+    (void)pv;
+    ESP_LOGI(TAG, "diag task iniciada");
+
+    uint64_t last_health_s = 0;
+
+    while (1) {
+        wdt_advanced_reset(TASK_ID_DIAG);
+        watchdog_guard_heartbeat(TASK_ID_DIAG);
+
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        if (now_s - last_health_s >= g_gs.health_check_interval_s) {
+            health_matrix_update();
+            g_gs.last_health_check_timestamp = now_s;
+            g_gs.sd_ok = storage_sd_is_mounted();
+            last_health_s = now_s;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_DIAG));
+    }
+}
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "Monitor Aquario Inteligente - Boot");
+    ESP_LOGI(TAG, "SRS v3.11-AF.3+AF.4+B12/N+B13/N");
+    ESP_LOGI(TAG, "========================================");
+
+    ESP_ERROR_CHECK(init_nvs_safe());
+    ESP_LOGI(TAG, "Reset reason: %d", (int)esp_reset_reason());
+
+    ESP_ERROR_CHECK(config_manager_init());
+    init_global_state();
+    safety_controller_init(&g_gs);
+    {
+        const restart_params_storage_t *rp = config_get_restart();
+        restart_cfg_t rcfg = {
+            .wait_time_ms = rp->tempo_espera_religamento_s * 1000U,
+            .stagger_interval_ms = rp->intervalo_religamento_s * 1000U,
+            .monitor_time_ms = rp->tempo_monitoramento_pos_relig_s * 1000U
+        };
+        restart_fsm_init(&g_restart_fsm, &rcfg);
+    }
+    alert_manager_init();
+    self_test_init();
+
+    ESP_ERROR_CHECK(hal_bus_init_all());
+    ESP_ERROR_CHECK(hal_spi_init());
+    circuit_breaker_init();
+    esp_err_t relay_err = relay_init_safe();
+    if (relay_err != ESP_OK) {
+        ESP_LOGE(TAG, "MODULO DE RELE NAO DETECTADO! Reles P03-P10 inoperantes");
+        g_gs.hw_ok = false;
+    } else {
+        ESP_LOGI(TAG, "Reles em OFF seguro (P01..P10)");
+    }
+
+    ESP_ERROR_CHECK_WITHOUT_ABORT(mcp3208_init(PIN_ADC1_CS_GPIO));
+    acs712_init();
+    {
+        const calibration_params_storage_t *cp = config_get_calibration();
+        for (uint8_t p = 1; p <= 10; p++) {
+            acs712_set_zero_offset(p, cp->acs712_zero_offset_mv[p - 1]);
+        }
+        ESP_LOGI(TAG, "Calibracao: offsets ACS712 aplicados da NVS");
+    }
+    ad_keypad_init(NULL);
+    esp_err_t pzem_err = pzem_init();
+    if (pzem_err != ESP_OK) {
+        ESP_LOGW(TAG, "PZEM init falhou: %s", esp_err_to_name(pzem_err));
+    }
+    ds18b20_init();
+    ds3231_init();
+    buzzer_led_init();
+    cdn_energy_init();
+
+    esp_err_t sd_err = storage_sd_init();
+    if (sd_err != ESP_OK) {
+        ESP_LOGW(TAG, "SD nao disponivel (sistema continua sem storage)");
+    }
+
+    {
+        const thermal_params_storage_t *tp = config_get_thermal();
+        const electric_params_storage_t *ep = config_get_electric();
+        const ato_params_storage_t *ap = config_get_ato();
+        s_ecfg = (electric_params_t){
+            .total_power_limit_w = ep->total_power_limit_w,
+            .per_plug_current_limit_a = ep->per_plug_current_limit_a,
+            .hysteresis_w = ep->hysteresis_w,
+            .overvoltage_limit_v = ep->overvoltage_limit_v,
+            .undervoltage_limit_v = ep->undervoltage_limit_v,
+            .overvoltage_time_s = ep->overvoltage_time_s,
+            .undervoltage_time_s = ep->undervoltage_time_s,
+            .total_current_limit_a = ep->total_current_limit_a,
+            .total_current_time_s = ep->total_current_time_s,
+            .pf_min = ep->pf_min,
+            .pf_time_s = ep->pf_time_s,
+            .fator_curto = ep->fator_curto,
+            .tempo_deteccao_curto_ms = ep->tempo_deteccao_curto_ms
+        };
+        s_tcfg = (thermal_params_t){
+            .temp_normal_c = tp->temp_normal_c,
+            .temp_critical_c = tp->temp_critical_c,
+            .temp_extreme_c = tp->temp_extreme_c,
+            .hysteresis_c = tp->hysteresis_c,
+            .extreme_enabled = tp->extreme_enabled
+        };
+        s_acfg = (ato_params_t){
+            .enabled = ap->enabled,
+            .low_level_adc = ap->low_level_adc,
+            .high_level_adc = ap->high_level_adc,
+            .overflow_margin_adc = ap->overflow_margin_adc,
+            .refill_timeout_s = ap->refill_timeout_s
+        };
+    }
+
+    thermal_fsm_init(&s_thermal_fsm, &s_tcfg);
+    ato_fsm_init(&s_ato_fsm, &s_acfg);
+    electric_fsm_init(&s_electric_fsm, &s_ecfg);
+    temp_filter_init(3);
+    plug_manager_init();
+    const feed_params_storage_t *fp = config_get_feed();
+    feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
+    {
+        uint64_t boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        esp_err_t snap_err = feed_snapshot_restore(&s_feed_fsm, 0, boot_ms, g_gs.time_valid);
+        if (snap_err == ESP_OK && s_feed_fsm.state != FEED_STATE_IDLE) {
+            ESP_LOGW(TAG, "Feed snapshot restored (state=%d)", (int)s_feed_fsm.state);
+            audit_log_event(AUDIT_FEED_MODE, "Feed state restored from NVS snapshot");
+        }
+    }
+
+    esp_err_t ui_err = ui_display_init();
+    if (ui_err != ESP_OK) {
+        ESP_LOGW(TAG, "Display LVGL nao disponivel (sistema continua sem UI)");
+    }
+    ui_screens_init();
+    ui_app_init();
+
+    esp_netif_init();
+    esp_err_t api_err = api_rest_init();
+    if (api_err != ESP_OK) {
+        ESP_LOGW(TAG, "API web nao iniciou (sistema continua sem API)");
+    }
+
+    event_bus_init();
+    health_matrix_init();
+
+    conf_ctl_init();
+    log_ctl_init();
+    disp_ctl_init();
+    sensor_ctl_init();
+    wifi_ctl_init();
+    web_ctl_init();
+    alm_ctl_init();
+    bom_ctl_init();
+    data_ctl_init();
+
+    thermal_service_init();
+    ato_service_init();
+    electric_service_init();
+    time_manager_init();
+    pending_actions_init();
+    sec_policy_init();
+
+    ESP_LOGI(TAG, "Init completo - lancando tasks normativas");
+
+    wdt_advanced_init();
+    watchdog_guard_init();
+
+    {
+        const selftest_params_storage_t *sp = config_get_selftest();
+        esp_err_t st = self_test_run_all(sp->selftest_timeout_ms);
+        if (st != ESP_OK) {
+            ESP_LOGW(TAG, "Self-test incompleto ou timeout: %s", esp_err_to_name(st));
+        }
+        self_test_log_results();
+        g_gs.selftest_passed = self_test_all_passed();
+        g_gs.hw_ok = self_test_critical_passed();
+    }
+
+    if (!g_gs.selftest_passed || !g_gs.hw_ok) {
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        if (!g_gs.hw_ok) {
+            ESP_LOGE(TAG, "CRITICAL SELF-TEST FALHOU! Hardware critico com problemas -> SAFE_OFF + ALM-063");
+            global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_SELFTEST_FAIL, "ALM-063",
+                                       "self-test critical fail", now_s);
+            alert_manager_raise_full(ALM_063, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                                     "Falha CRITICA de hardware na inicializacao", 0.0f,
+                                     "Hardware critico nao detectado. Sistema em SAFE_OFF.",
+                                     0, true, false, now_s);
+            audit_log_event(AUDIT_SELF_TEST, "Self-test CRITICAL falhou -> SAFE_OFF (ALM-063)");
+        } else {
+            ESP_LOGE(TAG, "SELF-TEST FALHOU (nao critico)! Hardware com problemas -> DEGRADED + alerta");
+            global_state_enter_degraded(&g_gs, "selftest_fail");
+            g_gs.hw_alert_pending = true;
+            g_gs.hw_alert_alm_id = ALM_063;
+            snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
+                     "Falha de hardware na inicializacao. Toque para continuar em modo degradado.");
+            alert_manager_raise_full(ALM_063, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_SYSTEM,
+                                     g_gs.hw_alert_msg, 0.0f,
+                                     "Hardware nao detectado. Sistema operara sem protecoes.",
+                                     0, true, false, now_s);
+            audit_log_event(AUDIT_SELF_TEST, "Self-test nao critico falhou -> DEGRADED (hw alert)");
+        }
+    }
+
+    reset_handler_init();
+
+    ESP_LOGI(TAG, "FASE 7 - Lancando tasks via task_manager");
+
+    task_manager_register_fn(TASK_ID_SAFETY_CORE, task_safety_core_fn);
+    task_manager_register_fn(TASK_ID_SENSORS, task_sensors_fn);
+    task_manager_register_fn(TASK_ID_PLUG_CONTROL, task_plug_control_fn);
+    task_manager_register_fn(TASK_ID_STORAGE, task_storage_fn);
+    task_manager_register_fn(TASK_ID_UI, task_ui_fn);
+    task_manager_register_fn(TASK_ID_WEB, task_web_fn);
+    task_manager_register_fn(TASK_ID_DIAG, task_diag_fn);
+    task_manager_launch_all();
+
+    vTaskDelete(NULL);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\CMakeLists.txt =====
+set(MAIN_SRCS
+    "app_main.c"
+    "../hal/hal_bus.c"
+    "../drivers/driver_mcp23017.c"
+    "../drivers/driver_relay.c"
+    "../drivers/driver_mcp3208.c"
+    "../drivers/driver_acs712.c"
+    "../drivers/driver_ad_keypad.c"
+    "../drivers/driver_pzem.c"
+    "../drivers/driver_ds18b20.c"
+    "../drivers/driver_ds3231.c"
+    "../drivers/driver_buzzer_led.c"
+    "../core/safety_controller.c"
+    "../core/global_state.c"
+    "../services/command_validator.c"
+    "../services/safeoff_alm_map.c"
+    "../services/alert_manager.c"
+    "../services/relay_safety_service.c"
+    "../services/electric_fsm.c"
+    "../services/storage_sd.c"
+    "../fsm/thermal_fsm.c"
+    "../fsm/ato_fsm.c"
+    "../fsm/restart_fsm.c"
+    "../web/api_rest.c"
+    "../web/api_auth.c"
+    "../web/api_rate_limit.c"
+    "../ui/ui_display.c"
+    "../ui/ui_touch.c"
+    "../ui/ui_keypad.c"
+    "../ui/ui_screens.c"
+    "../ui/ui_state_badge.c"
+    "../ui/screens/screen_dashboard.c"
+    "../ui/screens/screen_devices1.c"
+    "../ui/screens/screen_devices2.c"
+    "../ui/screens/screen_energy.c"
+    "../ui/screens/screen_menu.c"
+    "../ui/screens/screen_submenu.c"
+    "../ui/screens/screen_alerts.c"
+    "../core/circuit_breaker.c"
+    "../services/self_test.c"
+    "../services/wdt_advanced.c"
+    "../services/cdn_energy.c"
+    "../services/config_manager.c"
+    "../services/config_root.c"
+    "../services/temp_filter.c"
+    "../services/audit_log.c"
+    "../services/plug_manager.c"
+    "../services/feed_snapshot.c"
+    "../fsm/feed_fsm.c"
+    "../ui/screens/screen_diagnostic.c"
+    "../ui/screens/screen_calibration.c"
+    "../services/reset_handler.c"
+    "../ui/ui_header.c"
+    "../ui/ui_footer.c"
+
+    # Epic 1 — P0 modules
+    "../services/storage_manager.c"
+    "../services/storage_atomic.c"
+    "../services/log_manager.c"
+    "../services/safety_gate.c"
+    "../services/command_dispatcher.c"
+    "../services/safeoff_record.c"
+    "../core/event_bus.c"
+    "../drivers/relay_abstraction.c"
+    "../services/health_matrix.c"
+
+    # Epic 2 — Truly-Missing modules
+    "../services/util_ctl.c"
+    "../services/wifi_ctl.c"
+    "../services/sensor_ctl.c"
+    "../services/disp_ctl.c"
+    "../services/log_ctl.c"
+    "../services/conf_ctl.c"
+    "../services/web_ctl.c"
+    "../services/alm_ctl.c"
+    "../services/bom_ctl.c"
+    "../services/data_ctl.c"
+
+    # P0-005 — Canonical service modules
+    "../services/thermal_service.c"
+    "../services/ato_service.c"
+    "../services/electric_service.c"
+    "../services/time_manager.c"
+    "../services/pending_actions.c"
+    "../services/task_manager.c"
+    "../services/watchdog_guard.c"
+    "../hal/hal_spi.c"
+    "../security/sec_policy.c"
+
+    # HMI refatorada
+    "ui/hmi/ui_theme.c"
+    "ui/hmi/ui_view_model.c"
+    "ui/hmi/ui_events.c"
+    "ui/hmi/ui_state_machine.c"
+    "ui/hmi/ui_screen_manager.c"
+    "ui/hmi/ui_app.c"
+    "ui/hmi/components/ui_topbar.c"
+    "ui/hmi/components/ui_footer.c"
+    "ui/hmi/components/ui_page_indicator.c"
+    "ui/hmi/components/ui_status_badge.c"
+    "ui/hmi/components/ui_metric_card.c"
+    "ui/hmi/components/ui_device_row.c"
+    "ui/hmi/components/ui_alert_row.c"
+    "ui/hmi/components/ui_menu_tile.c"
+    "ui/hmi/components/ui_confirm_dialog.c"
+    "ui/hmi/components/ui_bar_chart.c"
+    "ui/hmi/components/ui_focus.c"
+    "ui/hmi/components/ui_critical_overlay.c"
+    "ui/hmi/screens/ui_screen_dashboard.c"
+    "ui/hmi/screens/ui_screen_devices_page1.c"
+    "ui/hmi/screens/ui_screen_devices_page2.c"
+    "ui/hmi/screens/ui_screen_energy.c"
+    "ui/hmi/screens/ui_screen_main_menu.c"
+    "ui/hmi/screens/ui_screen_config_temperature.c"
+    "ui/hmi/screens/ui_screen_alerts.c"
+    "ui/hmi/screens/ui_screen_feed_active.c"
+    "ui/hmi/screens/ui_screen_diagnostics.c"
+    "ui/hmi/screens/ui_screen_system.c"
+    "ui/hmi/screens/ui_screen_logs.c"
+    "ui/hmi/screens/ui_screen_wizard.c"
+    "ui/hmi/screens/ui_screen_ato.c"
+)
+
+set(MAIN_INCLUDE_DIRS
+    "."
+    ".."
+    "../include"
+    "../hal"
+    "../drivers"
+    "../core"
+    "../services"
+    "../fsm"
+    "../web"
+    "../ui"
+    "../security"
+    "ui/hmi"
+    "ui/hmi/components"
+    "ui/hmi/screens"
+)
+
+idf_component_register(
+    SRCS ${MAIN_SRCS}
+    INCLUDE_DIRS ${MAIN_INCLUDE_DIRS}
+)
+
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\idf_component.yml =====
+## IDF Component Manager Manifest File
+dependencies:
+  lvgl/lvgl: "^8.3"
+  ## Required IDF version
+  idf:
+    version: ">=4.1.0"
+  # # Put list of dependencies here
+  # # For components maintained by Espressif:
+  # component: "~1.0.0"
+  # # For 3rd party components:
+  # username/component: ">=1.0.0,<2.0.0"
+  # username2/component2:
+  #   version: "~1.0.0"
+  #   # For transient dependencies `public` flag can be set.
+  #   # `public` flag doesn't have an effect dependencies of the `main` component.
+  #   # All dependencies of `main` are public by default.
+  #   public: true
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_alert_row.c =====
+// @requirement RF-ALERT-001 a RF-ALERT-006 Componente de linha de alerta na UI
+#include "ui_alert_row.h"
+#include "../ui_theme.h"
+#include <string.h>
+
+static lv_color_t severity_color(ui_alert_severity_t sev)
+{
+    switch (sev) {
+        case UI_SEVERITY_INFO: return UI_COLOR_INFO;
+        case UI_SEVERITY_WARNING: return UI_COLOR_WARN;
+        case UI_SEVERITY_HIGH: return UI_COLOR_HIGH;
+        case UI_SEVERITY_CRITICAL: return UI_COLOR_CRITICAL;
+    }
+    return UI_COLOR_TEXT_DIM;
+}
+
+void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y)
+{
+    row->root = lv_obj_create(parent);
+    lv_obj_set_size(row->root, 460, 42);
+    lv_obj_set_pos(row->root, x, y);
+    lv_obj_set_style_bg_color(row->root, UI_COLOR_PANEL, 0);
+    lv_obj_set_style_radius(row->root, UI_RADIUS_CARD, 0);
+    lv_obj_set_style_border_width(row->root, 0, 0);
+    lv_obj_clear_flag(row->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    row->side_bar = lv_obj_create(row->root);
+    lv_obj_set_size(row->side_bar, 5, 42);
+    lv_obj_set_pos(row->side_bar, 0, 0);
+    lv_obj_set_style_border_width(row->side_bar, 0, 0);
+    lv_obj_set_style_radius(row->side_bar, 0, 0);
+    lv_obj_clear_flag(row->side_bar, LV_OBJ_FLAG_SCROLLABLE);
+
+    row->id_label = lv_label_create(row->root);
+    lv_label_set_text(row->id_label, "ALM-000");
+    lv_obj_set_style_text_font(row->id_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->id_label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(row->id_label, 12, 5);
+
+    row->severity_label = lv_label_create(row->root);
+    lv_label_set_text(row->severity_label, "INFO");
+    lv_obj_set_style_text_font(row->severity_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(row->severity_label, 82, 5);
+
+    row->timestamp_label = lv_label_create(row->root);
+    lv_label_set_text(row->timestamp_label, "--:--");
+    lv_obj_set_style_text_font(row->timestamp_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->timestamp_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_set_pos(row->timestamp_label, 395, 5);
+
+    row->message_label = lv_label_create(row->root);
+    lv_label_set_text(row->message_label, "");
+    lv_obj_set_style_text_font(row->message_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(row->message_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(row->message_label, 12, 22);
+
+    row->ack_label = lv_label_create(row->root);
+    lv_label_set_text(row->ack_label, "");
+    lv_obj_set_style_text_font(row->ack_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(row->ack_label, 395, 22);
+
+    row->action_label = lv_label_create(row->root);
+    lv_label_set_text(row->action_label, "");
+    lv_obj_set_style_text_font(row->action_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->action_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_set_pos(row->action_label, 220, 22);
+}
+
+void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert)
+{
+    lv_color_t sev_col = severity_color(alert->severity);
+    lv_obj_set_style_bg_color(row->side_bar, sev_col, 0);
+
+    lv_label_set_text(row->id_label, alert->id);
+
+    lv_label_set_text(row->severity_label, alert->severity_text);
+    lv_obj_set_style_text_color(row->severity_label, sev_col, 0);
+
+    lv_label_set_text(row->timestamp_label, alert->timestamp);
+
+    if (alert->acked) {
+        lv_label_set_text(row->ack_label, "ACK");
+        lv_obj_set_style_text_color(row->ack_label, UI_COLOR_OK, 0);
+    } else {
+        lv_label_set_text(row->ack_label, "PENDENTE");
+        lv_obj_set_style_text_color(row->ack_label, UI_COLOR_WARN, 0);
+    }
+
+    lv_label_set_text(row->message_label, alert->message);
+
+    if (alert->action_hint[0] != '\0') {
+        lv_label_set_text(row->action_label, alert->action_hint);
+        lv_obj_clear_flag(row->action_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(row->action_label, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_alert_row.h =====
+// @requirement RF-ALERT-001 Linha de alerta com ícone, texto, severidade
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *side_bar;
+    lv_obj_t *id_label;
+    lv_obj_t *severity_label;
+    lv_obj_t *timestamp_label;
+    lv_obj_t *message_label;
+    lv_obj_t *ack_label;
+    lv_obj_t *action_label;
+} ui_alert_row_t;
+
+void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y);
+void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_bar_chart.c =====
+// @requirement RF-ENERGY-004 Gráfico de barras para projeção mensal de energia
+#include "ui_bar_chart.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+#include <string.h>
+
+void ui_bar_chart_create(lv_obj_t *parent, int x, int y, int w, int h, const ui_energy_vm_t *energy)
+{
+    lv_obj_t *chart = lv_obj_create(parent);
+    lv_obj_set_size(chart, w, h);
+    lv_obj_set_pos(chart, x, y);
+    lv_obj_set_style_bg_color(chart, UI_COLOR_PANEL, 0);
+    lv_obj_set_style_radius(chart, UI_RADIUS_CARD, 0);
+    lv_obj_set_style_border_width(chart, 0, 0);
+    lv_obj_set_style_pad_all(chart, 0, 0);
+    lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_user_data(chart, (void *)energy);
+
+    /* check if all data invalid */
+    int valid_count = 0;
+    float max_kwh = 0;
+    for (int i = 0; i < UI_ENERGY_MONTHS; i++) {
+        if (energy->monthly_data_valid[i]) {
+            valid_count++;
+            if (energy->monthly_kwh[i] > max_kwh) {
+                max_kwh = energy->monthly_kwh[i];
+            }
+        }
+    }
+
+    if (valid_count == 0) {
+        lv_obj_t *na = lv_label_create(chart);
+        lv_label_set_text(na, "Dados indisponiveis");
+        lv_obj_set_style_text_font(na, UI_FONT_NORMAL, 0);
+        lv_obj_set_style_text_color(na, UI_COLOR_TEXT_DIM, 0);
+        lv_obj_center(na);
+        return;
+    }
+
+    int bar_w = (w - 40) / UI_ENERGY_MONTHS;
+    if (bar_w > 40) bar_w = 40;
+    int chart_h_usable = h - 30;
+    int bar_gap = ((w - 40) - (bar_w * UI_ENERGY_MONTHS)) / (UI_ENERGY_MONTHS - 1);
+    if (bar_gap < 2) bar_gap = 2;
+
+    for (int i = 0; i < UI_ENERGY_MONTHS; i++) {
+        int bx = 20 + i * (bar_w + bar_gap);
+
+        lv_obj_t *bar = lv_obj_create(chart);
+        int bh = 0;
+        if (energy->monthly_data_valid[i] && max_kwh > 0) {
+            bh = (int)((energy->monthly_kwh[i] / max_kwh) * (chart_h_usable - 10));
+            if (bh < 4) bh = 4;
+        }
+        int by = chart_h_usable - bh;
+        lv_obj_set_size(bar, bar_w, bh);
+        lv_obj_set_pos(bar, bx, by);
+        lv_obj_set_style_border_width(bar, 0, 0);
+        lv_obj_set_style_radius(bar, 2, 0);
+        lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+
+        if (energy->monthly_data_valid[i]) {
+            lv_obj_set_style_bg_color(bar, UI_COLOR_CYAN, 0);
+        } else {
+            lv_obj_set_style_bg_color(bar, UI_COLOR_DISABLED, 0);
+        }
+
+        lv_obj_t *label = lv_label_create(chart);
+        if (energy->monthly_data_valid[i]) {
+            char lb[16];
+            snprintf(lb, sizeof(lb), "%.0f", (double)energy->monthly_kwh[i]);
+            lv_label_set_text(label, lb);
+            lv_obj_set_style_text_color(label, UI_COLOR_TEXT_MAIN, 0);
+        } else {
+            lv_label_set_text(label, "N/D");
+            lv_obj_set_style_text_color(label, UI_COLOR_TEXT_DIM, 0);
+        }
+        lv_obj_set_style_text_font(label, UI_FONT_SMALL, 0);
+        lv_obj_align_to(label, bar, LV_ALIGN_OUT_TOP_MID, 0, -2);
+
+        lv_obj_t *ml = lv_label_create(chart);
+        lv_label_set_text(ml, energy->month_labels[i]);
+        lv_obj_set_style_text_font(ml, UI_FONT_SMALL, 0);
+        lv_obj_set_style_text_color(ml, UI_COLOR_TEXT_DIM, 0);
+        lv_obj_align_to(ml, bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
+    }
+}
+
+void ui_bar_chart_update(lv_obj_t *chart_root, const ui_energy_vm_t *energy)
+{
+    if (!chart_root || !energy) return;
+    lv_chart_series_t *ser = lv_chart_get_series_next(chart_root, NULL);
+    if (!ser) return;
+    for (int i = 0; i < 10; i++) {
+        lv_chart_set_next_value(chart_root, ser, (lv_coord_t)i);
+    }
+    lv_chart_refresh(chart_root);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_bar_chart.h =====
+// @requirement RF-ENERGY-004 Componente de gráfico de barras
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_bar_chart_create(lv_obj_t *parent, int x, int y, int w, int h, const ui_energy_vm_t *energy);
+void ui_bar_chart_update(lv_obj_t *chart_root, const ui_energy_vm_t *energy);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_confirm_dialog.c =====
+// @requirement RF-RESET-004 Diálogo de confirmação com dupla confirmação
+// @requirement RF-PLUG-011 Dupla confirmação para ações críticas
+#include "ui_confirm_dialog.h"
+#include "../ui_theme.h"
+
+void ui_confirm_dialog_create(ui_confirm_dialog_t *dlg, lv_obj_t *parent, const char *message)
+{
+    dlg->active = false;
+
+    dlg->root = lv_obj_create(parent);
+    lv_obj_set_size(dlg->root, 300, 140);
+    lv_obj_center(dlg->root);
+    lv_obj_set_style_bg_color(dlg->root, UI_COLOR_PANEL_3, 0);
+    lv_obj_set_style_radius(dlg->root, UI_RADIUS_TILE, 0);
+    lv_obj_set_style_border_color(dlg->root, UI_COLOR_CYAN, 0);
+    lv_obj_set_style_border_width(dlg->root, 2, 0);
+    lv_obj_set_style_pad_all(dlg->root, 0, 0);
+    lv_obj_clear_flag(dlg->root, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(dlg->root, LV_OBJ_FLAG_HIDDEN);
+
+    dlg->message_label = lv_label_create(dlg->root);
+    lv_label_set_text(dlg->message_label, message);
+    lv_obj_set_style_text_font(dlg->message_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(dlg->message_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(dlg->message_label, LV_ALIGN_TOP_MID, 0, 15);
+    lv_obj_set_size(dlg->message_label, 260, 40);
+    lv_label_set_long_mode(dlg->message_label, LV_LABEL_LONG_WRAP);
+
+    dlg->confirm_btn = lv_btn_create(dlg->root);
+    lv_obj_set_size(dlg->confirm_btn, 100, 28);
+    lv_obj_align(dlg->confirm_btn, LV_ALIGN_BOTTOM_LEFT, 20, -15);
+    lv_obj_set_style_bg_color(dlg->confirm_btn, UI_COLOR_CRITICAL, 0);
+    lv_obj_set_style_radius(dlg->confirm_btn, UI_RADIUS_BUTTON, 0);
+
+    dlg->confirm_label = lv_label_create(dlg->confirm_btn);
+    lv_label_set_text(dlg->confirm_label, "Confirmar");
+    lv_obj_center(dlg->confirm_label);
+
+    dlg->cancel_btn = lv_btn_create(dlg->root);
+    lv_obj_set_size(dlg->cancel_btn, 100, 28);
+    lv_obj_align(dlg->cancel_btn, LV_ALIGN_BOTTOM_RIGHT, -20, -15);
+    lv_obj_set_style_bg_color(dlg->cancel_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(dlg->cancel_btn, UI_RADIUS_BUTTON, 0);
+
+    dlg->cancel_label = lv_label_create(dlg->cancel_btn);
+    lv_label_set_text(dlg->cancel_label, "Cancelar");
+    lv_obj_center(dlg->cancel_label);
+}
+
+void ui_confirm_dialog_set_confirm_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb)
+{
+    lv_obj_add_event_cb(dlg->confirm_btn, cb, LV_EVENT_CLICKED, dlg);
+}
+
+void ui_confirm_dialog_set_cancel_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb)
+{
+    lv_obj_add_event_cb(dlg->cancel_btn, cb, LV_EVENT_CLICKED, dlg);
+}
+
+void ui_confirm_dialog_show(ui_confirm_dialog_t *dlg, bool show)
+{
+    dlg->active = show;
+    if (show) {
+        lv_obj_clear_flag(dlg->root, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(dlg->root);
+    } else {
+        lv_obj_add_flag(dlg->root, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_confirm_dialog.h =====
+// @requirement RF-RESET-004 Diálogo de confirmação para ações críticas
+#pragma once
+
+#include "lvgl.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *message_label;
+    lv_obj_t *confirm_btn;
+    lv_obj_t *cancel_btn;
+    lv_obj_t *confirm_label;
+    lv_obj_t *cancel_label;
+    bool result;
+    bool active;
+} ui_confirm_dialog_t;
+
+void ui_confirm_dialog_create(ui_confirm_dialog_t *dlg, lv_obj_t *parent, const char *message);
+void ui_confirm_dialog_set_confirm_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb);
+void ui_confirm_dialog_set_cancel_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb);
+void ui_confirm_dialog_show(ui_confirm_dialog_t *dlg, bool show);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_critical_overlay.c =====
+// @requirement RF-UI-OVERLAY-001 Overlay crítico SAFE_OFF e EMERGENCY em lv_layer_top()
+// @requirement RF-GLOBAL-004.1 Matriz de prioridade visual de overlays
+#include "ui_critical_overlay.h"
+#include "../ui_theme.h"
+#include "../ui_screen_manager.h"
+
+static void alerts_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_screen_manager_show(UI_SCREEN_ALERTS);
+}
+
+static void diag_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_screen_manager_show(UI_SCREEN_DIAGNOSTICS);
+}
+
+static void create_common_buttons(ui_critical_overlay_t *ov)
+{
+    ov->alerts_btn = lv_btn_create(ov->root);
+    lv_obj_set_size(ov->alerts_btn, 100, 28);
+    lv_obj_align(ov->alerts_btn, LV_ALIGN_BOTTOM_LEFT, 40, -20);
+    lv_obj_set_style_bg_color(ov->alerts_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(ov->alerts_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(ov->alerts_btn, alerts_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *albl = lv_label_create(ov->alerts_btn);
+    lv_label_set_text(albl, "Ver Alertas");
+    lv_obj_center(albl);
+
+    ov->diag_btn = lv_btn_create(ov->root);
+    lv_obj_set_size(ov->diag_btn, 100, 28);
+    lv_obj_align(ov->diag_btn, LV_ALIGN_BOTTOM_RIGHT, -40, -20);
+    lv_obj_set_style_bg_color(ov->diag_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(ov->diag_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(ov->diag_btn, diag_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *dlbl = lv_label_create(ov->diag_btn);
+    lv_label_set_text(dlbl, "Diagnostico");
+    lv_obj_center(dlbl);
+}
+
+void ui_critical_overlay_safeoff_create(ui_critical_overlay_t *ov, lv_obj_t *parent)
+{
+    ov->root = lv_obj_create(parent);
+    lv_obj_set_size(ov->root, 480, 320);
+    lv_obj_set_pos(ov->root, 0, 0);
+    lv_obj_set_style_bg_color(ov->root, lv_color_hex(0x500000), 0);
+    lv_obj_set_style_border_color(ov->root, UI_COLOR_CRITICAL, 0);
+    lv_obj_set_style_border_width(ov->root, 3, 0);
+    lv_obj_set_style_radius(ov->root, 0, 0);
+    lv_obj_set_style_pad_all(ov->root, 10, 0);
+    lv_obj_clear_flag(ov->root, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ov->root, LV_OBJ_FLAG_HIDDEN);
+
+    ov->title_label = lv_label_create(ov->root);
+    lv_label_set_text(ov->title_label, "SAFE_OFF ATIVO");
+    lv_obj_set_style_text_font(ov->title_label, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(ov->title_label, UI_COLOR_WARN, 0);
+    lv_obj_align(ov->title_label, LV_ALIGN_TOP_MID, 0, 30);
+
+    ov->message_label = lv_label_create(ov->root);
+    lv_label_set_text(ov->message_label, "Sistema protegido.\nCargas criticas desligadas conforme politica.\nVerifique alertas ativos.");
+    lv_obj_set_style_text_font(ov->message_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(ov->message_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(ov->message_label, LV_ALIGN_CENTER, 0, -10);
+    lv_obj_set_size(ov->message_label, 400, 80);
+    lv_label_set_long_mode(ov->message_label, LV_LABEL_LONG_WRAP);
+
+    create_common_buttons(ov);
+    ov->visible = false;
+}
+
+void ui_critical_overlay_emergency_create(ui_critical_overlay_t *ov, lv_obj_t *parent)
+{
+    ov->root = lv_obj_create(parent);
+    lv_obj_set_size(ov->root, 480, 320);
+    lv_obj_set_pos(ov->root, 0, 0);
+    lv_obj_set_style_bg_color(ov->root, lv_color_hex(0x780000), 0);
+    lv_obj_set_style_border_color(ov->root, UI_COLOR_CRITICAL, 0);
+    lv_obj_set_style_border_width(ov->root, 3, 0);
+    lv_obj_set_style_radius(ov->root, 0, 0);
+    lv_obj_set_style_pad_all(ov->root, 10, 0);
+    lv_obj_clear_flag(ov->root, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ov->root, LV_OBJ_FLAG_HIDDEN);
+
+    ov->title_label = lv_label_create(ov->root);
+    lv_label_set_text(ov->title_label, "EMERGENCY");
+    lv_obj_set_style_text_font(ov->title_label, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(ov->title_label, UI_COLOR_CRITICAL, 0);
+    lv_obj_align(ov->title_label, LV_ALIGN_TOP_MID, 0, 30);
+
+    ov->message_label = lv_label_create(ov->root);
+    lv_label_set_text(ov->message_label, "Falha critica extrema.\nIntervencao necessaria.");
+    lv_obj_set_style_text_font(ov->message_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(ov->message_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(ov->message_label, LV_ALIGN_CENTER, 0, -10);
+    lv_obj_set_size(ov->message_label, 400, 60);
+    lv_label_set_long_mode(ov->message_label, LV_LABEL_LONG_WRAP);
+
+    create_common_buttons(ov);
+    ov->visible = false;
+}
+
+void ui_critical_overlay_show(ui_critical_overlay_t *ov, bool show)
+{
+    ov->visible = show;
+    if (show) {
+        lv_obj_clear_flag(ov->root, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(ov->root);
+    } else {
+        lv_obj_add_flag(ov->root, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_critical_overlay.h =====
+// @requirement RF-UI-OVERLAY-001 Overlay crítico SAFE_OFF/EMERGENCY
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *title_label;
+    lv_obj_t *message_label;
+    lv_obj_t *alerts_btn;
+    lv_obj_t *diag_btn;
+    bool visible;
+} ui_critical_overlay_t;
+
+void ui_critical_overlay_safeoff_create(ui_critical_overlay_t *ov, lv_obj_t *parent);
+void ui_critical_overlay_emergency_create(ui_critical_overlay_t *ov, lv_obj_t *parent);
+void ui_critical_overlay_show(ui_critical_overlay_t *ov, bool show);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_device_row.c =====
+// @requirement RF-PLUG-001 a RF-PLUG-014 Linha de dispositivo com ícone, nome, estado, corrente
+#include "ui_device_row.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+#include <string.h>
+
+static const char *get_plug_icon(const ui_plug_vm_t *plug)
+{
+    const char *name = plug->name;
+    if (strstr(name, "Aquecedor")) return "\xe2\x96\xb2";
+    if (strstr(name, "Cooler")) return "\xe2\x9c\x95";
+    if (strstr(name, "Bomba")) return "\xe2\x97\x89";
+    if (strstr(name, "Iluminacao")) return "\xe2\x98\x80";
+    if (strstr(name, "UV") || strstr(name, "Esterilizador")) return "UV";
+    if (strstr(name, "Reserva")) return "\xe2\x96\xa1";
+    return "\xe2\x97\x8f";
+}
+
+static lv_color_t get_plug_state_color(ui_plug_state_t state)
+{
+    switch (state) {
+        case UI_PLUG_ON: return UI_COLOR_OK;
+        case UI_PLUG_OFF: return UI_COLOR_DISABLED;
+        case UI_PLUG_BLOCKED: return UI_COLOR_CRITICAL;
+        case UI_PLUG_ERROR: return UI_COLOR_CRITICAL;
+    }
+    return UI_COLOR_TEXT_DIM;
+}
+
+static const char *get_plug_state_text(ui_plug_state_t state)
+{
+    switch (state) {
+        case UI_PLUG_ON: return "ON";
+        case UI_PLUG_OFF: return "OFF";
+        case UI_PLUG_BLOCKED: return "BLOCKED";
+        case UI_PLUG_ERROR: return "ERROR";
+    }
+    return "?";
+}
+
+void ui_device_row_create(ui_device_row_t *row, lv_obj_t *parent, int x, int y)
+{
+    row->root = lv_obj_create(parent);
+    lv_obj_set_size(row->root, 460, 42);
+    lv_obj_set_pos(row->root, x, y);
+    lv_obj_set_style_bg_color(row->root, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(row->root, UI_RADIUS_CARD, 0);
+    lv_obj_set_style_border_width(row->root, 0, 0);
+    lv_obj_clear_flag(row->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    row->icon_label = lv_label_create(row->root);
+    lv_label_set_text(row->icon_label, "?");
+    lv_obj_set_style_text_font(row->icon_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_pos(row->icon_label, 14, 10);
+
+    row->code_label = lv_label_create(row->root);
+    lv_label_set_text(row->code_label, "P00");
+    lv_obj_set_style_text_font(row->code_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->code_label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(row->code_label, 50, 4);
+
+    row->name_label = lv_label_create(row->root);
+    lv_label_set_text(row->name_label, "");
+    lv_obj_set_style_text_font(row->name_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(row->name_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(row->name_label, 50, 19);
+
+    row->tag_label = lv_label_create(row->root);
+    lv_label_set_text(row->tag_label, "");
+    lv_obj_set_style_text_font(row->tag_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->tag_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_set_pos(row->tag_label, 50, 19);
+
+    row->state_label = lv_label_create(row->root);
+    lv_label_set_text(row->state_label, "OFF");
+    lv_obj_set_style_text_font(row->state_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_pos(row->state_label, 350, 13);
+
+    row->current_label = lv_label_create(row->root);
+    lv_label_set_text(row->current_label, "-- A");
+    lv_obj_set_style_text_font(row->current_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_pos(row->current_label, 420, 13);
+}
+
+void ui_device_row_update(ui_device_row_t *row, const ui_plug_vm_t *plug)
+{
+    lv_label_set_text(row->icon_label, get_plug_icon(plug));
+    lv_label_set_text(row->code_label, plug->code);
+    lv_label_set_text(row->name_label, plug->name);
+
+    if (plug->role_tag[0] != '\0') {
+        lv_obj_set_pos(row->tag_label, 50 + lv_obj_get_width(row->name_label) + 8, 19);
+        char tag_buf[16];
+        snprintf(tag_buf, sizeof(tag_buf), "[%s]", plug->role_tag);
+        lv_label_set_text(row->tag_label, tag_buf);
+        lv_obj_clear_flag(row->tag_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(row->tag_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    lv_obj_set_style_text_color(row->state_label, get_plug_state_color(plug->state), 0);
+    lv_label_set_text(row->state_label, get_plug_state_text(plug->state));
+
+    if (plug->current_valid) {
+        char cur_buf[16];
+        snprintf(cur_buf, sizeof(cur_buf), "%.2f A", (double)plug->current_a);
+        lv_label_set_text(row->current_label, cur_buf);
+        lv_obj_set_style_text_color(row->current_label, UI_COLOR_YELLOW, 0);
+    } else {
+        lv_label_set_text(row->current_label, "-- A");
+        lv_obj_set_style_text_color(row->current_label, UI_COLOR_DISABLED, 0);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_device_row.h =====
+// @requirement RF-PLUG-001 Linha de dispositivo com dados de plugue
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *icon_label;
+    lv_obj_t *code_label;
+    lv_obj_t *name_label;
+    lv_obj_t *tag_label;
+    lv_obj_t *state_label;
+    lv_obj_t *current_label;
+} ui_device_row_t;
+
+void ui_device_row_create(ui_device_row_t *row, lv_obj_t *parent, int x, int y);
+void ui_device_row_update(ui_device_row_t *row, const ui_plug_vm_t *plug);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_focus.c =====
+// @requirement RF-UI-INPUT-001 Indicação de foco visual para navegação por keypad
+#include "ui_focus.h"
+#include "../ui_theme.h"
+
+void ui_focus_apply(lv_obj_t *obj)
+{
+    lv_obj_set_style_border_width(obj, 2, 0);
+    lv_obj_set_style_border_color(obj, UI_COLOR_CYAN, 0);
+}
+
+void ui_focus_clear(lv_obj_t *obj)
+{
+    lv_obj_set_style_border_width(obj, 0, 0);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_focus.h =====
+// @requirement RF-UI-INPUT-001 Foco visual para navegação por teclado
+#pragma once
+
+#include "lvgl.h"
+
+void ui_focus_apply(lv_obj_t *obj);
+void ui_focus_clear(lv_obj_t *obj);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_footer.c =====
+// @requirement RF-UI-STATUS-001 Footer com estado global, uptime, alertas, página
+#include "ui_footer.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+
+void ui_footer_create(ui_footer_t *footer, lv_obj_t *parent)
+{
+    footer->root = lv_obj_create(parent);
+    lv_obj_set_size(footer->root, 480, 31);
+    lv_obj_set_pos(footer->root, 0, 289);
+    lv_obj_set_style_bg_color(footer->root, UI_COLOR_FOOTER, 0);
+    lv_obj_set_style_border_width(footer->root, 0, 0);
+    lv_obj_set_style_radius(footer->root, 0, 0);
+    lv_obj_clear_flag(footer->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    footer->state_label = lv_label_create(footer->root);
+    lv_label_set_text(footer->state_label, "NORMAL");
+    lv_obj_set_style_text_font(footer->state_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_pos(footer->state_label, 8, 8);
+
+    footer->uptime_label = lv_label_create(footer->root);
+    lv_label_set_text(footer->uptime_label, "Uptime: 00h 00m");
+    lv_obj_set_style_text_font(footer->uptime_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(footer->uptime_label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(footer->uptime_label, 130, 8);
+
+    footer->alerts_label = lv_label_create(footer->root);
+    lv_label_set_text(footer->alerts_label, "Alertas: 0");
+    lv_obj_set_style_text_font(footer->alerts_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(footer->alerts_label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(footer->alerts_label, 310, 8);
+
+    footer->page_label = lv_label_create(footer->root);
+    lv_label_set_text(footer->page_label, "");
+    lv_obj_set_style_text_font(footer->page_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_pos(footer->page_label, 395, 8);
+}
+
+void ui_footer_update(ui_footer_t *footer, const ui_footer_vm_t *vm)
+{
+    switch (vm->system_state) {
+        case UI_SYSTEM_NORMAL:
+            lv_label_set_text(footer->state_label, "NORMAL");
+            lv_obj_set_style_text_color(footer->state_label, UI_COLOR_OK, 0);
+            break;
+        case UI_SYSTEM_DEGRADED:
+            lv_label_set_text(footer->state_label, "DEGRADED");
+            lv_obj_set_style_text_color(footer->state_label, UI_COLOR_WARN, 0);
+            break;
+        case UI_SYSTEM_SAFE_OFF:
+            lv_label_set_text(footer->state_label, "SAFE_OFF");
+            lv_obj_set_style_text_color(footer->state_label, UI_COLOR_CRITICAL, 0);
+            break;
+        case UI_SYSTEM_EMERGENCY:
+            lv_label_set_text(footer->state_label, "EMERGENCY");
+            lv_obj_set_style_text_color(footer->state_label, UI_COLOR_CRITICAL, 0);
+            break;
+    }
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "Uptime: %s", vm->uptime_text);
+    lv_label_set_text(footer->uptime_label, buf);
+
+    snprintf(buf, sizeof(buf), "Alertas: %u", (unsigned)vm->active_alerts_count);
+    lv_label_set_text(footer->alerts_label, buf);
+    if (vm->active_alerts_count > 0) {
+        lv_obj_set_style_text_color(footer->alerts_label, UI_COLOR_WARN, 0);
+    } else {
+        lv_obj_set_style_text_color(footer->alerts_label, UI_COLOR_TEXT_MUTED, 0);
+    }
+
+    char page_buf[32] = "";
+    uint8_t max_dots = vm->page_count;
+    if (max_dots > 12) max_dots = 12;
+    for (uint8_t i = 0; i < max_dots; i++) {
+        if (i == vm->page_index) {
+            page_buf[i] = '>';
+        } else {
+            page_buf[i] = '.';
+        }
+    }
+    page_buf[max_dots] = '\0';
+    lv_label_set_text(footer->page_label, page_buf);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_footer.h =====
+// @requirement RF-UI-STATUS-001 Footer persistente
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *state_label;
+    lv_obj_t *uptime_label;
+    lv_obj_t *alerts_label;
+    lv_obj_t *page_label;
+} ui_footer_t;
+
+void ui_footer_create(ui_footer_t *footer, lv_obj_t *parent);
+void ui_footer_update(ui_footer_t *footer, const ui_footer_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_menu_tile.c =====
+// @requirement RF-UI-CAROUSEL-001 Tile de menu 140x72 com ícone e texto
+#include "ui_menu_tile.h"
+#include "../ui_theme.h"
+
+void ui_menu_tile_create(ui_menu_tile_t *tile, lv_obj_t *parent, int x, int y, const char *icon, const char *text)
+{
+    tile->root = lv_obj_create(parent);
+    lv_obj_set_size(tile->root, 140, 72);
+    lv_obj_set_pos(tile->root, x, y);
+    tile->saved_bg = UI_COLOR_PANEL;
+    lv_obj_set_style_bg_color(tile->root, tile->saved_bg, 0);
+    lv_obj_set_style_radius(tile->root, UI_RADIUS_TILE, 0);
+    lv_obj_set_style_border_width(tile->root, 0, 0);
+    lv_obj_set_style_pad_all(tile->root, 0, 0);
+    lv_obj_clear_flag(tile->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    tile->icon_label = lv_label_create(tile->root);
+    lv_label_set_text(tile->icon_label, icon);
+    lv_obj_set_style_text_font(tile->icon_label, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(tile->icon_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(tile->icon_label, LV_ALIGN_TOP_MID, 0, 10);
+
+    tile->text_label = lv_label_create(tile->root);
+    lv_label_set_text(tile->text_label, text);
+    lv_obj_set_style_text_font(tile->text_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(tile->text_label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_align(tile->text_label, LV_ALIGN_BOTTOM_MID, 0, -8);
+}
+
+void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, void *user_data)
+{
+    lv_obj_add_event_cb(tile->root, cb, LV_EVENT_CLICKED, user_data);
+}
+
+void ui_menu_tile_set_focus(ui_menu_tile_t *tile, bool focused)
+{
+    if (focused) {
+        lv_obj_set_style_border_width(tile->root, 2, 0);
+        lv_obj_set_style_border_color(tile->root, UI_COLOR_CYAN, 0);
+        lv_obj_set_style_bg_color(tile->root, UI_COLOR_PANEL_2, 0);
+    } else {
+        lv_obj_set_style_border_width(tile->root, 0, 0);
+        lv_obj_set_style_bg_color(tile->root, tile->saved_bg, 0);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_menu_tile.h =====
+// @requirement RF-UI-CAROUSEL-001 Componente de tile de menu
+#pragma once
+
+#include "lvgl.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *icon_label;
+    lv_obj_t *text_label;
+    lv_color_t saved_bg;
+} ui_menu_tile_t;
+
+typedef void (*ui_menu_tile_cb_t)(lv_event_t *e);
+
+void ui_menu_tile_create(ui_menu_tile_t *tile, lv_obj_t *parent, int x, int y, const char *icon, const char *text);
+void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, void *user_data);
+void ui_menu_tile_set_focus(ui_menu_tile_t *tile, bool focused);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_metric_card.c =====
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Card de métrica para valores de energia
+#include "ui_metric_card.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+
+void ui_metric_card_create(ui_metric_card_t *card, lv_obj_t *parent, int x, int y, int w, int h, const char *title)
+{
+    card->root = lv_obj_create(parent);
+    lv_obj_set_size(card->root, w, h);
+    lv_obj_set_pos(card->root, x, y);
+    lv_obj_set_style_bg_color(card->root, UI_COLOR_PANEL, 0);
+    lv_obj_set_style_radius(card->root, UI_RADIUS_CARD, 0);
+    lv_obj_set_style_border_width(card->root, 0, 0);
+    lv_obj_set_style_pad_all(card->root, 0, 0);
+    lv_obj_clear_flag(card->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    card->label = lv_label_create(card->root);
+    lv_label_set_text(card->label, title);
+    lv_obj_set_style_text_font(card->label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(card->label, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_align(card->label, LV_ALIGN_TOP_MID, 0, 2);
+
+    card->value_label = lv_label_create(card->root);
+    lv_label_set_text(card->value_label, "--");
+    lv_obj_set_style_text_font(card->value_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(card->value_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(card->value_label, LV_ALIGN_CENTER, -8, 0);
+
+    card->unit_label = lv_label_create(card->root);
+    lv_label_set_text(card->unit_label, "");
+    lv_obj_set_style_text_font(card->unit_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(card->unit_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_align_to(card->unit_label, card->value_label, LV_ALIGN_OUT_RIGHT_MID, 2, 0);
+}
+
+void ui_metric_card_set_value(ui_metric_card_t *card, const char *value, const char *unit)
+{
+    lv_label_set_text(card->value_label, value);
+    lv_label_set_text(card->unit_label, unit);
+}
+
+void ui_metric_card_set_color(ui_metric_card_t *card, lv_color_t color)
+{
+    lv_obj_set_style_text_color(card->value_label, color, 0);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_metric_card.h =====
+// @requirement RF-ENERGY-001 Card de métrica com valor, unidade, ícone
+#pragma once
+
+#include "lvgl.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *value_label;
+    lv_obj_t *unit_label;
+    lv_obj_t *label;
+} ui_metric_card_t;
+
+void ui_metric_card_create(ui_metric_card_t *card, lv_obj_t *parent, int x, int y, int w, int h, const char *title);
+void ui_metric_card_set_value(ui_metric_card_t *card, const char *value, const char *unit);
+void ui_metric_card_set_color(ui_metric_card_t *card, lv_color_t color);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_page_indicator.c =====
+// @requirement RF-UI-CAROUSEL-001 Indicador de página para navegação entre telas
+#include "ui_page_indicator.h"
+#include "../ui_theme.h"
+
+void ui_page_indicator_create(ui_page_indicator_t *ind, lv_obj_t *parent, int x, int y, uint8_t count)
+{
+    ind->count = count;
+    if (count > 12) count = 12;
+    ind->root = lv_obj_create(parent);
+    lv_obj_set_size(ind->root, count * 14, 12);
+    lv_obj_set_pos(ind->root, x, y);
+    lv_obj_set_style_bg_opa(ind->root, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(ind->root, 0, 0);
+    lv_obj_clear_flag(ind->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    for (uint8_t i = 0; i < count; i++) {
+        ind->dots[i] = lv_label_create(ind->root);
+        lv_label_set_text(ind->dots[i], ".");
+        lv_obj_set_style_text_font(ind->dots[i], UI_FONT_NORMAL, 0);
+        lv_obj_set_pos(ind->dots[i], i * 14, 0);
+        lv_obj_set_style_text_color(ind->dots[i], UI_COLOR_TEXT_DIM, 0);
+    }
+}
+
+void ui_page_indicator_set_active(ui_page_indicator_t *ind, uint8_t index)
+{
+    for (uint8_t i = 0; i < ind->count && i < 12; i++) {
+        if (i == index) {
+            lv_obj_set_style_text_color(ind->dots[i], UI_COLOR_TEXT_MAIN, 0);
+        } else {
+            lv_obj_set_style_text_color(ind->dots[i], UI_COLOR_TEXT_DIM, 0);
+        }
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_page_indicator.h =====
+// @requirement RF-UI-CAROUSEL-001 Indicador de página (pontos)
+#pragma once
+
+#include "lvgl.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *dots[12];
+    uint8_t count;
+} ui_page_indicator_t;
+
+void ui_page_indicator_create(ui_page_indicator_t *ind, lv_obj_t *parent, int x, int y, uint8_t count);
+void ui_page_indicator_set_active(ui_page_indicator_t *ind, uint8_t index);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_status_badge.c =====
+// @requirement RF-GLOBAL-003 Badge de estado global (NORMAL/DEGRADED/SAFE_OFF/EMERGENCY) na UI
+#include "ui_status_badge.h"
+#include "../ui_theme.h"
+
+void ui_status_badge_create(ui_status_badge_t *badge, lv_obj_t *parent, int x, int y, int w, int h)
+{
+    badge->root = lv_obj_create(parent);
+    lv_obj_set_size(badge->root, w, h);
+    lv_obj_set_pos(badge->root, x, y);
+    lv_obj_set_style_radius(badge->root, UI_RADIUS_SMALL, 0);
+    lv_obj_set_style_border_width(badge->root, 0, 0);
+    lv_obj_clear_flag(badge->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    badge->label = lv_label_create(badge->root);
+    lv_label_set_text(badge->label, "");
+    lv_obj_center(badge->label);
+    lv_obj_set_style_text_font(badge->label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(badge->label, lv_color_hex(0xFFFFFF), 0);
+}
+
+void ui_status_badge_set_text(ui_status_badge_t *badge, const char *text)
+{
+    lv_label_set_text(badge->label, text);
+}
+
+void ui_status_badge_set_color(ui_status_badge_t *badge, lv_color_t color)
+{
+    badge->bg_color = color;
+    lv_obj_set_style_bg_color(badge->root, color, 0);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_status_badge.h =====
+// @requirement RF-GLOBAL-003 Badge de estado global colorido
+#pragma once
+
+#include "lvgl.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *label;
+    lv_color_t bg_color;
+} ui_status_badge_t;
+
+void ui_status_badge_create(ui_status_badge_t *badge, lv_obj_t *parent, int x, int y, int w, int h);
+void ui_status_badge_set_text(ui_status_badge_t *badge, const char *text);
+void ui_status_badge_set_color(ui_status_badge_t *badge, lv_color_t color);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_topbar.c =====
+// @requirement RF-UI-STATUS-001 Topbar com WiFi, datetime, botão FEED
+#include "ui_topbar.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+
+static void feed_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_REQUEST_FEED_MODE);
+}
+
+void ui_topbar_create(ui_topbar_t *bar, lv_obj_t *parent)
+{
+    bar->root = lv_obj_create(parent);
+    lv_obj_set_size(bar->root, 480, 31);
+    lv_obj_set_pos(bar->root, 0, 0);
+    lv_obj_set_style_bg_color(bar->root, UI_COLOR_TOPBAR, 0);
+    lv_obj_set_style_border_width(bar->root, 0, 0);
+    lv_obj_set_style_radius(bar->root, 0, 0);
+    lv_obj_clear_flag(bar->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    bar->wifi_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->wifi_label, "WiFi");
+    lv_obj_set_style_text_font(bar->wifi_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_pos(bar->wifi_label, 8, 7);
+
+    bar->datetime_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->datetime_label, "--/--/---- --:--");
+    lv_obj_set_style_text_font(bar->datetime_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(bar->datetime_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_size(bar->datetime_label, 220, 14);
+    lv_obj_set_pos(bar->datetime_label, 130, 7);
+    lv_obj_set_style_text_align(bar->datetime_label, LV_TEXT_ALIGN_CENTER, 0);
+
+    bar->feed_btn = lv_btn_create(bar->root);
+    lv_obj_set_size(bar->feed_btn, 90, 24);
+    lv_obj_set_pos(bar->feed_btn, 382, 4);
+    lv_obj_set_style_radius(bar->feed_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_set_style_bg_color(bar->feed_btn, UI_COLOR_WARN, 0);
+    lv_obj_add_event_cb(bar->feed_btn, feed_btn_cb, LV_EVENT_CLICKED, NULL);
+
+    bar->feed_label = lv_label_create(bar->feed_btn);
+    lv_label_set_text(bar->feed_label, "FEED");
+    lv_obj_center(bar->feed_label);
+    lv_obj_set_style_text_font(bar->feed_label, UI_FONT_NORMAL, 0);
+}
+
+void ui_topbar_update(ui_topbar_t *bar, const ui_topbar_vm_t *vm)
+{
+    if (vm->wifi_ok) {
+        lv_label_set_text(bar->wifi_label, "WiFi");
+        lv_obj_set_style_text_color(bar->wifi_label, UI_COLOR_OK, 0);
+    } else {
+        lv_label_set_text(bar->wifi_label, "WiFi");
+        lv_obj_set_style_text_color(bar->wifi_label, UI_COLOR_TEXT_DIM, 0);
+    }
+
+    lv_label_set_text(bar->datetime_label, vm->datetime_text);
+
+    if (vm->feed_mode_active) {
+        lv_obj_set_style_bg_color(bar->feed_btn, lv_color_hex(0xFF6B00), 0);
+        lv_obj_add_state(bar->feed_btn, LV_STATE_DISABLED);
+    } else {
+        lv_obj_set_style_bg_color(bar->feed_btn, UI_COLOR_WARN, 0);
+        lv_obj_clear_state(bar->feed_btn, LV_STATE_DISABLED);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\components\ui_topbar.h =====
+// @requirement RF-UI-STATUS-001 Topbar com informações de sistema
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *wifi_label;
+    lv_obj_t *datetime_label;
+    lv_obj_t *feed_btn;
+    lv_obj_t *feed_label;
+} ui_topbar_t;
+
+void ui_topbar_create(ui_topbar_t *bar, lv_obj_t *parent);
+void ui_topbar_update(ui_topbar_t *bar, const ui_topbar_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_alerts.c =====
+// @requirement RF-ALERT-001 a RF-ALERT-006 Tela de alertas com ativos, histórico, ACK
+#include "ui_screen_alerts.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+#include "../components/ui_alert_row.h"
+#include <stdio.h>
+
+static ui_alert_row_t active_rows[UI_MAX_ALERTS];
+static ui_alert_row_t history_rows[UI_MAX_ALERTS];
+static lv_obj_t *badge_label = NULL;
+static lv_obj_t *summary_label = NULL;
+static lv_obj_t *history_title = NULL;
+
+static void ack_all_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_REQUEST_ACK_ALERT);
+}
+
+void ui_screen_alerts_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Alertas Ativos");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(title, 14, 6);
+
+    badge_label = lv_label_create(parent);
+    lv_label_set_text(badge_label, "0 Ativos");
+    lv_obj_set_style_text_font(badge_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(badge_label, 400, 5);
+
+    summary_label = lv_label_create(parent);
+    lv_label_set_text(summary_label, "");
+    lv_obj_set_style_text_font(summary_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(summary_label, 14, 26);
+
+    for (int i = 0; i < UI_MAX_ALERTS; i++) {
+        ui_alert_row_create(&active_rows[i], parent, 0, 54 + i * 44);
+    }
+
+    history_title = lv_label_create(parent);
+    lv_label_set_text(history_title, "Historico");
+    lv_obj_set_style_text_font(history_title, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(history_title, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(history_title, 14, 188);
+
+    for (int i = 0; i < UI_MAX_ALERTS; i++) {
+        ui_alert_row_create(&history_rows[i], parent, 0, 214 + i * 44);
+    }
+
+    lv_obj_t *ack_btn = lv_btn_create(parent);
+    lv_obj_set_size(ack_btn, 90, 24);
+    lv_obj_set_pos(ack_btn, 375, 230);
+    lv_obj_set_style_bg_color(ack_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(ack_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(ack_btn, ack_all_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *ack_lbl = lv_label_create(ack_btn);
+    lv_label_set_text(ack_lbl, "ACK Todos");
+    lv_obj_center(ack_lbl);
+
+    ui_screen_alerts_update(vm);
+}
+
+void ui_screen_alerts_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    char buf[64];
+
+    snprintf(buf, sizeof(buf), "%u Ativos", (unsigned)vm->alerts.active_count);
+    lv_label_set_text(badge_label, buf);
+    if (vm->alerts.active_count > 0) {
+        lv_obj_set_style_text_color(badge_label, UI_COLOR_CRITICAL, 0);
+    } else {
+        lv_obj_set_style_text_color(badge_label, UI_COLOR_TEXT_MUTED, 0);
+    }
+
+    snprintf(buf, sizeof(buf), "C:%u A:%u M:%u I:%u",
+             (unsigned)vm->alerts.critical_count,
+             (unsigned)vm->alerts.high_count,
+             (unsigned)vm->alerts.warning_count,
+             (unsigned)vm->alerts.info_count);
+    lv_label_set_text(summary_label, buf);
+
+    for (int i = 0; i < UI_MAX_ALERTS; i++) {
+        if (i < vm->alerts.active_count) {
+            ui_alert_row_update(&active_rows[i], &vm->alerts.active_alerts[i]);
+            lv_obj_clear_flag(active_rows[i].root, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(active_rows[i].root, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    for (int i = 0; i < UI_MAX_ALERTS; i++) {
+        if (i < vm->alerts.history_count) {
+            ui_alert_row_update(&history_rows[i], &vm->alerts.history_alerts[i]);
+            lv_obj_clear_flag(history_rows[i].root, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(history_rows[i].root, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_alerts.h =====
+// @requirement RF-ALERT-001 Tela de alertas
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_alerts_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_alerts_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_ato.c =====
+#include "ui_screen_ato.h"
+#include "../ui_theme.h"
+#include "../ui_screen_manager.h"
+#include "global_state.h"
+
+extern global_state_t g_gs;
+
+static void ato_back_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_screen_manager_show(UI_SCREEN_MAIN_MENU);
+}
+
+static const char *state_label(ui_ato_state_t st)
+{
+    switch (st) {
+        case UI_ATO_IDLE:      return "NORMAL";
+        case UI_ATO_REFILLING: return "REENCHENDO";
+        case UI_ATO_BLOCKED:   return "BLOQUEADO";
+        case UI_ATO_ERROR:     return "ERRO";
+        default:               return "DESCONHECIDO";
+    }
+}
+
+static lv_obj_t *g_state_label = NULL;
+static lv_obj_t *g_level_label = NULL;
+static lv_obj_t *g_pump_label = NULL;
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    (void)vm;
+
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Controle ATO");
+    lv_obj_set_style_text_font(title, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+
+    g_state_label = lv_label_create(parent);
+    lv_label_set_text(g_state_label, "Estado: --");
+    lv_obj_set_style_text_font(g_state_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(g_state_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(g_state_label, LV_ALIGN_TOP_LEFT, 20, 50);
+
+    g_level_label = lv_label_create(parent);
+    lv_label_set_text(g_level_label, "Nivel ADC: --");
+    lv_obj_set_style_text_font(g_level_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(g_level_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_align(g_level_label, LV_ALIGN_TOP_LEFT, 20, 80);
+
+    g_pump_label = lv_label_create(parent);
+    lv_label_set_text(g_pump_label, "Bomba: --");
+    lv_obj_set_style_text_font(g_pump_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(g_pump_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_align(g_pump_label, LV_ALIGN_TOP_LEFT, 20, 110);
+
+    lv_obj_t *back_btn = lv_btn_create(parent);
+    lv_obj_set_size(back_btn, 100, 28);
+    lv_obj_align(back_btn, LV_ALIGN_BOTTOM_LEFT, 20, -15);
+    lv_obj_set_style_bg_color(back_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(back_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(back_btn, ato_back_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *back_lbl = lv_label_create(back_btn);
+    lv_label_set_text(back_lbl, "Voltar");
+    lv_obj_center(back_lbl);
+}
+
+void ui_screen_ato_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    if (g_state_label) {
+        lv_label_set_text(g_state_label, state_label(vm->ato.state));
+    }
+    if (g_level_label) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Nivel ADC: %ld", (long)vm->ato.level_adc);
+        lv_label_set_text(g_level_label, buf);
+    }
+    if (g_pump_label) {
+        lv_label_set_text(g_pump_label, vm->ato.pump_on ? "Bomba: LIGADA" : "Bomba: DESLIGADA");
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_ato.h =====
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_ato_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_ato_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_config_temperature.c =====
+// @requirement RF-THERMAL-003 a RF-THERMAL-007 Tela de configuração de parâmetros térmicos
+// @requirement RF-THERMAL-006 Parâmetros térmicos obrigatórios definidos pelo usuário
+#include "ui_screen_config_temperature.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+#include "../ui_screen_manager.h"
+#include <stdio.h>
+
+typedef struct {
+    lv_obj_t *label;
+    lv_obj_t *value;
+} config_row_t;
+
+static config_row_t rows[6];
+
+static void save_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_REQUEST_SAVE_THERMAL_CONFIG);
+}
+
+static void cancel_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_screen_manager_show(UI_SCREEN_MAIN_MENU);
+}
+
+void ui_screen_config_temperature_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *breadcrumb = lv_label_create(parent);
+    lv_label_set_text(breadcrumb, "< Configuracao > Temperatura");
+    lv_obj_set_style_text_font(breadcrumb, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(breadcrumb, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(breadcrumb, 14, 6);
+
+    static const char *row_labels[6] = {"Setpoint", "Temp. Minima", "Temp. Maxima", "Temp. Critica", "Histerese", "Temp. Extrema"};
+    static const int y_pos[6] = {36, 70, 104, 138, 172, 206};
+    for (int i = 0; i < 6; i++) {
+        lv_obj_t *panel = lv_obj_create(parent);
+        lv_obj_set_size(panel, 460, 32);
+        lv_obj_set_pos(panel, 10, y_pos[i]);
+        lv_obj_set_style_bg_color(panel, UI_COLOR_PANEL, 0);
+        lv_obj_set_style_radius(panel, UI_RADIUS_CARD, 0);
+        lv_obj_set_style_border_width(panel, 0, 0);
+        lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+
+        rows[i].label = lv_label_create(panel);
+        lv_label_set_text(rows[i].label, row_labels[i]);
+        lv_obj_set_style_text_font(rows[i].label, UI_FONT_NORMAL, 0);
+        lv_obj_set_style_text_color(rows[i].label, UI_COLOR_TEXT_MAIN, 0);
+        lv_obj_set_pos(rows[i].label, 22, 7);
+
+        rows[i].value = lv_label_create(panel);
+        lv_label_set_text(rows[i].value, "--.-");
+        lv_obj_set_style_text_font(rows[i].value, UI_FONT_NORMAL, 0);
+        lv_obj_set_style_text_color(rows[i].value, UI_COLOR_CYAN, 0);
+        lv_obj_set_pos(rows[i].value, 410, 7);
+    }
+
+    lv_obj_t *save_btn = lv_btn_create(parent);
+    lv_obj_set_size(save_btn, 120, 26);
+    lv_obj_set_pos(save_btn, 110, 236);
+    lv_obj_set_style_bg_color(save_btn, UI_COLOR_OK, 0);
+    lv_obj_set_style_radius(save_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_t *save_label = lv_label_create(save_btn);
+    lv_label_set_text(save_label, "Salvar");
+    lv_obj_center(save_label);
+    lv_obj_add_event_cb(save_btn, save_btn_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *cancel_btn = lv_btn_create(parent);
+    lv_obj_set_size(cancel_btn, 120, 26);
+    lv_obj_set_pos(cancel_btn, 250, 236);
+    lv_obj_set_style_bg_color(cancel_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_set_style_radius(cancel_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_t *cancel_label = lv_label_create(cancel_btn);
+    lv_label_set_text(cancel_label, "Cancelar");
+    lv_obj_center(cancel_label);
+    lv_obj_add_event_cb(cancel_btn, cancel_btn_cb, LV_EVENT_CLICKED, NULL);
+
+    ui_screen_config_temperature_update(vm);
+}
+
+void ui_screen_config_temperature_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    float vals[6] = {
+        vm->config_temperature.setpoint_c,
+        vm->config_temperature.temp_min_c,
+        vm->config_temperature.temp_max_c,
+        vm->config_temperature.temp_critical_c,
+        vm->config_temperature.hysteresis_c,
+        vm->config_temperature.temp_extreme_c
+    };
+    for (int i = 0; i < 6; i++) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f\xc2\xb0" "C", (double)vals[i]);
+        lv_label_set_text(rows[i].value, buf);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_config_temperature.h =====
+// @requirement RF-THERMAL-006 Tela de configuração térmica
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_config_temperature_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_config_temperature_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_dashboard.c =====
+// @requirement RF-THERMAL-001 a RF-THERMAL-009 Dashboard com temperatura, setpoint, estado térmico
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Indicadores de energia no dashboard
+#include "ui_screen_dashboard.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+
+static lv_obj_t *temp_value = NULL;
+static lv_obj_t *setpoint_label = NULL;
+static lv_obj_t *thermal_state_label = NULL;
+static lv_obj_t *ato_label = NULL;
+static lv_obj_t *power_label = NULL;
+static lv_obj_t *electric_line = NULL;
+
+void ui_screen_dashboard_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Temperatura Atual");
+    lv_obj_set_style_text_font(title, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(title, 174, 6);
+
+    temp_value = lv_label_create(parent);
+    lv_label_set_text(temp_value, "--.- C");
+    lv_obj_set_style_text_font(temp_value, UI_FONT_HUGE, 0);
+    lv_obj_set_style_text_color(temp_value, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(temp_value, 126, 27);
+
+    setpoint_label = lv_label_create(parent);
+    lv_label_set_text(setpoint_label, "Setpoint: --.- C");
+    lv_obj_set_style_text_font(setpoint_label, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(setpoint_label, UI_COLOR_CYAN, 0);
+    lv_obj_set_pos(setpoint_label, 156, 84);
+
+    thermal_state_label = lv_label_create(parent);
+    lv_label_set_text(thermal_state_label, "IDLE");
+    lv_obj_set_style_text_font(thermal_state_label, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(thermal_state_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(thermal_state_label, 32, 115);
+
+    ato_label = lv_label_create(parent);
+    lv_label_set_text(ato_label, "ATO: --");
+    lv_obj_set_style_text_font(ato_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(ato_label, UI_COLOR_BLUE, 0);
+    lv_obj_set_pos(ato_label, 292, 118);
+
+    power_label = lv_label_create(parent);
+    lv_label_set_text(power_label, "--- W");
+    lv_obj_set_style_text_font(power_label, UI_FONT_BIG, 0);
+    lv_obj_set_style_text_color(power_label, UI_COLOR_YELLOW, 0);
+    lv_obj_set_pos(power_label, 30, 158);
+
+    electric_line = lv_label_create(parent);
+    lv_label_set_text(electric_line, "---V | ---A | PF ---");
+    lv_obj_set_style_text_font(electric_line, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(electric_line, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(electric_line, 170, 164);
+
+    ui_screen_dashboard_update(vm);
+}
+
+void ui_screen_dashboard_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+
+    char buf[64];
+
+    snprintf(buf, sizeof(buf), "%.1f\xc2\xb0" "C", (double)vm->dashboard.current_temp_c);
+    lv_label_set_text(temp_value, buf);
+
+    snprintf(buf, sizeof(buf), "Setpoint: %.1f\xc2\xb0" "C", (double)vm->dashboard.setpoint_temp_c);
+    lv_label_set_text(setpoint_label, buf);
+
+    switch (vm->dashboard.thermal_state) {
+        case UI_THERMAL_IDLE: lv_label_set_text(thermal_state_label, "IDLE"); break;
+        case UI_THERMAL_HEATING: lv_label_set_text(thermal_state_label, "AQUECENDO"); break;
+        case UI_THERMAL_COOLING: lv_label_set_text(thermal_state_label, "RESFRIANDO"); break;
+        case UI_THERMAL_ALERT: lv_label_set_text(thermal_state_label, "ALERTA"); break;
+        case UI_THERMAL_CRITICAL: lv_label_set_text(thermal_state_label, "CRITICO"); break;
+    }
+
+    lv_label_set_text(ato_label, vm->dashboard.ato_text);
+
+    snprintf(buf, sizeof(buf), "\xe2\x9a\xa1 %.0f W", (double)vm->dashboard.power_w);
+    lv_label_set_text(power_label, buf);
+
+    snprintf(buf, sizeof(buf), "%.0fV | %.2fA | PF %.2f",
+             (double)vm->dashboard.voltage_v,
+             (double)vm->dashboard.current_a,
+             (double)vm->dashboard.power_factor);
+    lv_label_set_text(electric_line, buf);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_dashboard.h =====
+// @requirement RF-THERMAL-001 Tela de dashboard
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_dashboard_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_dashboard_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_devices_page1.c =====
+// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P01-P05
+// @requirement RF-PLUG-003 Corrente individual por plugue visível
+#include "ui_screen_devices_page1.h"
+#include "../ui_theme.h"
+#include "../components/ui_device_row.h"
+
+static ui_device_row_t rows[5];
+
+void ui_screen_devices_page1_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Dispositivos 1/2");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(title, 168, 5);
+
+    static const int y_positions[5] = {32, 78, 124, 170, 216};
+    for (int i = 0; i < 5; i++) {
+        ui_device_row_create(&rows[i], parent, 10, y_positions[i]);
+        ui_device_row_update(&rows[i], &vm->devices.plugs[i]);
+    }
+}
+
+void ui_screen_devices_page1_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    for (int i = 0; i < 5 && i < (int)vm->devices.plug_count; i++) {
+        ui_device_row_update(&rows[i], &vm->devices.plugs[i]);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_devices_page1.h =====
+// @requirement RF-PLUG-001 Tela dispositivos página 1
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_devices_page1_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_devices_page1_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_devices_page2.c =====
+// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P06-P10
+#include "ui_screen_devices_page2.h"
+#include "../ui_theme.h"
+#include "../components/ui_device_row.h"
+
+static ui_device_row_t rows[5];
+
+void ui_screen_devices_page2_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Dispositivos 2/2");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(title, 168, 5);
+
+    static const int y_positions[5] = {32, 78, 124, 170, 216};
+    for (int i = 0; i < 5; i++) {
+        ui_device_row_create(&rows[i], parent, 10, y_positions[i]);
+        ui_device_row_update(&rows[i], &vm->devices.plugs[5 + i]);
+    }
+}
+
+void ui_screen_devices_page2_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    for (int i = 0; i < 5 && (5 + i) < (int)vm->devices.plug_count; i++) {
+        ui_device_row_update(&rows[i], &vm->devices.plugs[5 + i]);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_devices_page2.h =====
+// @requirement RF-PLUG-001 Tela dispositivos página 2
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_devices_page2_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_devices_page2_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_diagnostics.c =====
+// @requirement RF-UI-DIAG-001 Tela de diagnóstico com 9 subsistemas
+// @requirement RF-FLOW-BOOT-003 Exibição de self-test na UI
+#include "ui_screen_diagnostics.h"
+#include "../ui_theme.h"
+#include <stdio.h>
+
+typedef struct {
+    lv_obj_t *name_label;
+    lv_obj_t *status_label;
+} diag_row_t;
+
+static diag_row_t rows[9];
+
+static lv_color_t health_color(ui_health_state_t state)
+{
+    switch (state) {
+        case UI_HEALTH_OK: return UI_COLOR_OK;
+        case UI_HEALTH_DEGRADED: return UI_COLOR_WARN;
+        case UI_HEALTH_FAILED: return UI_COLOR_CRITICAL;
+        case UI_HEALTH_UNKNOWN:
+        default: return UI_COLOR_TEXT_DIM;
+    }
+}
+
+static const char *health_text(ui_health_state_t state)
+{
+    switch (state) {
+        case UI_HEALTH_OK: return "OK";
+        case UI_HEALTH_DEGRADED: return "DEGRADED";
+        case UI_HEALTH_FAILED: return "FAILED";
+        case UI_HEALTH_UNKNOWN:
+        default: return "UNKNOWN";
+    }
+}
+
+void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Diagnostico");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(title, 178, 6);
+
+    static const char *names[] = {
+        "Temperatura", "ATO", "Energia", "Plugues",
+        "Persistencia", "Seguranca", "Self-test",
+        "Barramentos", "I/O"
+    };
+
+    static const int y_pos[9] = {32, 58, 84, 110, 136, 162, 188, 214, 240};
+    for (int i = 0; i < 9; i++) {
+        lv_obj_t *panel = lv_obj_create(parent);
+        lv_obj_set_size(panel, 460, 24);
+        lv_obj_set_pos(panel, 10, y_pos[i]);
+        lv_obj_set_style_bg_color(panel, UI_COLOR_PANEL, 0);
+        lv_obj_set_style_radius(panel, UI_RADIUS_SMALL, 0);
+        lv_obj_set_style_border_width(panel, 0, 0);
+        lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+
+        rows[i].name_label = lv_label_create(panel);
+        lv_label_set_text(rows[i].name_label, names[i]);
+        lv_obj_set_style_text_font(rows[i].name_label, UI_FONT_NORMAL, 0);
+        lv_obj_set_style_text_color(rows[i].name_label, UI_COLOR_TEXT_MAIN, 0);
+        lv_obj_set_pos(rows[i].name_label, 14, 4);
+
+        rows[i].status_label = lv_label_create(panel);
+        lv_label_set_text(rows[i].status_label, "UNKNOWN");
+        lv_obj_set_style_text_font(rows[i].status_label, UI_FONT_NORMAL, 0);
+        lv_obj_set_pos(rows[i].status_label, 390, 4);
+    }
+
+    ui_screen_diagnostics_update(vm);
+}
+
+void ui_screen_diagnostics_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+
+    ui_health_state_t states[9] = {
+        vm->diagnostics.temperature,
+        vm->diagnostics.ato,
+        vm->diagnostics.energy,
+        vm->diagnostics.plugs,
+        vm->diagnostics.persistence,
+        vm->diagnostics.security,
+        vm->diagnostics.selftest,
+        vm->diagnostics.buses,
+        vm->diagnostics.io
+    };
+
+    for (int i = 0; i < 9; i++) {
+        lv_label_set_text(rows[i].status_label, health_text(states[i]));
+        lv_obj_set_style_text_color(rows[i].status_label, health_color(states[i]), 0);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_diagnostics.h =====
+// @requirement RF-UI-DIAG-001 Tela de diagnóstico
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_diagnostics_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_energy.c =====
+// @requirement RF-ENERGY-001 a RF-ENERGY-010 Tela de energia com 4 metric cards + gráfico mensal
+// @requirement RF-ENERGY-004 Projeção mensal mensal
+#include "ui_screen_energy.h"
+#include "../ui_theme.h"
+#include "../components/ui_metric_card.h"
+#include "../components/ui_bar_chart.h"
+#include <stdio.h>
+
+static lv_obj_t *power_label = NULL;
+static ui_metric_card_t card_voltage;
+static ui_metric_card_t card_current;
+static ui_metric_card_t card_freq;
+static ui_metric_card_t card_pf;
+
+void ui_screen_energy_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "Energia");
+    lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_set_pos(title, 205, 6);
+
+    power_label = lv_label_create(parent);
+    lv_label_set_text(power_label, "--- W");
+    lv_obj_set_style_text_font(power_label, UI_FONT_BIG, 0);
+    lv_obj_set_style_text_color(power_label, UI_COLOR_YELLOW, 0);
+    lv_obj_set_pos(power_label, 142, 34);
+
+    ui_metric_card_create(&card_voltage, parent, 25, 86, 100, 28, "Tensao");
+    ui_metric_card_create(&card_current, parent, 135, 86, 100, 28, "Corrente");
+    ui_metric_card_create(&card_freq, parent, 245, 86, 100, 28, "Frequencia");
+    ui_metric_card_create(&card_pf, parent, 355, 86, 100, 28, "F.P.");
+
+    lv_obj_t *chart_title = lv_label_create(parent);
+    lv_label_set_text(chart_title, "Consumo Mensal (kWh)");
+    lv_obj_set_style_text_font(chart_title, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(chart_title, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_set_pos(chart_title, 20, 124);
+
+    ui_bar_chart_create(parent, 20, 145, 440, 110, &vm->energy);
+
+    ui_screen_energy_update(vm);
+}
+
+void ui_screen_energy_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    char buf[32];
+
+    snprintf(buf, sizeof(buf), "\xe2\x9a\xa1 %.0f W", (double)vm->energy.power_w);
+    lv_label_set_text(power_label, buf);
+
+    snprintf(buf, sizeof(buf), "%.1f", (double)vm->energy.voltage_v);
+    ui_metric_card_set_value(&card_voltage, buf, "V");
+    if (vm->energy.voltage_v > 0) {
+        ui_metric_card_set_color(&card_voltage, UI_COLOR_CYAN);
+    }
+
+    snprintf(buf, sizeof(buf), "%.2f", (double)vm->energy.current_a);
+    ui_metric_card_set_value(&card_current, buf, "A");
+    if (vm->energy.current_a > 0) {
+        ui_metric_card_set_color(&card_current, UI_COLOR_OK);
+    }
+
+    snprintf(buf, sizeof(buf), "%.1f", (double)vm->energy.frequency_hz);
+    ui_metric_card_set_value(&card_freq, buf, "Hz");
+    if (vm->energy.frequency_hz > 0) {
+        ui_metric_card_set_color(&card_freq, UI_COLOR_INFO);
+    }
+
+    snprintf(buf, sizeof(buf), "%.2f", (double)vm->energy.power_factor);
+    ui_metric_card_set_value(&card_pf, buf, "");
+    if (vm->energy.power_factor > 0) {
+        ui_metric_card_set_color(&card_pf, UI_COLOR_PURPLE);
+    }
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_energy.h =====
+// @requirement RF-ENERGY-001 Tela de energia
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_energy_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_energy_update(ui_root_vm_t *vm);
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_feed_active.c =====
+// @requirement RF-FEED-002 Interface obrigatória do Feed Mode com timer e bombas
+// @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
+#include "ui_screen_feed_active.h"
+#include "../ui_theme.h"
+#include "../ui_events.h"
+#include <stdio.h>
+
+static lv_obj_t *timer_label = NULL;
+static lv_obj_t *exit_btn = NULL;
+
+static void exit_feed_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_REQUEST_EXIT_FEED_MODE);
+}
+
+void ui_screen_feed_active_create(lv_obj_t *parent, ui_root_vm_t *vm)
+{
+    (void)vm;
+
+    lv_obj_t *title = lv_label_create(parent);
+    lv_label_set_text(title, "FEED MODE ATIVO");
+    lv_obj_set_style_text_font(title, UI_FONT_TITLE, 0);
+    lv_obj_set_style_text_color(title, UI_COLOR_WARN, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+
+    timer_label = lv_label_create(parent);
+    lv_label_set_text(timer_label, "Tempo restante: 00:00");
+    lv_obj_set_style_text_font(timer_label, UI_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_color(timer_label, UI_COLOR_TEXT_MAIN, 0);
+    lv_obj_align(timer_label, LV_ALIGN_TOP_MID, 0, 40);
+
+    lv_obj_t *pause_title = lv_label_create(parent);
+    lv_label_set_text(pause_title, "Bombas pausadas:");
+    lv_obj_set_style_text_font(pause_title, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(pause_title, UI_COLOR_TEXT_MUTED, 0);
+    lv_obj_align(pause_title, LV_ALIGN_TOP_LEFT, 30, 70);
+
+    static const char *paused_plugs[] = {
+        "P03 Bomba Principal",
+        "P05 Bomba Skimmer",
+        "P07 Bomba Dosadora",
+        "P08 Bomba Circulacao"
+    };
+    int py = 94;
+    for (int i = 0; i < 4; i++) {
+        lv_obj_t *pp = lv_label_create(parent);
+        lv_label_set_text(pp, paused_plugs[i]);
+        lv_obj_set_style_text_font(pp, UI_FONT_NORMAL, 0);
+        lv_obj_set_style_text_color(pp, UI_COLOR_TEXT_MAIN, 0);
+        lv_obj_set_pos(pp, 46, py);
+        py += 20;
+    }
+
+    lv_obj_t *notice = lv_label_create(parent);
+    lv_label_set_text(notice, "P01/P02 nao participam do Feed Mode.");
+    lv_obj_set_style_text_font(notice, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(notice, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_align(notice, LV_ALIGN_BOTTOM_LEFT, 14, -50);
+
+    exit_btn = lv_btn_create(parent);
+    lv_obj_set_size(exit_btn, 120, 28);
+    lv_obj_align(exit_btn, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(exit_btn, UI_COLOR_CRITICAL, 0);
+    lv_obj_set_style_radius(exit_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(exit_btn, exit_feed_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *exit_lbl = lv_label_create(exit_btn);
+    lv_label_set_text(exit_lbl, "Sair do Feed Mode");
+    lv_obj_center(exit_lbl);
+    lv_obj_set_style_text_font(exit_lbl, UI_FONT_NORMAL, 0);
+}
+
+void ui_screen_feed_active_update(ui_root_vm_t *vm)
+{
+    if (!vm) return;
+    char buf[32];
+    uint32_t remaining = vm->topbar.feed_remaining_s;
+    uint32_t mins = remaining / 60;
+    uint32_t secs = remaining % 60;
+    snprintf(buf, sizeof(buf), "Tempo restante: %02u:%02u", (unsigned)mins, (unsigned)secs);
+    lv_label_set_text(timer_label, buf);
+}
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\main\ui\hmi\screens\ui_screen_feed_active.h =====
+// @requirement RF-FEED-002 Tela de Feed Mode ativo
+#pragma once
+
+#include "lvgl.h"
+#include "../ui_view_model.h"
+
+void ui_screen_feed_active_create(lv_obj_t *parent, ui_root_vm_t *vm);
+void ui_screen_feed_active_update(ui_root_vm_t *vm);
+
+***********************************FINAL DO ARQUIVO 2/20*************************
