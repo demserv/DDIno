@@ -1,6 +1,66 @@
 ***************************************INICIO DO ARQUIVO 6/10********************************
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\bar\test.py =====
+#!/opt/bin/lv_micropython -i
+import lvgl as lv
+import display_driver
+def set_value(bar, v):
+    bar.set_value(v, lv.ANIM.OFF)
+
+def event_cb(e):
+    dsc = lv.obj_draw_part_dsc_t.__cast__(e.get_param())
+    if dsc.part != lv.PART.INDICATOR:
+        return
+
+    obj= e.get_target()
+
+    label_dsc = lv.draw_label_dsc_t()
+    label_dsc.init()
+    # label_dsc.font = LV_FONT_DEFAULT;
+
+    value_txt = str(obj.get_value())
+    txt_size = lv.point_t()
+    lv.txt_get_size(txt_size, value_txt, label_dsc.font, label_dsc.letter_space, label_dsc.line_space, lv.COORD.MAX, label_dsc.flag)
+
+    txt_area = lv.area_t()
+    # If the indicator is long enough put the text inside on the right
+    if dsc.draw_area.get_width() > txt_size.x + 20:
+        txt_area.x2 = dsc.draw_area.x2 - 5
+        txt_area.x1 = txt_area.x2 - txt_size.x + 1
+        label_dsc.color = lv.color_white()
+    # If the indicator is still short put the text out of it on the right*/
+    else:
+        txt_area.x1 = dsc.draw_area.x2 + 5
+        txt_area.x2 = txt_area.x1 + txt_size.x - 1
+        label_dsc.color = lv.color_black()
+
+    txt_area.y1 = dsc.draw_area.y1 + (dsc.draw_area.get_height() - txt_size.y) // 2
+    txt_area.y2 = txt_area.y1 + txt_size.y - 1
+
+    dsc.draw_ctx.label(label_dsc, txt_area, value_txt, None)
+
+#
+# Custom drawer on the bar to display the current value
+#
+
+bar = lv.bar(lv.scr_act())
+bar.add_event_cb(event_cb, lv.EVENT.DRAW_PART_END, None)
+bar.set_size(200, 20)
+bar.center()
+
+a = lv.anim_t()
+a.init()
+a.set_var(bar)
+a.set_values(0, 100)
+a.set_custom_exec_cb(lambda a,val: set_value(bar,val))
+a.set_time(2000)
+a.set_playback_time(2000)
+a.set_repeat_count(lv.ANIM_REPEAT.INFINITE)
+lv.anim_t.start(a)
+
+
+
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_BTN && LV_BUILD_EXAMPLES
 
@@ -41,7 +101,7 @@ void lv_example_btn_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_BTN && LV_BUILD_EXAMPLES
 
@@ -82,7 +142,7 @@ void lv_example_btn_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_BTN && LV_BUILD_EXAMPLES
 
@@ -150,7 +210,7 @@ void lv_example_btn_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_BTN && LV_BUILD_EXAMPLES
 
@@ -218,7 +278,7 @@ void lv_example_btn_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_3.c =====
 #include "../../lv_examples.h"
 #if LV_BUILD_EXAMPLES && LV_USE_BTN
 
@@ -266,7 +326,7 @@ void lv_example_btn_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btn\lv_example_btn_3.c =====
 #include "../../lv_examples.h"
 #if LV_BUILD_EXAMPLES && LV_USE_BTN
 
@@ -314,7 +374,7 @@ void lv_example_btn_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\index.rst =====
 
 Simple Button matrix
 """"""""""""""""""""""
@@ -339,7 +399,7 @@ Pagination
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\index.rst =====
 
 Simple Button matrix
 """"""""""""""""""""""
@@ -364,7 +424,7 @@ Pagination
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_1.py =====
 def event_handler(evt):
     code = evt.get_code()
     obj  = evt.get_target()
@@ -391,7 +451,7 @@ btnm1.add_event_cb(event_handler, lv.EVENT.ALL, None)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_1.py =====
 def event_handler(evt):
     code = evt.get_code()
     obj  = evt.get_target()
@@ -418,7 +478,7 @@ btnm1.add_event_cb(event_handler, lv.EVENT.ALL, None)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_2.py =====
 from imagetools import get_png_info, open_png
 
 # Register PNG image decoder
@@ -502,7 +562,7 @@ btnm.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_2.py =====
 from imagetools import get_png_info, open_png
 
 # Register PNG image decoder
@@ -586,7 +646,7 @@ btnm.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_3.py =====
 def event_cb(e):
     obj = e.get_target()
     id = obj.get_selected_btn()
@@ -653,7 +713,7 @@ btnm.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\btnmatrix\lv_example_btnmatrix_3.py =====
 def event_cb(e):
     obj = e.get_target()
     id = obj.get_selected_btn()
@@ -720,7 +780,7 @@ btnm.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\calendar\lv_example_calendar_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\calendar\lv_example_calendar_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CALENDAR && LV_BUILD_EXAMPLES
 
@@ -774,7 +834,7 @@ void lv_example_calendar_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\calendar\lv_example_calendar_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\calendar\lv_example_calendar_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CALENDAR && LV_BUILD_EXAMPLES
 
@@ -828,7 +888,7 @@ void lv_example_calendar_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\index.rst =====
 
 Drawing on the Canvas and rotate
 """"""""""""""""""""""""""""""""""
@@ -844,7 +904,7 @@ Transparent Canvas with chroma keying
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\index.rst =====
 
 Drawing on the Canvas and rotate
 """"""""""""""""""""""""""""""""""
@@ -860,7 +920,7 @@ Transparent Canvas with chroma keying
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_1.py =====
 _CANVAS_WIDTH = 200
 _CANVAS_HEIGHT = 150
 LV_IMG_ZOOM_NONE = 256
@@ -906,7 +966,7 @@ canvas.fill_bg(lv.palette_lighten(lv.PALETTE.GREY, 3), lv.OPA.COVER)
 canvas.transform(img, 30, LV_IMG_ZOOM_NONE, 0, 0, _CANVAS_WIDTH // 2, _CANVAS_HEIGHT // 2, True)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_1.py =====
 _CANVAS_WIDTH = 200
 _CANVAS_HEIGHT = 150
 LV_IMG_ZOOM_NONE = 256
@@ -952,7 +1012,7 @@ canvas.fill_bg(lv.palette_lighten(lv.PALETTE.GREY, 3), lv.OPA.COVER)
 canvas.transform(img, 30, LV_IMG_ZOOM_NONE, 0, 0, _CANVAS_WIDTH // 2, _CANVAS_HEIGHT // 2, True)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_2.py =====
 CANVAS_WIDTH   = 50
 CANVAS_HEIGHT  = 50
 LV_COLOR_CHROMA_KEY = lv.color_hex(0x00ff00)
@@ -998,7 +1058,7 @@ for y in range(10,30):
         canvas.set_px(x, y, c0)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\canvas\lv_example_canvas_2.py =====
 CANVAS_WIDTH   = 50
 CANVAS_HEIGHT  = 50
 LV_COLOR_CHROMA_KEY = lv.color_hex(0x00ff00)
@@ -1044,7 +1104,7 @@ for y in range(10,30):
         canvas.set_px(x, y, c0)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1091,7 +1151,7 @@ void lv_example_chart_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1138,7 +1198,7 @@ void lv_example_chart_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -1271,7 +1331,7 @@ void lv_example_chart_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -1404,7 +1464,7 @@ void lv_example_chart_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1483,7 +1543,7 @@ void lv_example_chart_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1562,7 +1622,7 @@ void lv_example_chart_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_4.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_4.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1650,7 +1710,7 @@ void lv_example_chart_4(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_4.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_4.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -1738,7 +1798,7 @@ void lv_example_chart_4(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_5.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_5.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_USE_SLIDER && LV_BUILD_EXAMPLES
 
@@ -1840,7 +1900,7 @@ void lv_example_chart_5(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_5.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_5.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_USE_SLIDER && LV_BUILD_EXAMPLES
 
@@ -1942,7 +2002,7 @@ void lv_example_chart_5(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_6.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_6.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -2032,7 +2092,7 @@ void lv_example_chart_6(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_6.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_6.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -2122,7 +2182,7 @@ void lv_example_chart_6(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_7.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_7.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -2191,7 +2251,7 @@ void lv_example_chart_7(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_7.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_7.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_BUILD_EXAMPLES
 
@@ -2260,7 +2320,7 @@ void lv_example_chart_7(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_8.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_8.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -2394,7 +2454,7 @@ void lv_example_chart_8(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_8.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_8.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -2528,7 +2588,7 @@ void lv_example_chart_8(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_9.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_9.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -2576,7 +2636,7 @@ void lv_example_chart_9(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_9.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\chart\lv_example_chart_9.c =====
 #include "../../lv_examples.h"
 #if LV_USE_CHART && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -2624,7 +2684,7 @@ void lv_example_chart_9(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\index.rst =====
 
 Simple Checkboxes
 """""""""""""""""
@@ -2639,7 +2699,7 @@ Checkboxes as radio buttons
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\index.rst =====
 
 Simple Checkboxes
 """""""""""""""""
@@ -2654,7 +2714,7 @@ Checkboxes as radio buttons
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\lv_example_checkbox_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\lv_example_checkbox_1.py =====
 def event_handler(e):
     code = e.get_code()
     obj = e.get_target()
@@ -2693,7 +2753,7 @@ cb.update_layout()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\lv_example_checkbox_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\checkbox\lv_example_checkbox_1.py =====
 def event_handler(e):
     code = e.get_code()
     obj = e.get_target()
@@ -2732,7 +2792,7 @@ cb.update_layout()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\index.rst =====
 
 Simple Colorwheel
 """""""""""""""""
@@ -2742,7 +2802,7 @@ Simple Colorwheel
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\index.rst =====
 
 Simple Colorwheel
 """""""""""""""""
@@ -2752,21 +2812,21 @@ Simple Colorwheel
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\lv_example_colorwheel_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\lv_example_colorwheel_1.py =====
 cw = lv.colorwheel(lv.scr_act(), True)
 cw.set_size(200, 200)
 cw.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\lv_example_colorwheel_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\colorwheel\lv_example_colorwheel_1.py =====
 cw = lv.colorwheel(lv.scr_act(), True)
 cw.set_size(200, 200)
 cw.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -2804,7 +2864,7 @@ void lv_example_dropdown_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -2842,7 +2902,7 @@ void lv_example_dropdown_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -2883,7 +2943,7 @@ void lv_example_dropdown_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -2924,7 +2984,7 @@ void lv_example_dropdown_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -2970,7 +3030,7 @@ void lv_example_dropdown_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\dropdown\lv_example_dropdown_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_DROPDOWN && LV_BUILD_EXAMPLES
 
@@ -3016,7 +3076,7 @@ void lv_example_dropdown_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\index.rst =====
 
 Image from variable and symbol
 """""""""""""""""""""""""""""""
@@ -3047,7 +3107,7 @@ Image offset and styling
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\index.rst =====
 
 Image from variable and symbol
 """""""""""""""""""""""""""""""
@@ -3078,7 +3138,7 @@ Image offset and styling
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_1.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3113,7 +3173,7 @@ img2.set_src(lv.SYMBOL.OK + "Accept")
 img2.align_to(img1, lv.ALIGN.OUT_BOTTOM_MID, 0, 20)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_1.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3148,7 +3208,7 @@ img2.set_src(lv.SYMBOL.OK + "Accept")
 img2.align_to(img1, lv.ALIGN.OUT_BOTTOM_MID, 0, 20)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_2.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3221,7 +3281,7 @@ lv.event_send(intense_slider, lv.EVENT.VALUE_CHANGED, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_2.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3294,7 +3354,7 @@ lv.event_send(intense_slider, lv.EVENT.VALUE_CHANGED, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_3.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3358,7 +3418,7 @@ lv.anim_t.start(a2)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_3.py =====
 #!/opt/bin/lv_micropython -i
 import usys as sys
 import lvgl as lv
@@ -3422,7 +3482,7 @@ lv.anim_t.start(a2)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_4.py =====
 from imagetools import get_png_info, open_png
 
 def ofs_y_anim(img, v):
@@ -3476,7 +3536,7 @@ lv.anim_t.start(a)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\img\lv_example_img_4.py =====
 from imagetools import get_png_info, open_png
 
 def ofs_y_anim(img, v):
@@ -3530,7 +3590,7 @@ lv.anim_t.start(a)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\imgbtn\lv_example_imgbtn_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\imgbtn\lv_example_imgbtn_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_IMGBTN && LV_BUILD_EXAMPLES
 
@@ -3574,7 +3634,7 @@ void lv_example_imgbtn_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\imgbtn\lv_example_imgbtn_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\imgbtn\lv_example_imgbtn_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_IMGBTN && LV_BUILD_EXAMPLES
 
@@ -3618,7 +3678,7 @@ void lv_example_imgbtn_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\index.rst =====
 
 Keyboard with text area
 """""""""""""""""""""""
@@ -3628,7 +3688,7 @@ Keyboard with text area
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\index.rst =====
 
 Keyboard with text area
 """""""""""""""""""""""
@@ -3638,7 +3698,7 @@ Keyboard with text area
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\lv_example_keyboard_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\lv_example_keyboard_1.py =====
 def ta_event_cb(e,kb):
     code = e.get_code()
     ta = e.get_target()
@@ -3669,7 +3729,7 @@ kb.set_textarea(ta)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\lv_example_keyboard_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\keyboard\lv_example_keyboard_1.py =====
 def ta_event_cb(e,kb):
     code = e.get_code()
     ta = e.get_target()
@@ -3700,7 +3760,7 @@ kb.set_textarea(ta)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES
 
@@ -3728,7 +3788,7 @@ void lv_example_label_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES
 
@@ -3756,7 +3816,7 @@ void lv_example_label_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES
 
@@ -3795,7 +3855,7 @@ void lv_example_label_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES
 
@@ -3834,7 +3894,7 @@ void lv_example_label_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES && LV_FONT_DEJAVU_16_PERSIAN_HEBREW && LV_FONT_SIMSUN_16_CJK && LV_USE_BIDI
 
@@ -3868,7 +3928,7 @@ void lv_example_label_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_BUILD_EXAMPLES && LV_FONT_DEJAVU_16_PERSIAN_HEBREW && LV_FONT_SIMSUN_16_CJK && LV_USE_BIDI
 
@@ -3902,7 +3962,7 @@ void lv_example_label_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_4.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_4.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_USE_CANVAS && LV_BUILD_EXAMPLES && LV_DRAW_COMPLEX
 
@@ -3968,7 +4028,7 @@ void lv_example_label_4(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_4.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_4.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LABEL && LV_USE_CANVAS && LV_BUILD_EXAMPLES && LV_DRAW_COMPLEX
 
@@ -4034,7 +4094,7 @@ void lv_example_label_4(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_5.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_5.py =====
 #
 # Show customizing the circular scrolling animation of a label with `LV_LABEL_LONG_SCROLL_CIRCULAR` long mode.
 #
@@ -4047,7 +4107,7 @@ label1.align(lv.ALIGN.CENTER, 0, 40)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_5.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\label\lv_example_label_5.py =====
 #
 # Show customizing the circular scrolling animation of a label with `LV_LABEL_LONG_SCROLL_CIRCULAR` long mode.
 #
@@ -4060,7 +4120,7 @@ label1.align(lv.ALIGN.CENTER, 0, 40)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\led\lv_example_led_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\led\lv_example_led_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LED && LV_BUILD_EXAMPLES
 
@@ -4089,7 +4149,7 @@ void lv_example_led_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\led\lv_example_led_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\led\lv_example_led_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LED && LV_BUILD_EXAMPLES
 
@@ -4118,7 +4178,7 @@ void lv_example_led_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\index.rst =====
 
 Simple Line
 """"""""""""""""
@@ -4128,7 +4188,7 @@ Simple Line
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\index.rst =====
 
 Simple Line
 """"""""""""""""
@@ -4138,7 +4198,7 @@ Simple Line
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\lv_example_line_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\lv_example_line_1.py =====
 # Create an array for the points of the line
 line_points = [ {"x":5, "y":5},
                 {"x":70, "y":70},
@@ -4161,7 +4221,7 @@ line1.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\lv_example_line_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\line\lv_example_line_1.py =====
 # Create an array for the points of the line
 line_points = [ {"x":5, "y":5},
                 {"x":70, "y":70},
@@ -4184,7 +4244,7 @@ line1.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LIST && LV_BUILD_EXAMPLES
 static lv_obj_t * list1;
@@ -4240,7 +4300,7 @@ void lv_example_list_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_LIST && LV_BUILD_EXAMPLES
 static lv_obj_t * list1;
@@ -4296,7 +4356,7 @@ void lv_example_list_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_2.c =====
 #include <stdlib.h>
 
 #include "../../lv_examples.h"
@@ -4467,7 +4527,7 @@ void lv_example_list_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\lv_example_list_2.c =====
 #include <stdlib.h>
 
 #include "../../lv_examples.h"
@@ -4638,7 +4698,7 @@ void lv_example_list_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\test.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\test.py =====
 #!/opt/bin/lv_micropython -i
 import lvgl as lv
 import display_driver
@@ -4684,7 +4744,7 @@ btn_close.add_event_cb(event_handler,lv.EVENT.ALL, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\test.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\list\test.py =====
 #!/opt/bin/lv_micropython -i
 import lvgl as lv
 import display_driver
@@ -4730,7 +4790,7 @@ btn_close.add_event_cb(event_handler,lv.EVENT.ALL, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\index.rst =====
 
 Simple Menu
 """"""""""""""""
@@ -4764,7 +4824,7 @@ Complex Menu
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\index.rst =====
 
 Simple Menu
 """"""""""""""""
@@ -4798,7 +4858,7 @@ Complex Menu
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_1.py =====
 # Create a menu object
 menu = lv.menu(lv.scr_act())
 menu.set_size(320, 240)
@@ -4828,7 +4888,7 @@ menu.set_load_page_event(cont, sub_page)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_1.py =====
 # Create a menu object
 menu = lv.menu(lv.scr_act())
 menu.set_size(320, 240)
@@ -4858,7 +4918,7 @@ menu.set_load_page_event(cont, sub_page)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_2.py =====
 def back_event_handler(e):
     obj = e.get_target()
     if menu.back_btn_is_root(obj):
@@ -4896,7 +4956,7 @@ menu.set_load_page_event(cont, sub_page)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_2.py =====
 def back_event_handler(e):
     obj = e.get_target()
     if menu.back_btn_is_root(obj):
@@ -4934,7 +4994,7 @@ menu.set_load_page_event(cont, sub_page)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_3.py =====
 # Create a menu object
 menu = lv.menu(lv.scr_act())
 menu.set_size(320, 240)
@@ -4979,7 +5039,7 @@ menu.set_load_page_event(cont, sub_page_3)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_3.py =====
 # Create a menu object
 menu = lv.menu(lv.scr_act())
 menu.set_size(320, 240)
@@ -5024,7 +5084,7 @@ menu.set_load_page_event(cont, sub_page_3)
 
 menu.set_page(main_page)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_4.py =====
 btn_cnt = 1
 
 def float_btn_event_cb(e):
@@ -5073,7 +5133,7 @@ float_btn.set_style_radius(lv.RADIUS.CIRCLE, 0)
 float_btn.set_style_bg_img_src(lv.SYMBOL.PLUS, 0)
 float_btn.set_style_text_font(lv.theme_get_font_large(float_btn), 0)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\menu\lv_example_menu_4.py =====
 btn_cnt = 1
 
 def float_btn_event_cb(e):
@@ -5122,7 +5182,7 @@ float_btn.set_style_radius(lv.RADIUS.CIRCLE, 0)
 float_btn.set_style_bg_img_src(lv.SYMBOL.PLUS, 0)
 float_btn.set_style_text_font(lv.theme_get_font_large(float_btn), 0)
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\index.rst =====
 
 Simple meter
 """""""""""""""""""""""
@@ -5153,7 +5213,7 @@ Pie chart
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\index.rst =====
 
 Simple meter
 """""""""""""""""""""""
@@ -5184,7 +5244,7 @@ Pie chart
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_1.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5245,7 +5305,7 @@ lv.anim_t.start(a)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_1.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5306,7 +5366,7 @@ lv.anim_t.start(a)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_2.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5378,7 +5438,7 @@ lv.anim_t.start(a3)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_2.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5450,7 +5510,7 @@ lv.anim_t.start(a3)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_3.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5536,7 +5596,7 @@ lv.anim_t.start(a2)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_3.py =====
 #!//opt/bin/lv_micropython -i
 import utime as time
 import lvgl as lv
@@ -5622,7 +5682,7 @@ lv.anim_t.start(a2)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_4.py =====
 #
 # Create a pie chart
 #
@@ -5657,7 +5717,7 @@ meter.set_indicator_end_value(indic3, 100)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_4.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\meter\lv_example_meter_4.py =====
 #
 # Create a pie chart
 #
@@ -5692,7 +5752,7 @@ meter.set_indicator_end_value(indic3, 100)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\msgbox\lv_example_msgbox_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\msgbox\lv_example_msgbox_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_MSGBOX && LV_BUILD_EXAMPLES
 
@@ -5714,7 +5774,7 @@ void lv_example_msgbox_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\msgbox\lv_example_msgbox_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\msgbox\lv_example_msgbox_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_MSGBOX && LV_BUILD_EXAMPLES
 
@@ -5736,7 +5796,7 @@ void lv_example_msgbox_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\index.rst =====
 
 Base objects with custom styles
 """"""""""""""""""""""""""""""""
@@ -5752,7 +5812,7 @@ Make an object draggable
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\index.rst =====
 
 Base objects with custom styles
 """"""""""""""""""""""""""""""""
@@ -5768,7 +5828,7 @@ Make an object draggable
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_1.py =====
 obj1 = lv.obj(lv.scr_act())
 obj1.set_size(100, 50)
 obj1.align(lv.ALIGN.CENTER, -60, -30)
@@ -5785,7 +5845,7 @@ obj2.align(lv.ALIGN.CENTER, 60, 30)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_1.py =====
 obj1 = lv.obj(lv.scr_act())
 obj1.set_size(100, 50)
 obj1.align(lv.ALIGN.CENTER, -60, -30)
@@ -5802,7 +5862,7 @@ obj2.align(lv.ALIGN.CENTER, 60, 30)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_2.py =====
 def drag_event_handler(e):
 
     obj = e.get_target()
@@ -5830,7 +5890,7 @@ label.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\obj\lv_example_obj_2.py =====
 def drag_event_handler(e):
 
     obj = e.get_target()
@@ -5858,7 +5918,7 @@ label.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_BUILD_EXAMPLES
 
@@ -5902,7 +5962,7 @@ void lv_example_roller_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_BUILD_EXAMPLES
 
@@ -5946,7 +6006,7 @@ void lv_example_roller_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_FONT_MONTSERRAT_22 && LV_BUILD_EXAMPLES
 
@@ -6009,7 +6069,7 @@ void lv_example_roller_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_FONT_MONTSERRAT_22 && LV_BUILD_EXAMPLES
 
@@ -6072,7 +6132,7 @@ void lv_example_roller_2(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -6171,7 +6231,7 @@ void lv_example_roller_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_3.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\roller\lv_example_roller_3.c =====
 #include "../../lv_examples.h"
 #if LV_USE_ROLLER && LV_DRAW_COMPLEX && LV_BUILD_EXAMPLES
 
@@ -6270,7 +6330,7 @@ void lv_example_roller_3(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\index.rst =====
 
 Simple Slider
 """""""""""""""""""""""""
@@ -6293,7 +6353,7 @@ Slider with extended drawer
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\index.rst =====
 
 Simple Slider
 """""""""""""""""""""""""
@@ -6316,7 +6376,7 @@ Slider with extended drawer
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_1.py =====
 #
 # A default slider with a label displaying the current value
 #
@@ -6339,7 +6399,7 @@ slider_label.align_to(slider, lv.ALIGN.OUT_BOTTOM_MID, 0, 10)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_1.py =====
 #
 # A default slider with a label displaying the current value
 #
@@ -6362,7 +6422,7 @@ slider_label.align_to(slider, lv.ALIGN.OUT_BOTTOM_MID, 0, 10)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_2.py =====
 #
 # Show how to style a slider.
 #
@@ -6413,7 +6473,7 @@ slider.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_2.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_2.py =====
 #
 # Show how to style a slider.
 #
@@ -6464,7 +6524,7 @@ slider.center()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_3.py =====
 def slider_event_cb(e):
     code = e.get_code()
     obj = e.get_target()
@@ -6510,7 +6570,7 @@ slider.refresh_ext_draw_size()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_3.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\slider\lv_example_slider_3.py =====
 def slider_event_cb(e):
     code = e.get_code()
     obj = e.get_target()
@@ -6556,7 +6616,7 @@ slider.refresh_ext_draw_size()
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\span\lv_example_span_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\span\lv_example_span_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_SPAN && LV_BUILD_EXAMPLES
 
@@ -6617,7 +6677,7 @@ void lv_example_span_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\span\lv_example_span_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\span\lv_example_span_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_SPAN && LV_BUILD_EXAMPLES
 
@@ -6678,7 +6738,7 @@ void lv_example_span_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\index.rst =====
 
 Simple Spinbox
 """""""""""""""""""""""
@@ -6688,7 +6748,7 @@ Simple Spinbox
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\index.rst =====
 
 Simple Spinbox
 """""""""""""""""""""""
@@ -6698,7 +6758,7 @@ Simple Spinbox
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\lv_example_spinbox_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\lv_example_spinbox_1.py =====
 def increment_event_cb(e):
     code = e.get_code()
     if code == lv.EVENT.SHORT_CLICKED or code  == lv.EVENT.LONG_PRESSED_REPEAT:
@@ -6731,7 +6791,7 @@ btn.set_style_bg_img_src(lv.SYMBOL.MINUS, 0)
 btn.add_event_cb(decrement_event_cb, lv.EVENT.ALL, None)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\lv_example_spinbox_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinbox\lv_example_spinbox_1.py =====
 def increment_event_cb(e):
     code = e.get_code()
     if code == lv.EVENT.SHORT_CLICKED or code  == lv.EVENT.LONG_PRESSED_REPEAT:
@@ -6764,7 +6824,7 @@ btn.set_style_bg_img_src(lv.SYMBOL.MINUS, 0)
 btn.add_event_cb(decrement_event_cb, lv.EVENT.ALL, None)
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinner\lv_example_spinner_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinner\lv_example_spinner_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_SPINNER && LV_BUILD_EXAMPLES
 
@@ -6779,7 +6839,7 @@ void lv_example_spinner_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinner\lv_example_spinner_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\spinner\lv_example_spinner_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_SPINNER && LV_BUILD_EXAMPLES
 
@@ -6794,7 +6854,7 @@ void lv_example_spinner_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\index.rst =====
 
 Simple Switch
 """""""""""""""""""""""
@@ -6804,7 +6864,7 @@ Simple Switch
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\index.rst =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\index.rst =====
 
 Simple Switch
 """""""""""""""""""""""
@@ -6814,7 +6874,7 @@ Simple Switch
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\lv_example_switch_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\lv_example_switch_1.py =====
 def event_handler(e):
     code = e.get_code()
     obj = e.get_target()
@@ -6845,7 +6905,7 @@ sw.add_event_cb(event_handler, lv.EVENT.ALL, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\lv_example_switch_1.py =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\switch\lv_example_switch_1.py =====
 def event_handler(e):
     code = e.get_code()
     obj = e.get_target()
@@ -6876,7 +6936,7 @@ sw.add_event_cb(event_handler, lv.EVENT.ALL, None)
 
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_TABLE && LV_BUILD_EXAMPLES
 
@@ -6943,7 +7003,7 @@ void lv_example_table_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_1.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_1.c =====
 #include "../../lv_examples.h"
 #if LV_USE_TABLE && LV_BUILD_EXAMPLES
 
@@ -7010,7 +7070,7 @@ void lv_example_table_1(void)
 #endif
 
 
-===== FILE: C:\Users\6066180\OneDrive - Thomson Reuters Incorporated\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_2.c =====
+===== FILE: C:\Users\Demetrius Mendes\OneDrive\Desktop\DDIno\firmware\managed_components\lvgl__lvgl\examples\widgets\table\lv_example_table_2.c =====
 #include "../../lv_examples.h"
 #if LV_USE_TABLE && LV_BUILD_EXAMPLES
 
