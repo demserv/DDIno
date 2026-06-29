@@ -1,7 +1,7 @@
 // @requirement RF-PLUG-003 Proteção de corrente por plugue via ACS712 20A
 // @requirement RF-PLUG-014 Curto-circuito detectado por ACS712
-#ifndef DRIVER_ACS712_H
-#define DRIVER_ACS712_H
+#ifndef FIRMWARE_DRIVERS_DRIVER_ACS712_H
+#define FIRMWARE_DRIVERS_DRIVER_ACS712_H
 
 #include <stdint.h>
 #include <stdbool.h>

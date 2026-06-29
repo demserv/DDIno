@@ -1,6 +1,6 @@
 // @requirement RF-PLUG-001 Controle de relés P03-P10 via MCP23017 + ULN2803
-#ifndef DRIVER_MCP23017_H
-#define DRIVER_MCP23017_H
+#ifndef FIRMWARE_DRIVERS_DRIVER_MCP23017_H
+#define FIRMWARE_DRIVERS_DRIVER_MCP23017_H
 
 #include <stdint.h>
 #include "driver/i2c.h"

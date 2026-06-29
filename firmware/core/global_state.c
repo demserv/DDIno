@@ -39,17 +39,6 @@ static void mutex_unlock(void)
     }
 }
 
-static const char *state_to_str(system_state_t s)
-{
-    switch (s) {
-        case SYSTEM_STATE_NORMAL:    return "NORMAL";
-        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
-        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
-        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
-        default:                     return "UNKNOWN";
-    }
-}
-
 static event_id_t state_to_event(system_state_t s)
 {
     switch (s) {
@@ -171,14 +160,14 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
     if (next_state < prev && prev != SYSTEM_STATE_EMERGENCY) {
         if (next_state < SYSTEM_STATE_SAFE_OFF) {
             ESP_LOGW(TAG, "Transicao descendente invalida %s->%s",
-                     state_to_str(prev), state_to_str(next_state));
+                     system_state_to_str(prev), system_state_to_str(next_state));
             mutex_unlock();
             return ESP_ERR_INVALID_ARG;
         }
     }
 
     if (!check_antiflap(now_ms)) {
-        ESP_LOGW(TAG, "ANTIFLAP bloqueou %s->%s", state_to_str(prev), state_to_str(next_state));
+        ESP_LOGW(TAG, "ANTIFLAP bloqueou %s->%s", system_state_to_str(prev), system_state_to_str(next_state));
         mutex_unlock();
         return ESP_ERR_INVALID_STATE;
     }
@@ -215,12 +204,12 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
     s_last_transition_ms = now_ms;
     mutex_unlock();
 
-    audit_log_state_change(state_to_str(prev), state_to_str(next_state),
+    audit_log_state_change(system_state_to_str(prev), system_state_to_str(next_state),
                            source_module ? source_module : "global_state_transition");
     event_bus_publish(state_to_event(next_state), NULL);
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s reason=%d alm=%s module=%s ts=%llu",
-             state_to_str(prev), state_to_str(next_state), (int)reason,
+             system_state_to_str(prev), system_state_to_str(next_state), (int)reason,
              source_alm ? source_alm : "-",
              source_module ? source_module : "-",
              (unsigned long long)now_s);

@@ -1,6 +1,6 @@
 // @requirement RF-PLUG-001 Controle de relés via GPIO/MCP23017
-#ifndef DRIVER_RELAY_H
-#define DRIVER_RELAY_H
+#ifndef FIRMWARE_DRIVERS_DRIVER_RELAY_H
+#define FIRMWARE_DRIVERS_DRIVER_RELAY_H
 
 #include <stdbool.h>
 #include <stdint.h>

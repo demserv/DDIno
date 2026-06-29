@@ -1,6 +1,6 @@
 // @requirement RF-TIME-001 DS3231 RTC via I2C como fonte de tempo principal
-#ifndef FIRMWARE_DRIVERS_DS3231_H
-#define FIRMWARE_DRIVERS_DS3231_H
+#ifndef FIRMWARE_DRIVERS_DRIVER_DS3231_H
+#define FIRMWARE_DRIVERS_DRIVER_DS3231_H
 
 #include "esp_err.h"
 #include <stdint.h>

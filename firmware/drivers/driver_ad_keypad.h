@@ -1,7 +1,7 @@
 // @requirement RF-GLOBAL-003 Entrada por keypad como fallback local
 // @requirement RNF-HARDWARE-001 AD Keypad 5V com condicionamento via MCP3208 CH3
-#ifndef DRIVER_AD_KEYPAD_H
-#define DRIVER_AD_KEYPAD_H
+#ifndef FIRMWARE_DRIVERS_DRIVER_AD_KEYPAD_H
+#define FIRMWARE_DRIVERS_DRIVER_AD_KEYPAD_H
 
 #include <stdint.h>
 #include <stdbool.h>

@@ -1,5 +1,5 @@
-#ifndef FIRMWARE_HAL_HAL_SPI_H
-#define FIRMWARE_HAL_HAL_SPI_H
+#ifndef FIRMWARE_HAL_SPI_H
+#define FIRMWARE_HAL_SPI_H
 
 #include "esp_err.h"
 #include "driver/spi_master.h"

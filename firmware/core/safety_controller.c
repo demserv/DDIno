@@ -18,17 +18,6 @@ static const char *TAG = "safety_controller";
 
 static safety_context_t s_ctx;
 
-static const char *state_to_str(system_state_t s)
-{
-    switch (s) {
-        case SYSTEM_STATE_NORMAL:    return "NORMAL";
-        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
-        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
-        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
-        default:                     return "UNKNOWN";
-    }
-}
-
 void safety_controller_init(global_state_t *gs)
 {
     if (!gs) return;
@@ -134,14 +123,14 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     if (gs->system_state == SYSTEM_STATE_SAFE_OFF && gs->restart_in_progress) {
         if (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED) {
             ESP_LOGV(TAG, "RESTART: bloqueada transicao %s->%s durante religamento",
-                     state_to_str(prev), state_to_str(next));
+                     system_state_to_str(prev), system_state_to_str(next));
             return;
         }
     }
 
     if (!check_antiflap(next, now_s * 1000ULL)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
-                 state_to_str(prev), state_to_str(next),
+                 system_state_to_str(prev), system_state_to_str(next),
                  HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
         return;
     }
@@ -181,7 +170,7 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     s_ctx.last_transition_ms = now_s * 1000ULL;
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
-             state_to_str(prev), state_to_str(next),
+             system_state_to_str(prev), system_state_to_str(next),
              in->transition_cause ? in->transition_cause : "N/A");
 }
 

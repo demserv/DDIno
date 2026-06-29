@@ -5,6 +5,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+static inline const char *system_state_to_str(system_state_t s)
+{
+    switch (s) {
+        case SYSTEM_STATE_NORMAL:    return "NORMAL";
+        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
+        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
+        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
+        default:                     return "UNKNOWN";
+    }
+}
+
 typedef enum {
     SYSTEM_STATE_NORMAL = 0,
     SYSTEM_STATE_DEGRADED,
