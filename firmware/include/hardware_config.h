@@ -49,6 +49,8 @@
 // --- Keypad ---
 #define HW_AD_KEYPAD_SUPPLY_MV           (5000U)
 #define HW_AD_KEYPAD_ADC_CONDITIONED     (1U)
+#define HW_AD_KEYPAD_ADC_UP_THRESH_MIN   (100U)
+#define HW_AD_KEYPAD_ADC_UP_THRESH_MAX   (600U)
 
 // --- Environmental ---
 #define HW_AC_PROTOBOARD_FORBIDDEN       (1U)
@@ -116,6 +118,39 @@
 #define HW_UI_BRIGHTNESS_DEFAULT         (100U)
 #define HW_UI_CAROUSEL_INTERVAL_MS       (15000U)
 #define HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS (5000U)
+
+// --- Version strings ---
+#define HW_FW_VERSION_STR                "F1.0.0"
+#define HW_SRS_VERSION_STR               "v3.11-AF.3+AF.4+B12/N+B13/N"
+#define HW_CONFIG_SCHEMA_VERSION_STR     "1.0"
+
+// --- Health check ---
+#define HW_HEALTH_CHECK_INTERVAL_S       (60U)
+
+// --- Heartbeat check cycle interval ---
+#define HW_HEARTBEAT_CHECK_CYCLE_INTERVAL (20U)
+
+// --- Temperature filter window ---
+#define HW_TEMP_FILTER_WINDOW            (3U)
+
+// --- Default sensor values ---
+#define HW_TEMP_DEFAULT_C                (25.0f)
+#define HW_ATO_DEFAULT_ADC               (0)
+
+// --- Grid frequency ---
+#define HW_MAINS_FREQUENCY_HZ            (50U)
+
+// --- Factory reset hold time ---
+#define HW_RESET_HOLD_MS                 (10000U)
+
+// --- Feed snapshot interval ---
+#define HW_FEED_SNAPSHOT_INTERVAL_MS     (5000U)
+
+// --- LED blink interval ---
+#define HW_LED_BLINK_INTERVAL_MS         (500U)
+
+// --- Safety exit stabilization time ---
+#define HW_SAFE_EXIT_STABLE_S            (5U)
 
 // --- Logging ---
 #define HW_SD_LOG_INTERVAL_S             (300U)

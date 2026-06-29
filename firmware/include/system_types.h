@@ -9,7 +9,8 @@ typedef enum {
     SYSTEM_STATE_NORMAL = 0,
     SYSTEM_STATE_DEGRADED,
     SYSTEM_STATE_SAFE_OFF,
-    SYSTEM_STATE_EMERGENCY
+    SYSTEM_STATE_EMERGENCY,
+    SYSTEM_STATE_COUNT
 } system_state_t;
 
 typedef uint32_t alm_category_mask_t;

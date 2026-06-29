@@ -101,9 +101,9 @@ static void init_global_state(void)
     g_gs.system_state = SYSTEM_STATE_NORMAL;
     g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
     g_gs.last_reset_reason = (uint32_t)esp_reset_reason();
-    snprintf(g_gs.fw_version, sizeof(g_gs.fw_version), "F1.0.0");
-    snprintf(g_gs.srs_version, sizeof(g_gs.srs_version), "v3.11-AF.3+AF.4+B12/N+B13/N");
-    snprintf(g_gs.config_schema_version, sizeof(g_gs.config_schema_version), "1.0");
+    snprintf(g_gs.fw_version, sizeof(g_gs.fw_version), "%s", HW_FW_VERSION_STR);
+    snprintf(g_gs.srs_version, sizeof(g_gs.srs_version), "%s", HW_SRS_VERSION_STR);
+    snprintf(g_gs.config_schema_version, sizeof(g_gs.config_schema_version), "%s", HW_CONFIG_SCHEMA_VERSION_STR);
 
     const system_params_storage_t *sys = config_get_system();
     g_gs.wizard_completed = sys->wizard_completed;
@@ -111,7 +111,7 @@ static void init_global_state(void)
     g_gs.feed_active = false;
     g_gs.feed_remaining_s = 0;
     g_gs.feed_state = FEED_STATE_IDLE;
-    g_gs.health_check_interval_s = 60;
+    g_gs.health_check_interval_s = HW_HEALTH_CHECK_INTERVAL_S;
     g_gs.temp_filtered_c = 0.0f;
     g_gs.restart_in_progress = false;
     g_gs.wizard_step = (wizard_step_t)config_get_wizard_step();
@@ -184,7 +184,7 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
     sin.manual_ack_received = true;
-    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+    sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
 
     if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
         ESP_LOGW(TAG, "RESTART: sequencia completa -> NORMAL");
@@ -229,7 +229,7 @@ static void handle_emergency_exit(uint64_t now_s)
     sin.emergency_resolved = true;
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.manual_ack_received = true;
-    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+    sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
         ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
@@ -243,9 +243,9 @@ static void reset_handler_check(uint64_t now_ms)
     static uint64_t s_up_held_start_ms = 0;
 
     reset_state_t rst = reset_handler_get_state();
-    uint16_t adc_val = 4096;
+    uint16_t adc_val = HW_ADC_MAX_COUNT;
     mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_KEYPAD, &adc_val);
-    bool up_pressed = (adc_val >= 100 && adc_val < 600);
+    bool up_pressed = (adc_val >= HW_AD_KEYPAD_ADC_UP_THRESH_MIN && adc_val < HW_AD_KEYPAD_ADC_UP_THRESH_MAX);
 
     if (rst == RESET_STATE_CONFIRM1) {
         if (up_pressed && !s_was_up_held) {
@@ -258,7 +258,7 @@ static void reset_handler_check(uint64_t now_ms)
         if (!s_was_up_held) {
             s_up_held_start_ms = now_ms;
             s_was_up_held = true;
-        } else if (now_ms - s_up_held_start_ms >= 10000) {
+        } else if (now_ms - s_up_held_start_ms >= HW_RESET_HOLD_MS) {
             reset_handler_start();
             s_was_up_held = false;
             s_up_held_start_ms = 0;
@@ -294,8 +294,8 @@ static void reset_handler_check(uint64_t now_ms)
 
 static void read_sensors(float *temp_c, int32_t *ato_level)
 {
-    *temp_c = 25.0f;
-    *ato_level = 0;
+    *temp_c = HW_TEMP_DEFAULT_C;
+    *ato_level = HW_ATO_DEFAULT_ADC;
 
     bool temp_valid = read_temp(temp_c);
     static bool s_temp_was_valid_local = true;
@@ -316,7 +316,7 @@ static void read_sensors(float *temp_c, int32_t *ato_level)
 static void update_plug_currents(float *plug_currents)
 {
     if (!circuit_breaker_is_available(CB_BUS_SPI_ADC)) return;
-    for (uint8_t plug = 1; plug <= 10; plug++) {
+    for (uint8_t plug = 1; plug <= HW_RELAY_COUNT_MAX; plug++) {
         float cur = 0;
         acs712_read_plug(plug, &cur);
         plug_currents[plug - 1] = cur;
@@ -340,8 +340,8 @@ static void update_energy_accumulators(const float *plug_currents)
 {
     double total_wh = 0;
     float voltage = (g_pzem.valid && g_pzem.voltage_v > 0.0f) ? g_pzem.voltage_v : (float)config_get_system()->mains_voltage;
-    for (uint8_t p = 1; p <= 10; p++) {
-        cdn_energy_update(p, plug_currents[p-1], voltage, 50);
+    for (uint8_t p = 1; p <= HW_RELAY_COUNT_MAX; p++) {
+        cdn_energy_update(p, plug_currents[p-1], voltage, HW_MAINS_FREQUENCY_HZ);
         total_wh += cdn_energy_get_wh(p);
     }
     g_pzem.energy_wh = (float)total_wh;
@@ -352,7 +352,7 @@ static void update_feed_snapshot(uint64_t now_ms, uint64_t now_s)
     static uint64_t s_last_feed_snap_ms = 0;
     feed_state_t fst = feed_fsm_get_state(&s_feed_fsm);
     if ((fst == FEED_STATE_ACTIVE || fst == FEED_STATE_COOLDOWN) &&
-        (now_ms - s_last_feed_snap_ms > 5000)) {
+        (now_ms - s_last_feed_snap_ms > HW_FEED_SNAPSHOT_INTERVAL_MS)) {
         feed_snapshot_save(&s_feed_fsm, now_s, g_gs.time_valid);
         s_last_feed_snap_ms = now_ms;
     } else if (fst == FEED_STATE_IDLE && s_last_feed_snap_ms != 0) {
@@ -378,7 +378,7 @@ static void update_led_signaling(uint64_t now_ms)
     static bool s_blink_on = false;
 
     if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
-        if (now_ms - s_last_blink_ms > 500) {
+        if (now_ms - s_last_blink_ms > HW_LED_BLINK_INTERVAL_MS) {
             s_blink_on = !s_blink_on;
             s_last_blink_ms = now_ms;
             if (s_blink_on) led_all_on();
@@ -463,8 +463,8 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
 
     if (g_gs.system_state != *prev_state) {
         static const char *state_names[] = {"NORMAL","DEGRADED","SAFE_OFF","EMERGENCY"};
-        const char *from_s = (*prev_state < 4) ? state_names[*prev_state] : "?";
-        const char *to_s = (g_gs.system_state < 4) ? state_names[g_gs.system_state] : "?";
+        const char *from_s = (*prev_state < SYSTEM_STATE_COUNT) ? state_names[*prev_state] : "?";
+        const char *to_s = (g_gs.system_state < SYSTEM_STATE_COUNT) ? state_names[g_gs.system_state] : "?";
         audit_log_state_change(from_s, to_s, sin.transition_cause);
         if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
             ui_carousel_pause();
@@ -504,7 +504,7 @@ static void task_safety_core_fn(void *pv)
         health_matrix_update();
 
         s_heartbeat_check_cycle++;
-        if (s_heartbeat_check_cycle % 20 == 0) {
+        if (s_heartbeat_check_cycle % HW_HEARTBEAT_CHECK_CYCLE_INTERVAL == 0) {
             for (int i = 0; i < TASK_ID_COUNT; i++) {
                 if (i == TASK_ID_SAFETY_CORE) continue;
                 if (i == TASK_ID_DIAG && !watchdog_guard_get_heartbeat(i)) continue;
@@ -537,7 +537,7 @@ static void task_safety_core_fn(void *pv)
             wdt_advanced_reset(TASK_ID_SAFETY_CORE);
             feed_fsm_update(&s_feed_fsm, now_ms);
             lv_timer_handler();
-            vTaskDelay(pdMS_TO_TICKS(50));
+            vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
             continue;
         }
 
@@ -548,9 +548,9 @@ static void task_safety_core_fn(void *pv)
             handle_safeoff_exit(now_s, now_ms);
         }
 
-        float temp_c = 25.0f;
-        int32_t ato_level = 0;
-        float plug_currents[10] = {0};
+        float temp_c = HW_TEMP_DEFAULT_C;
+        int32_t ato_level = HW_ATO_DEFAULT_ADC;
+        float plug_currents[HW_RELAY_COUNT_MAX] = {0};
 
         read_sensors(&temp_c, &ato_level);
 
@@ -566,7 +566,7 @@ static void task_safety_core_fn(void *pv)
         };
 
         if (!g_gs.wizard_completed) {
-            vTaskDelay(pdMS_TO_TICKS(50));
+            vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
             continue;
         }
 
@@ -581,7 +581,7 @@ static void task_safety_core_fn(void *pv)
         ein.sample_valid = g_pzem.valid;
         ein.total_power_w = g_pzem.power_w;
         ein.total_energy_wh = g_pzem.energy_wh;
-        ein.plug_count = 10;
+        ein.plug_count = HW_RELAY_COUNT_MAX;
         ein.voltage_v = g_pzem.voltage_v;
         ein.frequency_hz = g_pzem.frequency_hz;
         ein.pf = g_pzem.pf;
@@ -617,7 +617,7 @@ static void task_safety_core_fn(void *pv)
         log_energy_if_due(now_s);
         update_led_signaling(now_ms);
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
     }
 }
 
@@ -626,9 +626,9 @@ static void task_sensors_fn(void *pv)
     (void)pv;
     ESP_LOGI(TAG, "sensors task iniciada");
 
-    float temp_c = 25.0f;
-    int32_t ato_level = 0;
-    float plug_currents[10] = {0};
+    float temp_c = HW_TEMP_DEFAULT_C;
+    int32_t ato_level = HW_ATO_DEFAULT_ADC;
+    float plug_currents[HW_RELAY_COUNT_MAX] = {0};
 
     while (1) {
         wdt_advanced_reset(TASK_ID_SENSORS);
@@ -768,7 +768,7 @@ void app_main(void)
     acs712_init();
     {
         const calibration_params_storage_t *cp = config_get_calibration();
-        for (uint8_t p = 1; p <= 10; p++) {
+        for (uint8_t p = 1; p <= HW_RELAY_COUNT_MAX; p++) {
             acs712_set_zero_offset(p, cp->acs712_zero_offset_mv[p - 1]);
         }
         ESP_LOGI(TAG, "Calibracao: offsets ACS712 aplicados da NVS");
@@ -826,7 +826,7 @@ void app_main(void)
     thermal_fsm_init(&s_thermal_fsm, &s_tcfg);
     ato_fsm_init(&s_ato_fsm, &s_acfg);
     electric_fsm_init(&s_electric_fsm, &s_ecfg);
-    temp_filter_init(3);
+    temp_filter_init(HW_TEMP_FILTER_WINDOW);
     plug_manager_init();
     const feed_params_storage_t *fp = config_get_feed();
     feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
