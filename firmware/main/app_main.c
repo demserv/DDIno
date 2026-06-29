@@ -1,3 +1,8 @@
+// @requirement RF-FLOW-BOOT-001 Ponto de entrada principal do firmware
+// @requirement RF-FLOW-BOOT-002 Inicializacao sequencial de modulos
+// @requirement RF-FLOW-BOOT-003 Self-test no boot com fallback SAFE_OFF
+// @requirement RF-FLOW-BOOT-004 Restauracao de estado apos reset
+// @requirement RF-MAINTENANCE-001 Modo de manutencao via wizard
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
