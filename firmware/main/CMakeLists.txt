@@ -119,6 +119,23 @@ set(MAIN_SRCS
     "ui/hmi/screens/ui_screen_logs.c"
     "ui/hmi/screens/ui_screen_wizard.c"
     "ui/hmi/screens/ui_screen_ato.c"
+
+    # NC-04: Task modules separados
+    "task_web.c"
+    "ui_task.c"
+
+    # NC-05: Log handler e API sensors
+    "log_handler.c"
+    "api_sensors_handler.c"
+
+    # NC-03: LVGL mutex module
+    "ui/hmi/ui_lvgl_mutex.c"
+
+    # NC-10: Config staging
+    "../services/config_staging.c"
+
+    # NC-09: ACK critico extenso
+    "../services/alert_manager_ext.c"
 )
 
 set(MAIN_INCLUDE_DIRS

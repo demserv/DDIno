@@ -1,0 +1,71 @@
+{
+  "$schema": "./evidence/evidence_schema.json",
+  "release_gate_id": "RG-v1.0.0",
+  "target_firmware": "F1.0.0",
+  "target_srs": "v3.11-AF.3+AF.4+B12/N+B13/N",
+  "date": "",
+  "gates": [
+    {
+      "id": "GATE-001",
+      "name": "Self-Test Boot",
+      "description": "Self-test de hardware na inicializacao deve passar (ou sistema entra em SAFE_OFF/DEGRADED)",
+      "evidence_ref": "EV-SELFTEST-001",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-002",
+      "name": "Wizard Completo",
+      "description": "Wizard de configuracao inicial deve ser concluido antes de habilitar automacao",
+      "evidence_ref": "EV-WIZARD-001",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-003",
+      "name": "Failsafe AC",
+      "description": "Todos os itens da AC_SAFETY_CHECKLIST devem ser COMPLIANT",
+      "evidence_ref": "docs/AC_SAFETY_CHECKLIST.md",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-004",
+      "name": "Circuit Breaker Recovery",
+      "description": "Todos os circuit breakers devem demonstrar recuperacao apos falha",
+      "evidence_ref": "qa/tests/TC-CB-*",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-005",
+      "name": "Alertas Criticos ACK",
+      "description": "Alertas criticos exigem confirmacao em dois estagios",
+      "evidence_ref": "TC-ALERT-CRITICAL-ACK-001",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-006",
+      "name": "SAFE_OFF Persistente",
+      "description": "Estado SAFE_OFF sobrevive a reboot (NVS), alarme de origem re-levantado",
+      "evidence_ref": "TC-SAFEOFF-PERSIST-001",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-007",
+      "name": "OTA AppVeto",
+      "description": "Confirmacao de que OTA via app esta desabilitada (deferida para bootloader externo)",
+      "evidence_ref": "docs/ADR_OTA_DEFERRED.md",
+      "status": "NOT_TESTED"
+    },
+    {
+      "id": "GATE-008",
+      "name": "Audit Corpus Clean",
+      "description": "Corpus de auditoria livre de third-party code nao declarado",
+      "evidence_ref": "scripts/audit_corpus_check.py",
+      "status": "NOT_TESTED"
+    }
+  ],
+  "overall_status": "NOT_TESTED",
+  "signoff": {
+    "engineer": "",
+    "date": "",
+    "notes": ""
+  }
+}

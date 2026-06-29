@@ -1,0 +1,18 @@
+{
+  "evidence_id": "EV-HW-FAILSAFE-001",
+  "test_case_ref": "TC-HW-FAILSAFE-001",
+  "requirement_refs": [
+    "RNF-SAFETY-AC",
+    "RF-GLOBAL-004",
+    "RF-GLOBAL-005"
+  ],
+  "status": "NOT_TESTED",
+  "verification_date": "",
+  "verifier": "",
+  "method": "MANUAL",
+  "results": {
+    "summary": "Preencher apos execucao do teste TC-HW-FAILSAFE-001 em hardware real. Verificar: (1) religamento automatico apos queda de energia, (2) rees inicializam em OFF, (3) estado SAFE_OFF persiste apos reboot, (4) watchdog nao causa falso positivo."
+  },
+  "attachments": [],
+  "notes": "Este teste requer hardware real (ESP32-S3 + modulo de reles + PSU 5V). Nao aplicavel em simulacao."
+}

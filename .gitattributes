@@ -1,0 +1,10 @@
+# Audit corpus: exclude third-party and generated files from audit line counts
+managed_components/** linguist-vendored
+firmware/managed_components/** linguist-vendored
+components/lvgl/** linguist-vendored
+build/** linguist-vendored
+sdkconfig linguist-vendored
+*.bin linguist-vendored
+*.uf2 linguist-vendored
+*.hex linguist-vendored
+partitions.csv linguist-vendored

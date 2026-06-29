@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evidence Schema",
+  "description": "Schema for audit evidence files in qa/evidence/",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "test_case_ref",
+    "requirement_refs",
+    "status",
+    "verification_date",
+    "verifier",
+    "method",
+    "results"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Unique evidence identifier (e.g. EV-HW-FAILSAFE-001)"
+    },
+    "test_case_ref": {
+      "type": "string",
+      "description": "Reference to the test case that produced this evidence"
+    },
+    "requirement_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of SRS requirement identifiers covered"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "BLOCKED", "NOT_TESTED"]
+    },
+    "verification_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verifier": {
+      "type": "string",
+      "description": "Name or ID of the verifier"
+    },
+    "method": {
+      "type": "string",
+      "enum": ["AUTOMATED", "MANUAL", "SEMI_AUTOMATED", "INSPECTION"]
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" },
+        "logs_attached": { "type": "array", "items": { "type": "string" } },
+        "measurements": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "screenshots": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["summary"]
+    },
+    "attachments": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
