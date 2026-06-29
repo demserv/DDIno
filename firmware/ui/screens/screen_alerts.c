@@ -23,7 +23,7 @@ static void screen_update_alerts(void);
 static void ack_btn_cb(lv_event_t *e)
 {
     (void)e;
-    uint64_t now = esp_timer_get_time() / 1000000ULL;
+    uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
     bool has_critical = false;
     for (int16_t id = 1; id <= 65; id++) {
         if (!alert_manager_is_active(id)) continue;

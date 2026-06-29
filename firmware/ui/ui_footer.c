@@ -1,6 +1,7 @@
 // @requirement RF-UI-STATUS-001 Footer grafico com status geral, uptime e alertas
 #include "ui_footer.h"
 #include "global_state.h"
+#include "hardware_config.h"
 #include "lvgl.h"
 #include "esp_log.h"
 
@@ -80,9 +81,9 @@ void ui_footer_update(void)
     lv_obj_set_style_text_color(status_label, status_color, 0);
 
     uint64_t uptime = g_gs.uptime_s;
-    uint64_t h = uptime / 3600;
-    uint64_t m = (uptime % 3600) / 60;
-    uint64_t s = uptime % 60;
+    uint64_t h = uptime / SECS_PER_HOUR;
+    uint64_t m = (uptime % SECS_PER_HOUR) / SECS_PER_MINUTE;
+    uint64_t s = uptime % SECS_PER_MINUTE;
     char uptime_buf[32];
     snprintf(uptime_buf, sizeof(uptime_buf), "%lluh %02llum %02llus",
              (unsigned long long)h, (unsigned long long)m, (unsigned long long)s);

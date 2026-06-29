@@ -1,6 +1,7 @@
 // @requirement RF-UI-INPUT-001 Entrada por keypad AD 5 botões
 // @requirement RNF-HARDWARE-001 Keypad via MCP3208 CH3
 #include "ui_keypad.h"
+#include "hardware_config.h"
 #include "pin_map.h"
 #include "driver_mcp3208.h"
 
@@ -16,20 +17,20 @@ static int last_key = LV_KEY_ENTER;
 
 static int map_adc_to_lvgl_key(uint16_t adc_value)
 {
-    if (adc_value < 100) return 0;
-    if (adc_value < 600) return LV_KEY_UP;
-    if (adc_value < 1200) return LV_KEY_DOWN;
-    if (adc_value < 1800) return LV_KEY_LEFT;
-    if (adc_value < 2400) return LV_KEY_RIGHT;
-    if (adc_value < 3000) return LV_KEY_ENTER;
-    if (adc_value < 3600) return LV_KEY_ESC;
+    if (adc_value < HW_KEY_ADC_THRESH_NOISE) return 0;
+    if (adc_value < HW_KEY_ADC_THRESH_UP) return LV_KEY_UP;
+    if (adc_value < HW_KEY_ADC_THRESH_DOWN) return LV_KEY_DOWN;
+    if (adc_value < HW_KEY_ADC_THRESH_LEFT) return LV_KEY_LEFT;
+    if (adc_value < HW_KEY_ADC_THRESH_RIGHT) return LV_KEY_RIGHT;
+    if (adc_value < HW_KEY_ADC_THRESH_ENTER) return LV_KEY_ENTER;
+    if (adc_value < HW_KEY_ADC_THRESH_ESC) return LV_KEY_ESC;
     return 0x80;
 }
 
 bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-    uint32_t now = esp_timer_get_time() / 1000;
-    if (now - last_key_time < 100) {
+    uint32_t now = esp_timer_get_time() / USEC_PER_MSEC;
+    if (now - last_key_time < HW_KEY_DEBOUNCE_MS) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
         return false;

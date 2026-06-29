@@ -126,9 +126,9 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
                 }
                 case PLUG_MODE_DELAY: {
                     bool requested = relay_get(p->id);
-                    uint64_t now_ms = now_s * 1000ULL;
+                    uint64_t now_ms = now_s * MS_PER_SEC;
                     uint64_t elapsed = now_ms - s_last_toggle_ms[i];
-                    if (elapsed < (uint64_t)p->delay_seconds * 1000ULL) {
+                    if (elapsed < (uint64_t)p->delay_seconds * MS_PER_SEC) {
                         target_on = !requested;
                     } else {
                         target_on = requested;
@@ -144,7 +144,7 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
         bool current = relay_get(p->id);
         if (target_on != current) {
             relay_set(p->id, target_on);
-            s_last_toggle_ms[i] = now_s * 1000ULL;
+            s_last_toggle_ms[i] = now_s * MS_PER_SEC;
         }
 
         p->effective_state = target_on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
@@ -161,7 +161,7 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
                     alert_manager_raise_full((int16_t)ALM_054, ALERT_SEVERITY_HIGH,
                         ALERT_CATEGORY_PROCESS, msg, p->current_a,
                         "Check relay and wiring", (uint16_t)p->id,
-                        true, true, now_s * 1000ULL);
+                        true, true, now_s * MS_PER_SEC);
                 }
             } else {
                 s_bypass_sample_count[i] = 0;
@@ -178,7 +178,7 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
                 alert_manager_raise_full((int16_t)ALM_057, ALERT_SEVERITY_WARNING,
                     ALERT_CATEGORY_PROCESS, msg, p->energy_wh_today,
                     "Check consumption", (uint16_t)p->id,
-                    true, false, now_s * 1000ULL);
+                    true, false, now_s * MS_PER_SEC);
             }
         }
     }
@@ -227,10 +227,10 @@ esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms)
     if (now_ms > 0) {
         uint64_t elapsed = now_ms - s_last_toggle_ms[id - 1];
         if (on) {
-            if (elapsed < (uint64_t)p->min_off_time_s * 1000ULL)
+            if (elapsed < (uint64_t)p->min_off_time_s * MS_PER_SEC)
                 return ESP_ERR_INVALID_STATE;
         } else {
-            if (elapsed < (uint64_t)p->min_on_time_s * 1000ULL)
+            if (elapsed < (uint64_t)p->min_on_time_s * MS_PER_SEC)
                 return ESP_ERR_INVALID_STATE;
         }
     }

@@ -5,6 +5,7 @@
 // @requirement RF-FSM-ELECTRIC-001 FSM de proteção elétrica
 // @requirement RNF-ELECTRICAL-002 Hierarquia de proteções elétricas
 #include "services/electric_fsm.h"
+#include "hardware_config.h"
 #include <string.h>
 
 static void electric_reset_output(electric_output_t *o)
@@ -71,7 +72,7 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
         if (fsm->overvoltage_start_ms == 0) {
             fsm->overvoltage_start_ms = in->now_ms;
         }
-        uint64_t elapsed = (in->now_ms - fsm->overvoltage_start_ms) / 1000ULL;
+        uint64_t elapsed = (in->now_ms - fsm->overvoltage_start_ms) / MS_PER_SEC;
         if (elapsed >= fsm->cfg.overvoltage_time_s) {
             fsm->out.state = ELECTRIC_STATE_OVERVOLTAGE;
             fsm->out.force_safe_off = true;
@@ -89,7 +90,7 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
         if (fsm->undervoltage_start_ms == 0) {
             fsm->undervoltage_start_ms = in->now_ms;
         }
-        uint64_t elapsed = (in->now_ms - fsm->undervoltage_start_ms) / 1000ULL;
+        uint64_t elapsed = (in->now_ms - fsm->undervoltage_start_ms) / MS_PER_SEC;
         if (elapsed >= fsm->cfg.undervoltage_time_s) {
             fsm->out.state = ELECTRIC_STATE_UNDERVOLTAGE;
             fsm->out.force_safe_off = true;
@@ -116,7 +117,7 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
         if (fsm->pf_low_start_ms == 0) {
             fsm->pf_low_start_ms = in->now_ms;
         }
-        uint64_t elapsed = (in->now_ms - fsm->pf_low_start_ms) / 1000ULL;
+        uint64_t elapsed = (in->now_ms - fsm->pf_low_start_ms) / MS_PER_SEC;
         if (elapsed >= fsm->cfg.pf_time_s) {
             fsm->out.state = ELECTRIC_STATE_SENSOR_FAIL;
             fsm->out.suggested_alm = ALM_058;

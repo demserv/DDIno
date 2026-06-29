@@ -86,7 +86,7 @@ static void alert_ack_event_cb(lv_event_t *e)
 {
     if (!e) return;
     if (g_gs.hw_alert_pending && g_gs.hw_alert_alm_id > 0) {
-        uint64_t now = esp_timer_get_time() / 1000000ULL;
+        uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
         alert_manager_ack((int16_t)g_gs.hw_alert_alm_id, now);
         audit_log_event(AUDIT_SAFE_OFF, "HW alert acknowledged by user");
         g_gs.hw_alert_pending = false;
@@ -109,7 +109,7 @@ static void restart_timeout(void)
 void ui_screen_notify_activity(void)
 {
     restart_timeout();
-    s_last_interaction_ms = esp_timer_get_time() / 1000;
+    s_last_interaction_ms = esp_timer_get_time() / USEC_PER_MSEC;
 }
 
 void ui_screen_register(screen_id_t id, screen_init_fn_t init, screen_update_fn_t update)
@@ -441,7 +441,7 @@ void ui_screen_update_all(void)
         if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) return;
         if (!g_gs.wizard_completed) return;
         if (s_carousel_paused) return;
-        uint64_t now_ms = esp_timer_get_time() / 1000;
+        uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
         if (now_ms - s_last_interaction_ms < HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS) return;
         if (now_ms - s_last_carousel_ms > s_carousel_interval_ms) {
             carousel_advance();
@@ -476,7 +476,7 @@ void ui_carousel_pause(void)
 void ui_carousel_resume(void)
 {
     s_carousel_paused = false;
-    s_last_carousel_ms = esp_timer_get_time() / 1000;
+    s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
 }
 
 bool ui_carousel_is_paused(void)

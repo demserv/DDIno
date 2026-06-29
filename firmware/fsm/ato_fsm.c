@@ -108,7 +108,7 @@ void ato_fsm_update(ato_fsm_t *fsm, const ato_input_t *in)
         }
 
         const uint64_t elapsed_ms = in->now_ms - fsm->refill_started_ms;
-        if (elapsed_ms > ((uint64_t)fsm->cfg.refill_timeout_s * 1000ULL)) {
+        if (elapsed_ms > ((uint64_t)fsm->cfg.refill_timeout_s * MS_PER_SEC)) {
             fsm->blocked_latched = true;
             fsm->out.state = ATO_STATE_BLOCKED;
             fsm->out.pump_request_on = false;

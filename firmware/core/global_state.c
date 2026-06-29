@@ -64,8 +64,8 @@ static event_id_t state_to_event(system_state_t s)
 static bool check_antiflap(uint64_t now_ms)
 {
     const antiflap_params_storage_t *cfg = config_get_antiflap();
-    uint32_t cooldown_ms = cfg->cooldown_reentrada_s * 1000U;
-    uint32_t window_ms = cfg->janela_flap_s * 1000U;
+    uint32_t cooldown_ms = cfg->cooldown_reentrada_s * MS_PER_SEC;
+    uint32_t window_ms = cfg->janela_flap_s * MS_PER_SEC;
     uint32_t max_trans = cfg->max_transicoes_flap;
 
     if (s_last_transition_ms > 0 && (now_ms - s_last_transition_ms) < cooldown_ms) {
@@ -152,7 +152,7 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
         return ESP_ERR_INVALID_STATE;
     }
 
-    uint64_t now_ms = now_s * 1000ULL;
+    uint64_t now_ms = now_s * MS_PER_SEC;
 
     mutex_lock();
     system_state_t prev = s_gs->system_state;

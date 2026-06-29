@@ -184,7 +184,7 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
     sin.manual_ack_received = true;
-    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+    sin.cause_resolved_at_ms = (now_s - 5) * MS_PER_SEC;
 
     if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
         ESP_LOGW(TAG, "RESTART: sequencia completa -> NORMAL");
@@ -229,7 +229,7 @@ static void handle_emergency_exit(uint64_t now_s)
     sin.emergency_resolved = true;
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.manual_ack_received = true;
-    sin.cause_resolved_at_ms = (now_s - 5) * 1000ULL;
+    sin.cause_resolved_at_ms = (now_s - 5) * MS_PER_SEC;
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
         ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
@@ -493,8 +493,8 @@ static void task_safety_core_fn(void *pv)
     static uint32_t s_heartbeat_check_cycle = 0;
 
     while (1) {
-        const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
-        const uint64_t now_s = now_ms / 1000ULL;
+        const uint64_t now_ms = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
+        const uint64_t now_s = now_ms / MS_PER_SEC;
 
         wdt_advanced_reset(TASK_ID_SAFETY_CORE);
         watchdog_guard_heartbeat(TASK_ID_SAFETY_CORE);
@@ -716,7 +716,7 @@ static void task_diag_fn(void *pv)
         wdt_advanced_reset(TASK_ID_DIAG);
         watchdog_guard_heartbeat(TASK_ID_DIAG);
 
-        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / USEC_PER_SEC);
         if (now_s - last_health_s >= g_gs.health_check_interval_s) {
             health_matrix_update();
             g_gs.last_health_check_timestamp = now_s;
@@ -744,9 +744,9 @@ void app_main(void)
     {
         const restart_params_storage_t *rp = config_get_restart();
         restart_cfg_t rcfg = {
-            .wait_time_ms = rp->tempo_espera_religamento_s * 1000U,
-            .stagger_interval_ms = rp->intervalo_religamento_s * 1000U,
-            .monitor_time_ms = rp->tempo_monitoramento_pos_relig_s * 1000U
+            .wait_time_ms = rp->tempo_espera_religamento_s * MS_PER_SEC,
+            .stagger_interval_ms = rp->intervalo_religamento_s * MS_PER_SEC,
+            .monitor_time_ms = rp->tempo_monitoramento_pos_relig_s * MS_PER_SEC
         };
         restart_fsm_init(&g_restart_fsm, &rcfg);
     }
@@ -831,7 +831,7 @@ void app_main(void)
     const feed_params_storage_t *fp = config_get_feed();
     feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
     {
-        uint64_t boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        uint64_t boot_ms = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
         esp_err_t snap_err = feed_snapshot_restore(&s_feed_fsm, 0, boot_ms, g_gs.time_valid);
         if (snap_err == ESP_OK && s_feed_fsm.state != FEED_STATE_IDLE) {
             ESP_LOGW(TAG, "Feed snapshot restored (state=%d)", (int)s_feed_fsm.state);
@@ -889,7 +889,7 @@ void app_main(void)
     }
 
     if (!g_gs.selftest_passed || !g_gs.hw_ok) {
-        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / USEC_PER_SEC);
         if (!g_gs.hw_ok) {
             ESP_LOGE(TAG, "CRITICAL SELF-TEST FALHOU! Hardware critico com problemas -> SAFE_OFF + ALM-063");
             global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_SELFTEST_FAIL, "ALM-063",

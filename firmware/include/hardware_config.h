@@ -120,4 +120,29 @@
 // --- Logging ---
 #define HW_SD_LOG_INTERVAL_S             (300U)
 
+// Time conversion helpers
+#define MS_PER_SEC        1000UL
+#define USEC_PER_MSEC     1000ULL
+#define USEC_PER_SEC      1000000ULL
+#define SECS_PER_HOUR     3600UL
+#define SECS_PER_MINUTE   60UL
+
+// --- UI task ---
+#define HW_UI_TASK_MUTEX_TIMEOUT_MS  100
+
+// --- Display ---
+#define HW_DISP_BRIGHTNESS_MAX_PCT  100
+#define HW_TFT_RESET_PULSE_MS       10
+#define HW_TFT_INIT_DELAY_MS        120
+
+// --- Keypad ---
+#define HW_KEY_DEBOUNCE_MS          100
+#define HW_KEY_ADC_THRESH_NOISE     100
+#define HW_KEY_ADC_THRESH_UP        600
+#define HW_KEY_ADC_THRESH_DOWN      1200
+#define HW_KEY_ADC_THRESH_LEFT      1800
+#define HW_KEY_ADC_THRESH_RIGHT     2400
+#define HW_KEY_ADC_THRESH_ENTER     3000
+#define HW_KEY_ADC_THRESH_ESC       3600
+
 #endif

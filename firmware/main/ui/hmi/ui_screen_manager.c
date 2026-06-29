@@ -139,7 +139,7 @@ void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm)
     lv_obj_clear_flag(g_content_root, LV_OBJ_FLAG_SCROLLABLE);
 
     register_screens();
-    s_last_carousel_ms = esp_timer_get_time() / 1000ULL;
+    s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
     s_last_interaction_ms = s_last_carousel_ms;
 
     ui_screen_manager_show(UI_SCREEN_DASHBOARD);
@@ -193,7 +193,7 @@ ui_screen_id_t ui_screen_manager_get_current(void)
 
 void ui_screen_manager_on_user_interaction(void)
 {
-    s_last_interaction_ms = esp_timer_get_time() / 1000ULL;
+    s_last_interaction_ms = esp_timer_get_time() / USEC_PER_MSEC;
     s_carousel_paused = true;
 }
 
@@ -205,7 +205,7 @@ void ui_screen_manager_carousel_pause(void)
 void ui_screen_manager_carousel_resume(void)
 {
     s_carousel_paused = false;
-    s_last_carousel_ms = esp_timer_get_time() / 1000ULL;
+    s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
 }
 
 void ui_screen_manager_tick(void)
@@ -214,7 +214,7 @@ void ui_screen_manager_tick(void)
         return;
     }
 
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     if (now_ms - s_last_interaction_ms < HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS) {
         return;
     }

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hardware_config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "task_manager.h"
@@ -23,7 +24,7 @@ void task_ui_fn(void *pv)
         wdt_advanced_reset(TASK_ID_UI);
         watchdog_guard_heartbeat(TASK_ID_UI);
 
-        if (ui_lvgl_mutex_take(pdMS_TO_TICKS(100))) {
+        if (ui_lvgl_mutex_take(pdMS_TO_TICKS(HW_UI_TASK_MUTEX_TIMEOUT_MS))) {
             ui_screen_update_all();
             ui_app_tick();
             lv_timer_handler();

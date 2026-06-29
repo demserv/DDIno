@@ -31,7 +31,7 @@ esp_err_t audit_log_event(audit_event_type_t type, const char *msg)
     uint64_t now_us = esp_timer_get_time();
     char line[256];
     snprintf(line, sizeof(line), "[%llu] [%s] %s",
-             (unsigned long long)(now_us / 1000000ULL),
+             (unsigned long long)(now_us / USEC_PER_SEC),
              event_type_str(type), msg);
     return storage_sd_write_log(SD_LOG_TYPE_AUDIT, line);
 }
