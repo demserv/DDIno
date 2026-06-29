@@ -102,7 +102,7 @@ static void restart_timeout(void)
 {
     if (timeout_active) {
         esp_timer_stop(screen_timeout_timer);
-        esp_timer_start_once(screen_timeout_timer, 60 * 1000 * 1000);
+        esp_timer_start_once(screen_timeout_timer, HW_UI_SCREEN_TIMEOUT_S * 1000 * 1000);
     }
 }
 

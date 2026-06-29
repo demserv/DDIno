@@ -117,7 +117,21 @@
 #define HW_UI_CAROUSEL_INTERVAL_MS       (15000U)
 #define HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS (5000U)
 
+// --- Feed FSM ---
+#define HW_FEED_PUMP_MASK_DEFAULT        (0x0FU)
+
+// --- Default display config ---
+#define HW_DISP_BRIGHTNESS_DEFAULT       (80U)
+#define HW_DISP_CONTRAST_DEFAULT         (50U)
+
 // --- Logging ---
 #define HW_SD_LOG_INTERVAL_S             (300U)
+
+// --- Web API ---
+#define HW_API_TOKEN_EXPIRY_S            (3600U)
+#define HW_API_AUTH_FAIL_TRACKERS        (8U)
+
+// --- UI ---
+#define HW_UI_SCREEN_TIMEOUT_S           (60U)
 
 #endif

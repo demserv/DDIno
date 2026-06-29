@@ -135,7 +135,7 @@ esp_err_t feed_snapshot_restore(feed_fsm_t *fsm, uint64_t rtc_now_s, uint64_t bo
 
     if (snap.feed_count_1h > 0) {
         uint64_t window_elapsed_s = rtc_now_s - snap.window_start_1h_rtc_s;
-        if (window_elapsed_s < 3600) {
+        if (window_elapsed_s < (60 * 60)) {
             fsm->feed_count_1h = snap.feed_count_1h;
             fsm->window_start_1h_ms = boot_now_ms;
         } else {

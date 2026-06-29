@@ -4,6 +4,7 @@
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "api_auth.h"
 #include "api_rate_limit.h"
+#include "hardware_config.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -28,7 +29,7 @@ static api_auth_token_t s_tokens[API_AUTH_MAX_TOKENS];
 static uint8_t s_admin_hash[32];
 static bool s_initialized = false;
 static bool s_has_password = false;
-static fail_tracker_t s_fail_trackers[8];
+    static fail_tracker_t s_fail_trackers[HW_API_AUTH_FAIL_TRACKERS];
 
 static void hash_password(const char *password, uint8_t *out)
 {
@@ -96,10 +97,10 @@ static int find_token_slot(void)
 
 static int find_fail_entry(uint32_t ip)
 {
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < HW_API_AUTH_FAIL_TRACKERS; i++) {
         if (s_fail_trackers[i].ip == ip) return i;
     }
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < HW_API_AUTH_FAIL_TRACKERS; i++) {
         if (s_fail_trackers[i].ip == 0) return i;
     }
     return -1;

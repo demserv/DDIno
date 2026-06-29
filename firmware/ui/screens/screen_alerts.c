@@ -3,6 +3,7 @@
 // @requirement NC-009 ACK crítico exige confirmação em dois estágios
 #include "../ui_screens.h"
 #include "global_state.h"
+#include "alm_ids.h"
 #include "alert_model.h"
 #include "alert_manager.h"
 #include "alert_manager_ext.h"
@@ -25,7 +26,7 @@ static void ack_btn_cb(lv_event_t *e)
     (void)e;
     uint64_t now = esp_timer_get_time() / 1000000ULL;
     bool has_critical = false;
-    for (int16_t id = 1; id <= 65; id++) {
+    for (int16_t id = 1; id <= (int16_t)ALM_ID_MAX; id++) {
         if (!alert_manager_is_active(id)) continue;
         const alert_slot_t *a = alert_manager_get_slot(id);
         if (!a) continue;
@@ -40,7 +41,7 @@ static void ack_btn_cb(lv_event_t *e)
         }
     }
     if (!has_critical) {
-        for (int16_t id = 1; id <= 65; id++) {
+        for (int16_t id = 1; id <= (int16_t)ALM_ID_MAX; id++) {
             if (alert_manager_is_active(id)) {
                 alert_manager_ack(id, now);
             }
@@ -115,7 +116,7 @@ static void screen_update_alerts(void)
 
     bool critical_pending_stage1 = false;
 
-    for (int16_t id = 1; id <= 65; id++) {
+    for (int16_t id = 1; id <= (int16_t)ALM_ID_MAX; id++) {
         if (!alert_manager_is_active(id)) continue;
         const alert_slot_t *a = alert_manager_get_slot(id);
         if (!a) continue;
