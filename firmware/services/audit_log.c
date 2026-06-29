@@ -1,6 +1,7 @@
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "services/audit_log.h"
 #include "services/storage_sd.h"
+#include "hardware_config.h"
 #include "esp_timer.h"
 #include <stdio.h>
 #include <string.h>
@@ -18,7 +19,7 @@ static const char *event_type_str(audit_event_type_t type)
         case AUDIT_LOGIN:         return "LOGIN";
         case AUDIT_WIZARD:        return "WIZARD";
         case AUDIT_MAINTENANCE:   return "MAINT";
-        case AUDIT_FACTORY_RESET: return "FACTORY_RESET";
+        case AUDIT_FACTORY_RESET: return "RSTFACTORY";
         default:                  return "UNKNOWN";
     }
 }
@@ -29,16 +30,16 @@ esp_err_t audit_log_event(audit_event_type_t type, const char *msg)
     if (!storage_sd_is_mounted()) return ESP_ERR_INVALID_STATE;
 
     uint64_t now_us = esp_timer_get_time();
-    char line[256];
+    char line[AUDIT_LOG_LINE_SIZE];
     snprintf(line, sizeof(line), "[%llu] [%s] %s",
-             (unsigned long long)(now_us / 1000000ULL),
+             (unsigned long long)(now_us / USEC_PER_SEC),
              event_type_str(type), msg);
     return storage_sd_write_log(SD_LOG_TYPE_AUDIT, line);
 }
 
 esp_err_t audit_log_state_change(const char *from_state, const char *to_state, const char *reason)
 {
-    char buf[256];
+    char buf[AUDIT_LOG_LINE_SIZE];
     snprintf(buf, sizeof(buf), "STATE: %s -> %s | reason=%s",
              from_state ? from_state : "?", to_state ? to_state : "?",
              reason ? reason : "none");
@@ -47,7 +48,7 @@ esp_err_t audit_log_state_change(const char *from_state, const char *to_state, c
 
 esp_err_t audit_log_command(const char *cmd, const char *target, const char *result)
 {
-    char buf[256];
+    char buf[AUDIT_LOG_LINE_SIZE];
     snprintf(buf, sizeof(buf), "CMD: %s target=%s result=%s",
              cmd ? cmd : "?", target ? target : "?", result ? result : "?");
     return audit_log_event(AUDIT_COMMAND, buf);

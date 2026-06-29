@@ -5,6 +5,8 @@
 #include "esp_err.h"
 #include <stdint.h>
 
+#define AUDIT_LOG_LINE_SIZE 256
+
 typedef enum {
     AUDIT_SYSTEM_STATE,
     AUDIT_CONFIG_CHANGE,
