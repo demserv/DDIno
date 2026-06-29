@@ -6,8 +6,7 @@
 #include "task_manager.h"
 #include "services/wdt_advanced.h"
 #include "services/watchdog_guard.h"
-#include "ui/ui_display.h"
-#include "ui/ui_screens.h"
+#include "drivers/ui_display.h"
 #include "ui/hmi/ui_app.h"
 #include "ui/hmi/ui_lvgl_mutex.h"
 #include "lvgl.h"
@@ -24,7 +23,6 @@ void task_ui_fn(void *pv)
         watchdog_guard_heartbeat(TASK_ID_UI);
 
         if (ui_lvgl_mutex_take(pdMS_TO_TICKS(100))) {
-            ui_screen_update_all();
             ui_app_tick();
             lv_timer_handler();
             ui_lvgl_mutex_give();

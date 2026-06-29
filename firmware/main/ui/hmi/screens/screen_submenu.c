@@ -1,5 +1,5 @@
 // @requirement RF-THERMAL-006 Parametros termicos configuraveis via UI
-#include "../ui_screens.h"
+#include "../ui_screen_manager.h"  /* TODO: port para new HMI */
 #include "global_state.h"
 #include "services/config_manager.h"
 #include "lvgl.h"
@@ -123,5 +123,5 @@ static void screen_update_submenu(void)
 
 static void __attribute__((constructor)) register_submenu(void)
 {
-    ui_screen_register(SCREEN_SUBMENU, screen_init_submenu, screen_update_submenu);
+    /* ui_screen_register(SCREEN_SUBMENU, ...); TODO: port */
 }

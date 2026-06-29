@@ -35,9 +35,8 @@
 #include "drivers/driver_buzzer_led.h"
 #include "fsm/ato_fsm.h"
 #include "web/api_rest.h"
-#include "ui/ui_display.h"
-#include "ui/ui_screens.h"
-#include "ui/ui_state_badge.h"
+#include "drivers/ui_display.h"
+#include "ui/hmi/ui_screen_manager.h"
 #include "ui/hmi/ui_app.h"
 #include "core/circuit_breaker.h"
 #include "services/self_test.h"
@@ -467,11 +466,10 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
         const char *to_s = (g_gs.system_state < 4) ? state_names[g_gs.system_state] : "?";
         audit_log_state_change(from_s, to_s, sin.transition_cause);
         if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
-            ui_carousel_pause();
+            ui_screen_manager_carousel_pause();
         } else if (*prev_state >= SYSTEM_STATE_SAFE_OFF && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
-            ui_carousel_resume();
+            ui_screen_manager_carousel_resume();
         }
-        ui_state_badge_update();
         *prev_state = g_gs.system_state;
     }
 
@@ -843,7 +841,6 @@ void app_main(void)
     if (ui_err != ESP_OK) {
         ESP_LOGW(TAG, "Display LVGL nao disponivel (sistema continua sem UI)");
     }
-    ui_screens_init();
     ui_app_init();
 
     esp_netif_init();
