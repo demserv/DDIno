@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HMI_UI_WATCHDOG_H
+#define HMI_UI_WATCHDOG_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -25,4 +26,7 @@ bool ui_watchdog_check(ui_watchdog_t *wd, uint64_t now_ms);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* HMI_UI_WATCHDOG_H */

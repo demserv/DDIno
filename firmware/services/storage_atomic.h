@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERVICES_STORAGE_ATOMIC_H
+#define SERVICES_STORAGE_ATOMIC_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -32,4 +33,7 @@ esp_err_t storage_atomic_flush(void);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* SERVICES_STORAGE_ATOMIC_H */

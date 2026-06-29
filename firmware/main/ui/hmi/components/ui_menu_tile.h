@@ -1,5 +1,6 @@
 // @requirement RF-UI-CAROUSEL-001 Componente de tile de menu
-#pragma once
+#ifndef HMI_COMPONENTS_UI_MENU_TILE_H
+#define HMI_COMPONENTS_UI_MENU_TILE_H
 
 #include "lvgl.h"
 
@@ -15,3 +16,5 @@ typedef void (*ui_menu_tile_cb_t)(lv_event_t *e);
 void ui_menu_tile_create(ui_menu_tile_t *tile, lv_obj_t *parent, int x, int y, const char *icon, const char *text);
 void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, void *user_data);
 void ui_menu_tile_set_focus(ui_menu_tile_t *tile, bool focused);
+
+#endif

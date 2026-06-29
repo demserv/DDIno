@@ -1,5 +1,6 @@
 // @requirement RF-ALERT-001 Linha de alerta com ícone, texto, severidade
-#pragma once
+#ifndef HMI_COMPONENTS_UI_ALERT_ROW_H
+#define HMI_COMPONENTS_UI_ALERT_ROW_H
 
 #include "lvgl.h"
 #include "../ui_view_model.h"
@@ -17,3 +18,5 @@ typedef struct {
 
 void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y);
 void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert);
+
+#endif

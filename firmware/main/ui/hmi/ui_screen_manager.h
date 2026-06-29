@@ -1,5 +1,6 @@
 // @requirement RF-UI-CAROUSEL-001 Gerenciador de telas
-#pragma once
+#ifndef HMI_UI_SCREEN_MANAGER_H
+#define HMI_UI_SCREEN_MANAGER_H
 
 #include "lvgl.h"
 #include "ui_view_model.h"
@@ -28,3 +29,5 @@ void ui_screen_manager_on_user_interaction(void);
 void ui_screen_manager_carousel_pause(void);
 void ui_screen_manager_carousel_resume(void);
 ui_screen_id_t ui_screen_manager_get_current(void);
+
+#endif

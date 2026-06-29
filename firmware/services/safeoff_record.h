@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERVICES_SAFEOFF_RECORD_H
+#define SERVICES_SAFEOFF_RECORD_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -35,4 +36,7 @@ esp_err_t safeoff_record_load(void);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* SERVICES_SAFEOFF_RECORD_H */

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HMI_UI_STATUS_BAR_H
+#define HMI_UI_STATUS_BAR_H
 
 #include "lvgl.h"
 #include "ui_view_model.h"
@@ -20,4 +21,7 @@ void ui_status_bar_update(ui_status_bar_t *bar, const ui_topbar_vm_t *vm);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* HMI_UI_STATUS_BAR_H */

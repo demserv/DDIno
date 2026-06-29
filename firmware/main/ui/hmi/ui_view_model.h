@@ -1,5 +1,6 @@
 // @requirement RF-GLOBAL-005 Root ViewModel com dados centralizados
-#pragma once
+#ifndef HMI_UI_VIEW_MODEL_H
+#define HMI_UI_VIEW_MODEL_H
 
 #include "ui_types.h"
 #include <stdint.h>
@@ -128,3 +129,5 @@ typedef struct {
 
 void ui_view_model_init_defaults(ui_root_vm_t *vm);
 void ui_view_model_update_from_system(ui_root_vm_t *vm);
+
+#endif

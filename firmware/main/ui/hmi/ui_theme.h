@@ -1,5 +1,6 @@
 // @requirement RNF-USAB-001 Tema: 14 cores, 6 raios, 6 pads, 6 fontes Montserrat
-#pragma once
+#ifndef HMI_UI_THEME_H
+#define HMI_UI_THEME_H
 
 #include "lvgl.h"
 
@@ -62,3 +63,5 @@ lv_style_t *ui_theme_get_label(void);
 lv_style_t *ui_theme_get_badge(void);
 lv_style_t *ui_theme_get_alert(void);
 lv_style_t *ui_theme_get_overlay(void);
+
+#endif
