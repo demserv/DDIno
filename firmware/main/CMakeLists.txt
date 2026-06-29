@@ -1,5 +1,5 @@
 set(MAIN_SRCS
-    "app_main.c"
+    "app/app_main.c"
     "../hal/hal_bus.c"
     "../drivers/driver_mcp23017.c"
     "../drivers/driver_relay.c"
@@ -121,12 +121,12 @@ set(MAIN_SRCS
     "ui/hmi/screens/ui_screen_ato.c"
 
     # NC-04: Task modules separados
-    "task_web.c"
-    "ui_task.c"
+    "task/task_web.c"
+    "task/ui_task.c"
 
     # NC-05: Log handler e API sensors
-    "log_handler.c"
-    "api_sensors_handler.c"
+    "handler/log_handler.c"
+    "handler/api_sensors_handler.c"
 
     # NC-03: LVGL mutex module
     "ui/hmi/ui_lvgl_mutex.c"
@@ -150,6 +150,9 @@ set(MAIN_INCLUDE_DIRS
     "../web"
     "../ui"
     "../security"
+    "app"
+    "task"
+    "handler"
     "ui/hmi"
     "ui/hmi/components"
     "ui/hmi/screens"
