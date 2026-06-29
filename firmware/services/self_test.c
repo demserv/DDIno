@@ -1,6 +1,7 @@
 // @requirement RF-FLOW-BOOT-003 Self-test obrigatório no boot
 // @requirement RF-UI-DIAG-001 Diagnóstico de subsistemas
 #include "self_test.h"
+#include "hardware_config.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -81,7 +82,7 @@ static void test_i2c_mcp23017(selftest_result_t *r)
 {
     uint8_t reg = 0x0A;
     uint8_t val = 0;
-    esp_err_t err = i2c_master_write_read_device(I2C_NUM_0, 0x20, &reg, 1, &val, 1, pdMS_TO_TICKS(100));
+    esp_err_t err = i2c_master_write_read_device(I2C_NUM_0, 0x20, &reg, 1, &val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (err == ESP_OK) {
         r->passed = true;
     } else {
@@ -236,7 +237,7 @@ esp_err_t self_test_run_all(uint32_t timeout_ms)
             return ESP_ERR_TIMEOUT;
         }
         self_test_run_one((selftest_id_t)i);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     }
 
     return ESP_OK;

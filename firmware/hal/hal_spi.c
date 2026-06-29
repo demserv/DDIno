@@ -47,7 +47,7 @@ esp_err_t hal_spi_init(void)
             .clock_speed_hz = s_device_config[i].clock_hz,
             .mode = s_device_config[i].mode,
             .spics_io_num = s_device_config[i].cs_gpio,
-            .queue_size = 1,
+            .queue_size = HW_SPI_QUEUE_DEPTH,
             .flags = s_device_config[i].flags,
         };
 
@@ -89,7 +89,7 @@ static esp_err_t do_transaction(hal_spi_device_t device, spi_transaction_t *tran
     if (s_spi_mutex == NULL) return ESP_ERR_INVALID_STATE;
     if (device >= HAL_SPI_DEVICE_COUNT) return ESP_ERR_INVALID_ARG;
 
-    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(HW_SPI_MUTEX_TIMEOUT_MS)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
 
@@ -119,7 +119,7 @@ esp_err_t hal_spi_transaction_with_cs(hal_spi_device_t device, int cs_gpio, spi_
     if (s_spi_mutex == NULL) return ESP_ERR_INVALID_STATE;
     if (device >= HAL_SPI_DEVICE_COUNT) return ESP_ERR_INVALID_ARG;
 
-    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(HW_SPI_MUTEX_TIMEOUT_MS)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
 
@@ -136,7 +136,7 @@ esp_err_t hal_spi_transaction_with_cs_polling(hal_spi_device_t device, int cs_gp
     if (s_spi_mutex == NULL) return ESP_ERR_INVALID_STATE;
     if (device >= HAL_SPI_DEVICE_COUNT) return ESP_ERR_INVALID_ARG;
 
-    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(HW_SPI_MUTEX_TIMEOUT_MS)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
 

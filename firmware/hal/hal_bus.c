@@ -1,5 +1,6 @@
 // @requirement RNF-HARDWARE-001 HAL de barramentos I2C, SPI, UART
 #include "hal_bus.h"
+#include "hardware_config.h"
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
 #include "driver/uart.h"
@@ -16,7 +17,7 @@ esp_err_t hal_bus_init_i2c(void)
         .scl_io_num = PIN_I2C_SCL_GPIO,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000
+        .master.clk_speed = HW_I2C_CLK_HZ
     };
     esp_err_t err = i2c_param_config(I2C_NUM_0, &cfg);
     if (err != ESP_OK) return err;
@@ -33,7 +34,7 @@ esp_err_t hal_bus_init_spi(void)
         .sclk_io_num = PIN_SPI_SCK_GPIO,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 4096
+        .max_transfer_sz = HW_SPI_MAX_TRANSFER_SZ
     };
     esp_err_t err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
     if (err == ESP_ERR_INVALID_STATE) return ESP_OK;
@@ -50,7 +51,7 @@ esp_err_t hal_bus_init_uart_pzem(void)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_APB
     };
-    esp_err_t err = uart_driver_install(UART_NUM_1, 1024, 0, 0, NULL, 0);
+    esp_err_t err = uart_driver_install(UART_NUM_1, HW_UART_BUF_SIZE, 0, 0, NULL, 0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) return err;
     err = uart_param_config(UART_NUM_1, &uart_cfg);
     if (err != ESP_OK) return err;

@@ -3,6 +3,7 @@
 // @requirement RF-LED-003 LED Vermelho e padrão crítico
 // @requirement RF-GLOBAL-003 Badge de estado sempre visível
 #include "driver_buzzer_led.h"
+#include "hardware_config.h"
 #include "driver_mcp23017.h"
 #include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
@@ -24,7 +25,7 @@ static uint8_t s_gpio_state = 0;
 esp_err_t buzzer_led_init(void)
 {
     uint8_t data[2] = {MCP23017_REG_IODIRB, 0x00};
-    esp_err_t ret = i2c_master_write_to_device(I2C_NUM_0, MCP23017_ADDR, data, 2, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_write_to_device(I2C_NUM_0, MCP23017_ADDR, data, 2, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (ret != ESP_OK) return ret;
     s_gpio_state = 0;
     ret = mcp23017_write_gpiob(0);
@@ -79,10 +80,10 @@ void buzzer_led_alert(void)
     for (int i = 0; i < 3; i++) {
         s_gpio_state |= (BUZZER_BIT | LED_RED_BIT);
         mcp23017_write_gpiob(s_gpio_state);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
         s_gpio_state &= ~BUZZER_BIT;
         mcp23017_write_gpiob(s_gpio_state);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     }
 }
 

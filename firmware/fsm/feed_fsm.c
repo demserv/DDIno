@@ -3,6 +3,7 @@
 // @requirement RF-FEED-003 Sinalização visual do Feed Mode
 // @requirement RF-FSM-FEED-001 Feed Mode como camada ortogonal
 #include "fsm/feed_fsm.h"
+#include "hardware_config.h"
 
 #define MAX_FEEDS_PER_HOUR 2
 
@@ -24,7 +25,7 @@ bool feed_fsm_can_start(const feed_fsm_t *fsm, uint64_t now_ms)
     if (fsm->state != FEED_STATE_IDLE) return false;
     if (fsm->feed_count_1h >= MAX_FEEDS_PER_HOUR) {
         uint64_t elapsed = now_ms - fsm->window_start_1h_ms;
-        if (elapsed < 3600000ULL) return false;
+        if (elapsed < MS_PER_HOUR) return false;
     }
     return true;
 }
@@ -85,7 +86,7 @@ void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms)
 
     if (fsm->feed_count_1h > 0) {
         uint64_t elapsed = now_ms - fsm->window_start_1h_ms;
-        if (elapsed >= 3600000ULL) {
+        if (elapsed >= MS_PER_HOUR) {
             fsm->feed_count_1h = 0;
             fsm->window_start_1h_ms = 0;
         }
