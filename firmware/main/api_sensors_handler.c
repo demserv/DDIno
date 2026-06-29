@@ -1,13 +1,15 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <string.h>
+
 #include "esp_err.h"
 #include "esp_timer.h"
-#include "global_state.h"
+
 #include "core/circuit_breaker.h"
-#include "drivers/driver_ds18b20.h"
-#include "drivers/driver_pzem.h"
 #include "drivers/driver_acs712.h"
+#include "drivers/driver_ds18b20.h"
 #include "drivers/driver_mcp3208.h"
+#include "drivers/driver_pzem.h"
+#include "global_state.h"
 #include "pin_map.h"
 
 extern global_state_t g_gs;
@@ -61,3 +63,4 @@ esp_err_t api_sensors_take_snapshot(sensor_snapshot_t *snap)
 
     return ESP_OK;
 }
+

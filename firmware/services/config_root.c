@@ -1,8 +1,10 @@
-#include "config_root.h"
+﻿#include "config_root.h"
+
+#include <stdio.h>
+#include <string.h>
+
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include <string.h>
-#include <stdio.h>
 
 static const char *TAG = "cfg_root";
 
@@ -134,3 +136,4 @@ esp_err_t config_root_rollback(config_root_t *root)
     }
     return err;
 }
+

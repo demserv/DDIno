@@ -1,8 +1,10 @@
-// @requirement RF-UI-STATUS-001 Footer grafico com status geral, uptime e alertas
+﻿// @requirement RF-UI-STATUS-001 Footer grafico com status geral, uptime e alertas
 #include "ui_footer.h"
-#include "global_state.h"
-#include "lvgl.h"
+
 #include "esp_log.h"
+#include "lvgl.h"
+
+#include "global_state.h"
 
 static const char *TAG = "ui_footer";
 
@@ -96,3 +98,4 @@ void ui_footer_update(void)
 
     lv_obj_move_foreground(footer_cont);
 }
+

@@ -1,8 +1,9 @@
-// @requirement RF-THERMAL-006 Parametros termicos configuraveis via UI
+﻿// @requirement RF-THERMAL-006 Parametros termicos configuraveis via UI
+#include "lvgl.h"
+
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "services/config_manager.h"
-#include "lvgl.h"
 
 static lv_obj_t *setpoint_label = NULL;
 static lv_obj_t *temp_min_label = NULL;
@@ -125,3 +126,4 @@ static void __attribute__((constructor)) register_submenu(void)
 {
     ui_screen_register(SCREEN_SUBMENU, screen_init_submenu, screen_update_submenu);
 }
+

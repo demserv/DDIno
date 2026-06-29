@@ -1,9 +1,11 @@
-// @requirement RNF-HARDWARE-001 HAL de barramentos I2C, SPI, UART
+﻿// @requirement RNF-HARDWARE-001 HAL de barramentos I2C, SPI, UART
 #include "hal_bus.h"
+
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+
 #include "pin_map.h"
 
 static const char *TAG = "hal_bus";
@@ -78,3 +80,4 @@ esp_err_t hal_bus_init_all(void)
     ESP_LOGI(TAG, "Barramentos base inicializados (I2C/SPI/UART)");
     return ESP_OK;
 }
+

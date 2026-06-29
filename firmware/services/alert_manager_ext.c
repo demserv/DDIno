@@ -1,4 +1,5 @@
-#include "alert_manager_ext.h"
+﻿#include "alert_manager_ext.h"
+
 #include <string.h>
 
 #define ACK_STATE_SLOTS_MAX 16
@@ -82,3 +83,4 @@ bool alert_manager_ext_double_ack_required(int16_t alm_id)
     if (!slot || !slot->active) return false;
     return (slot->severity == ALERT_SEVERITY_CRITICAL);
 }
+

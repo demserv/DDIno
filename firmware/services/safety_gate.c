@@ -1,4 +1,5 @@
-#include "safety_gate.h"
+﻿#include "safety_gate.h"
+
 #include "system_types.h"
 
 safety_gate_result_t safety_gate_can_enable_automation(const global_state_t *gs)
@@ -39,3 +40,4 @@ safety_gate_result_t safety_gate_can_enable_automation(const global_state_t *gs)
 
     return allow;
 }
+

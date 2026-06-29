@@ -1,6 +1,7 @@
-// @requirement RNF-SECURITY-001 Validação de comandos: monitor_only, EMERGENCY, double_confirmation
+﻿// @requirement RNF-SECURITY-001 Validação de comandos: monitor_only, EMERGENCY, double_confirmation
 // @requirement RF-PLUG-011 Dupla confirmação para plugs críticos P01/P02
 #include "command_validator.h"
+
 #include <stddef.h>
 #include <string.h>
 
@@ -91,3 +92,4 @@ cmd_validation_t command_validator_can_calibrate(const global_state_t *gs)
     cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = false, .error_code = NULL };
     return ok;
 }
+

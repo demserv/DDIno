@@ -1,15 +1,15 @@
-// @requirement RF-UI-DIAG-001 Tela de diagnóstico
-#include "../ui_screens.h"
-#include "global_state.h"
-#include "system_types.h"
-#include "plug_model.h"
-#include "services/plug_manager.h"
-#include "driver_pzem.h"
-#include "driver_ds18b20.h"
-
+﻿// @requirement RF-UI-DIAG-001 Tela de diagnóstico
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "lvgl.h"
+
+#include "../ui_screens.h"
+#include "driver_ds18b20.h"
+#include "driver_pzem.h"
+#include "global_state.h"
+#include "plug_model.h"
+#include "services/plug_manager.h"
+#include "system_types.h"
 
 #define DIAG_LABEL_COUNT 14
 
@@ -172,3 +172,4 @@ static void __attribute__((constructor)) register_diagnostic(void)
 {
     ui_screen_register(SCREEN_DIAGNOSTIC, screen_init_diagnostic, screen_update_diagnostic);
 }
+

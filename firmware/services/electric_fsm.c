@@ -1,10 +1,11 @@
-// @requirement RF-ENERGY-007 Proteção de sobretensão e subtensão
+﻿// @requirement RF-ENERGY-007 Proteção de sobretensão e subtensão
 // @requirement RF-ENERGY-008 Proteção de sobrecorrente total
 // @requirement RF-ENERGY-009 Monitoramento de fator de potência
 // @requirement RF-PLUG-014 Curto-circuito e sobrecarga extrema por plugue
 // @requirement RF-FSM-ELECTRIC-001 FSM de proteção elétrica
 // @requirement RNF-ELECTRICAL-002 Hierarquia de proteções elétricas
 #include "services/electric_fsm.h"
+
 #include <string.h>
 
 static void electric_reset_output(electric_output_t *o)
@@ -141,3 +142,4 @@ const electric_output_t* electric_fsm_get_output(const electric_fsm_t *fsm)
     if (!fsm) return NULL;
     return &fsm->out;
 }
+

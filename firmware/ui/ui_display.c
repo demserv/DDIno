@@ -1,15 +1,16 @@
-#include "ui_display.h"
-#include "hardware_config.h"
-#include "pin_map.h"
-#include "hal_spi.h"
+﻿#include "ui_display.h"
 
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "esp_timer.h"
-#include "esp_log.h"
 #include "lvgl.h"
+
+#include "hal_spi.h"
+#include "hardware_config.h"
+#include "pin_map.h"
 
 static const char *TAG = "ui_display";
 
@@ -170,3 +171,4 @@ esp_err_t ui_display_set_backlight(bool enabled)
     ui_display_set_brightness(enabled ? 100U : 0U);
     return ESP_OK;
 }
+

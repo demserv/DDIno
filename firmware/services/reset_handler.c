@@ -1,19 +1,22 @@
-// @requirement RF-RESET-001 Hard reset seguro
+﻿// @requirement RF-RESET-001 Hard reset seguro
 // @requirement RF-RESET-002 Dupla confirmacao
 // @requirement RF-RESET-003 Countdown com abort
 // @requirement RF-RESET-004 Reset via API
 
 #include "services/reset_handler.h"
-#include "services/audit_log.h"
-#include "services/storage_sd.h"
-#include "hardware_config.h"
-#include "global_state.h"
-#include "drivers/driver_relay.h"
-#include "nvs_flash.h"
+
+#include <string.h>
+
+#include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-#include "esp_log.h"
-#include <string.h>
+#include "nvs_flash.h"
+
+#include "drivers/driver_relay.h"
+#include "global_state.h"
+#include "hardware_config.h"
+#include "services/audit_log.h"
+#include "services/storage_sd.h"
 
 static const char *TAG = "reset_handler";
 
@@ -152,3 +155,4 @@ reset_state_t reset_handler_get_state(void)
 {
     return s_reset.state;
 }
+

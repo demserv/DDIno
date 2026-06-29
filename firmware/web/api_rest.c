@@ -1,34 +1,37 @@
-// @requirement RF-WEB-001 a RF-WEB-008 (API REST)
+﻿// @requirement RF-WEB-001 a RF-WEB-008 (API REST)
 // @requirement RNF-CALIB-001 Calibração assistida via API
 #include "api_rest.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "cJSON.h"
+#include "esp_http_server.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_timer.h"
+
 #include "api_auth.h"
 #include "api_rate_limit.h"
-#include "global_state.h"
-#include "system_types.h"
-#include "driver_pzem.h"
 #include "driver_acs712.h"
 #include "driver_ds18b20.h"
 #include "driver_ds3231.h"
 #include "driver_mcp3208.h"
+#include "driver_pzem.h"
 #include "driver_relay.h"
-#include "services/alert_manager.h"
-#include "services/command_validator.h"
-#include "services/relay_safety_service.h"
-#include "services/config_manager.h"
-#include "services/audit_log.h"
 #include "fsm/feed_fsm.h"
 #include "fsm/restart_fsm.h"
-#include "services/plug_manager.h"
-#include "services/reset_handler.h"
+#include "global_state.h"
 #include "pin_map.h"
-#include "esp_http_server.h"
-#include "esp_timer.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "cJSON.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "services/alert_manager.h"
+#include "services/audit_log.h"
+#include "services/command_validator.h"
+#include "services/config_manager.h"
+#include "services/plug_manager.h"
+#include "services/relay_safety_service.h"
+#include "services/reset_handler.h"
+#include "system_types.h"
 
 static const char *TAG = "api_rest";
 
@@ -902,3 +905,4 @@ esp_err_t api_rest_init(void)
     ESP_LOGI(TAG, "API /api/v1 iniciada na porta 80");
     return ESP_OK;
 }
+

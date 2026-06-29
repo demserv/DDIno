@@ -1,9 +1,12 @@
-// @requirement RF-CONF-001 a RF-CONF-020 Gerenciamento estendido de configuração
+﻿// @requirement RF-CONF-001 a RF-CONF-020 Gerenciamento estendido de configuração
 #include "conf_ctl.h"
-#include "storage_manager.h"
-#include "esp_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
+
+#include "storage_manager.h"
 
 static const char *TAG = "conf_ctl";
 static conf_ctl_profile_t s_profile = CONF_PROFILE_DEFAULT;
@@ -86,3 +89,4 @@ esp_err_t conf_ctl_set_profile(conf_ctl_profile_t profile)
 }
 
 conf_ctl_profile_t conf_ctl_get_profile(void) { return s_profile; }
+

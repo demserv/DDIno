@@ -1,20 +1,23 @@
-// @requirement RF-FLOW-BOOT-004 .tmp orphan handling
+﻿// @requirement RF-FLOW-BOOT-004 .tmp orphan handling
 // @requirement RF-STORAGE-002 RAM fallback quando SD ausente
 // @requirement RF-STORAGE-003 Escrita atômica
 #include "services/storage_sd.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdspi_host.h"
-#include "sdmmc_cmd.h"
-#include "esp_vfs_fat.h"
-#include "pin_map.h"
-#include "esp_log.h"
-#include "esp_timer.h"
-#include "global_state.h"
-#include "conf_ctl.h"
+
 #include <string.h>
 #include <time.h>
-#include <sys/stat.h>
+
+#include "driver/sdmmc_host.h"
+#include "driver/sdspi_host.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_vfs_fat.h"
 #include <dirent.h>
+#include <sys/stat.h>
+
+#include "conf_ctl.h"
+#include "global_state.h"
+#include "pin_map.h"
+#include "sdmmc_cmd.h"
 
 
 extern global_state_t g_gs;
@@ -307,3 +310,4 @@ esp_err_t storage_sd_unmount(void)
     }
     return err;
 }
+

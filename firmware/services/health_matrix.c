@@ -1,8 +1,10 @@
-// @requirement RF-HEALTH-MATRIX-001..010, RF-WEB-005, RF-UI-DIAG-001
+﻿// @requirement RF-HEALTH-MATRIX-001..010, RF-WEB-005, RF-UI-DIAG-001
 // @requirement RF-HEALTH-011 14 subsystems com estados OK/DEGRADED/FAILED/OPEN/HALF_OPEN/CLOSED
 #include "health_matrix.h"
-#include "esp_log.h"
+
 #include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "health_mtx";
 static health_entry_t s_entries[SUB_COUNT];
@@ -95,3 +97,4 @@ void health_matrix_update(void)
     health_status_t agg = health_aggregate();
     ESP_LOGD(TAG, "Health aggregate: %s", status_str(agg));
 }
+

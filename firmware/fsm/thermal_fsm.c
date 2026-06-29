@@ -1,4 +1,4 @@
-// @requirement RF-THERMAL-001 Leitura contínua com validação robusta (CRC + 85°C rejection)
+﻿// @requirement RF-THERMAL-001 Leitura contínua com validação robusta (CRC + 85°C rejection)
 // @requirement RF-THERMAL-002 Sensor fail → alerta crítico + DEGRADED (ACK usuario)
 // @requirement RF-THERMAL-003 Classificação térmica por parâmetros configuráveis
 // @requirement RF-THERMAL-005 Trend indicator (warming / cooling / stable)
@@ -7,8 +7,10 @@
 // @requirement RF-FSM-THERMAL-001 FSM térmica e impacto sistêmico
 // @requirement RF-THERMAL-SA-001 Latching de OVER_TEMP com reset manual
 #include "fsm/thermal_fsm.h"
-#include "hardware_config.h"
+
 #include <string.h>
+
+#include "hardware_config.h"
 
 static void thermal_reset_output(thermal_output_t *o)
 {
@@ -139,3 +141,4 @@ const thermal_output_t* thermal_fsm_get_output(const thermal_fsm_t *fsm)
     if (!fsm) return NULL;
     return &fsm->out;
 }
+

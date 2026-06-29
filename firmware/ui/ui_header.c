@@ -1,9 +1,11 @@
-// @requirement RF-UI-STATUS-001 Barra de status persistente (header grafico)
+﻿// @requirement RF-UI-STATUS-001 Barra de status persistente (header grafico)
 // @requirement RF-UI-OVERLAY-001 Overlay critico com Feed toggle
 #include "ui_header.h"
-#include "global_state.h"
-#include "driver_ds3231.h"
+
 #include "esp_log.h"
+
+#include "driver_ds3231.h"
+#include "global_state.h"
 
 static const char *TAG = "ui_header";
 
@@ -95,3 +97,4 @@ void ui_header_update(void)
 
     lv_obj_move_foreground(header_cont);
 }
+

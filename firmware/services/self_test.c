@@ -1,17 +1,20 @@
-// @requirement RF-FLOW-BOOT-003 Self-test obrigatório no boot
+﻿// @requirement RF-FLOW-BOOT-003 Self-test obrigatório no boot
 // @requirement RF-UI-DIAG-001 Diagnóstico de subsistemas
 #include "self_test.h"
+
+#include <stdio.h>
+
+#include "driver/i2c.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/i2c.h"
-#include "pin_map.h"
-#include "driver_mcp3208.h"
+
 #include "driver_acs712.h"
-#include "driver_pzem.h"
-#include "storage_sd.h"
 #include "driver_ds18b20.h"
-#include <stdio.h>
+#include "driver_mcp3208.h"
+#include "driver_pzem.h"
+#include "pin_map.h"
+#include "storage_sd.h"
 
 static const char *TAG = "self_test";
 
@@ -288,3 +291,4 @@ void self_test_log_results(void)
              (unsigned long)passed_count, SELFTEST_ID_COUNT,
              self_test_critical_passed() ? "YES" : "NO");
 }
+

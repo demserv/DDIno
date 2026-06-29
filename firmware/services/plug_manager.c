@@ -1,4 +1,4 @@
-// @requirement RF-PLUG-001 Modos de operacao por plugue
+﻿// @requirement RF-PLUG-001 Modos de operacao por plugue
 // @requirement RF-PLUG-002 Tipo e criticidade do plugue
 // @requirement RF-PLUG-003 Protecao de corrente por plugue
 // @requirement RF-PLUG-004 Bypass detection
@@ -8,15 +8,18 @@
 // @requirement RF-PLUG-013 max_energy_wh_day monitoring
 // @requirement RF-FEED-001 Comportamento dos plugues em Feed Mode
 #include "services/plug_manager.h"
-#include "services/alert_manager.h"
-#include "services/config_manager.h"
-#include "services/audit_log.h"
-#include "driver_relay.h"
-#include "driver_acs712.h"
-#include "global_state.h"
-#include "esp_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
+
+#include "driver_acs712.h"
+#include "driver_relay.h"
+#include "global_state.h"
+#include "services/alert_manager.h"
+#include "services/audit_log.h"
+#include "services/config_manager.h"
 
 extern global_state_t g_gs;
 
@@ -316,3 +319,4 @@ void plug_manager_set_plug_current(plug_id_t id, float current_a)
     if (id < 1 || id > PLUG_COUNT_TOTAL) return;
     s_plugs[id - 1].current_a = current_a;
 }
+

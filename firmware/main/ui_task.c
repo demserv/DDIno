@@ -1,16 +1,18 @@
-#include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+﻿#include <stdio.h>
+
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "task_manager.h"
-#include "services/wdt_advanced.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "lvgl.h"
+
 #include "services/watchdog_guard.h"
-#include "ui/ui_display.h"
-#include "ui/ui_screens.h"
+#include "services/wdt_advanced.h"
+#include "task_manager.h"
 #include "ui/hmi/ui_app.h"
 #include "ui/hmi/ui_lvgl_mutex.h"
-#include "lvgl.h"
+#include "ui/ui_display.h"
+#include "ui/ui_screens.h"
 
 static const char *TAG = "task_ui";
 
@@ -33,3 +35,4 @@ void task_ui_fn(void *pv)
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_UI));
     }
 }
+

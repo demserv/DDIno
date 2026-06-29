@@ -1,11 +1,12 @@
-#include "ui_touch.h"
-#include "pin_map.h"
-#include "hal_spi.h"
+﻿#include "ui_touch.h"
 
-#include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "driver/spi_master.h"
 #include "esp_log.h"
 #include "lvgl.h"
+
+#include "hal_spi.h"
+#include "pin_map.h"
 
 static const char *TAG = "ui_touch";
 
@@ -96,3 +97,4 @@ esp_err_t ui_touch_init(void)
     ESP_LOGI(TAG, "Touch initialized");
     return ESP_OK;
 }
+

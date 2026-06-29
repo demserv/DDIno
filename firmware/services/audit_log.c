@@ -1,9 +1,12 @@
-// @requirement RNF-SECURITY-003 Logs de auditoria de segurança
+﻿// @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "services/audit_log.h"
-#include "services/storage_sd.h"
-#include "esp_timer.h"
+
 #include <stdio.h>
 #include <string.h>
+
+#include "esp_timer.h"
+
+#include "services/storage_sd.h"
 
 static const char *event_type_str(audit_event_type_t type)
 {
@@ -52,3 +55,4 @@ esp_err_t audit_log_command(const char *cmd, const char *target, const char *res
              cmd ? cmd : "?", target ? target : "?", result ? result : "?");
     return audit_log_event(AUDIT_COMMAND, buf);
 }
+

@@ -1,6 +1,7 @@
-// @requirement RF-PLUG-001 Controle de relés P03-P10 via MCP23017 + ULN2803
+﻿// @requirement RF-PLUG-001 Controle de relés P03-P10 via MCP23017 + ULN2803
 // @requirement RNF-HARDWARE-001 I2C GPIO expander @0x20
 #include "driver_mcp23017.h"
+
 #include "esp_log.h"
 
 #define MCP23017_REG_IODIRA 0x00
@@ -80,3 +81,4 @@ esp_err_t mcp23017_read_port(uint8_t *gpioa, uint8_t *gpiob)
     }
     return ESP_OK;
 }
+

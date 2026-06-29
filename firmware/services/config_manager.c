@@ -1,13 +1,16 @@
-// @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
+﻿// @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
 // @requirement RF-UI-WIZARD-001..005 Wizard step persistence
 // @requirement RNF-CALIB-001 Calibração assistida de sensores
 // @requirement RF-ATO-003 Configuração ATO com validação LOW/HIGH
 #include "config_manager.h"
-#include "config_root.h"
+
+#include <string.h>
+
 #include "esp_log.h"
 #include "nvs_flash.h"
+
+#include "config_root.h"
 #include "driver_acs712.h"
-#include <string.h>
 
 static const char *TAG = "config_mgr";
 
@@ -449,3 +452,4 @@ void config_set_wizard_step(uint8_t step)
     config_root_save(&s_root);
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
+

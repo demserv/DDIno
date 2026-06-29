@@ -1,8 +1,10 @@
-// @requirement RNF-ELECTRICAL-001 Circuit breaker por barramento com fail count
+﻿// @requirement RNF-ELECTRICAL-001 Circuit breaker por barramento com fail count
 // @requirement RF-ENERGY-008 Proteção de sobrecorrente total via circuit breaker
 #include "circuit_breaker.h"
-#include "esp_timer.h"
+
 #include <string.h>
+
+#include "esp_timer.h"
 
 static circuit_breaker_t s_breakers[CB_COUNT];
 
@@ -95,3 +97,4 @@ uint32_t circuit_breaker_open_count(cb_bus_id_t id)
     if (id >= CB_COUNT) return 0;
     return s_breakers[id].failure_count;
 }
+

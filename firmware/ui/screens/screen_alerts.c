@@ -1,13 +1,14 @@
-// @requirement RF-UI-OVERLAY-001 Tela de alertas com overlays críticos
+﻿// @requirement RF-UI-OVERLAY-001 Tela de alertas com overlays críticos
 // @requirement RF-ALERT-004 Timeout de ACK visível na UI
 // @requirement NC-009 ACK crítico exige confirmação em dois estágios
+#include "esp_timer.h"
+#include "lvgl.h"
+
 #include "../ui_screens.h"
-#include "global_state.h"
-#include "alert_model.h"
 #include "alert_manager.h"
 #include "alert_manager_ext.h"
-#include "lvgl.h"
-#include "esp_timer.h"
+#include "alert_model.h"
+#include "global_state.h"
 
 static lv_obj_t *count_label = NULL;
 static lv_obj_t *active_list = NULL;
@@ -175,3 +176,4 @@ static void __attribute__((constructor)) register_alerts(void)
 {
     ui_screen_register(SCREEN_ALERTS, screen_init_alerts, screen_update_alerts);
 }
+

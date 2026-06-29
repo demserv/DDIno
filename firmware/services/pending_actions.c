@@ -1,7 +1,9 @@
-// @requirement RF-PEND-001, RF-PEND-002, RB-PEND-001..003 Ações pendentes
+﻿// @requirement RF-PEND-001, RF-PEND-002, RB-PEND-001..003 Ações pendentes
 #include "pending_actions.h"
-#include "esp_log.h"
+
 #include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "pend_act";
 #define MAX_PENDING 16
@@ -71,3 +73,4 @@ esp_err_t pending_actions_process_all(void)
     ESP_LOGI(TAG, "Processed %d pending actions", processed);
     return ESP_OK;
 }
+

@@ -1,5 +1,6 @@
-// @requirement RF-DISP-001 a RF-DISP-035 Gerenciamento de display
+﻿// @requirement RF-DISP-001 a RF-DISP-035 Gerenciamento de display
 #include "disp_ctl.h"
+
 #include "esp_log.h"
 
 static const char *TAG = "disp_ctl";
@@ -78,3 +79,4 @@ esp_err_t disp_ctl_set_rotation(int degrees)
     ESP_LOGI(TAG, "Rotation set to %d", degrees);
     return ESP_OK;
 }
+

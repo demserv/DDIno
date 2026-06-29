@@ -1,20 +1,21 @@
-// @requirement RF-UI-CAROUSEL-001 Carrossel automático com pausa
+﻿// @requirement RF-UI-CAROUSEL-001 Carrossel automático com pausa
 // @requirement RF-UI-STATUS-001 Header e footer graficos persistentes
 // @requirement RF-UI-WIZARD-001..005 Wizard com steps individuais
 #include "ui_screens.h"
-#include "hardware_config.h"
-#include "ui_state_badge.h"
-#include "ui_header.h"
-#include "ui_footer.h"
-#include "global_state.h"
+
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "lvgl.h"
+
 #include "alert_manager.h"
 #include "audit_log.h"
 #include "config_manager.h"
+#include "global_state.h"
+#include "hardware_config.h"
 #include "safeoff_alm_map.h"
-
-#include "esp_timer.h"
-#include "esp_log.h"
-#include "lvgl.h"
+#include "ui_footer.h"
+#include "ui_header.h"
+#include "ui_state_badge.h"
 
 static const char *TAG = "ui_screens";
 
@@ -483,3 +484,4 @@ bool ui_carousel_is_paused(void)
 {
     return s_carousel_paused || !s_carousel_enabled;
 }
+

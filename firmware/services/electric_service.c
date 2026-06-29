@@ -1,8 +1,10 @@
-#include "electric_service.h"
-#include "electric_fsm.h"
-#include "driver_pzem.h"
-#include "driver_acs712.h"
+﻿#include "electric_service.h"
+
 #include "esp_log.h"
+
+#include "driver_acs712.h"
+#include "driver_pzem.h"
+#include "electric_fsm.h"
 
 static const char *TAG = "electric_svc";
 static electric_fsm_t s_fsm;
@@ -85,3 +87,4 @@ esp_err_t electric_service_force_safe_off(const char *reason)
     electric_fsm_force_safe_off(&s_fsm);
     return ESP_OK;
 }
+

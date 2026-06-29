@@ -1,11 +1,13 @@
-// @requirement RF-ATO-001..010 Gerenciamento ATO
+﻿// @requirement RF-ATO-001..010 Gerenciamento ATO
 // @requirement RF-ATO-DIGITAL-001 ATO digital ON/OFF via MCP3208 #2 CH2, FSM 6 estados
 #include "ato_service.h"
+
+#include "esp_log.h"
+
 #include "ato_fsm.h"
 #include "config_manager.h"
 #include "driver_mcp3208.h"
 #include "pin_map.h"
-#include "esp_log.h"
 
 static const char *TAG = "ato_svc";
 static ato_fsm_t s_fsm;
@@ -60,3 +62,4 @@ esp_err_t ato_service_force_safe_off(const char *reason)
     ESP_LOGW(TAG, "Force SAFE_OFF: %s", reason ? reason : "unspecified");
     return ESP_OK;
 }
+

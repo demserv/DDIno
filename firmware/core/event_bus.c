@@ -1,8 +1,10 @@
-// @requirement RF-GLOBAL-002 Barramento de eventos para comunicação desacoplada
+﻿// @requirement RF-GLOBAL-002 Barramento de eventos para comunicação desacoplada
 // @requirement RF-UI-INPUT-001 Eventos de UI e sistema roteados via event_bus
 #include "event_bus.h"
-#include "esp_log.h"
+
 #include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "event_bus";
 
@@ -87,3 +89,4 @@ void event_bus_process_pending(void)
         s_pending_tail = (s_pending_tail + 1) % MAX_PENDING_EVENTS;
     }
 }
+

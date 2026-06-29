@@ -1,9 +1,10 @@
-// @requirement RNF-CALIB-001 Calibração assistida de sensores
+﻿// @requirement RNF-CALIB-001 Calibração assistida de sensores
+#include "lvgl.h"
+
 #include "../ui_screens.h"
 #include "global_state.h"
 #include "param_catalog.h"
 #include "services/config_manager.h"
-#include "lvgl.h"
 
 static lv_obj_t *calib_labels[14];
 
@@ -79,3 +80,4 @@ static void __attribute__((constructor)) register_calibration(void)
 {
     ui_screen_register(SCREEN_CALIBRATION, screen_init_calibration, screen_update_calibration);
 }
+

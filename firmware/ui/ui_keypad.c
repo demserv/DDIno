@@ -1,12 +1,13 @@
-// @requirement RF-UI-INPUT-001 Entrada por keypad AD 5 botões
+﻿// @requirement RF-UI-INPUT-001 Entrada por keypad AD 5 botões
 // @requirement RNF-HARDWARE-001 Keypad via MCP3208 CH3
 #include "ui_keypad.h"
-#include "pin_map.h"
-#include "driver_mcp3208.h"
 
-#include "esp_timer.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "lvgl.h"
+
+#include "driver_mcp3208.h"
+#include "pin_map.h"
 
 static const char *TAG = "ui_keypad";
 
@@ -72,3 +73,4 @@ esp_err_t ui_keypad_init(void)
     ESP_LOGI(TAG, "AD keypad initialized");
     return ESP_OK;
 }
+

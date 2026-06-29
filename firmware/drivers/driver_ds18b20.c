@@ -1,15 +1,17 @@
-// @requirement RF-THERMAL-001 Leitura contínua com validação robusta
+﻿// @requirement RF-THERMAL-001 Leitura contínua com validação robusta
 // @requirement RF-THERMAL-009 CRC obrigatório, rejeição 85°C, timeout ALM-013, moving average 3
 #include "driver_ds18b20.h"
+
+#include "driver/gpio.h"
+#include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
-#include "sdkconfig.h"
-#include "pin_map.h"
-#include "esp_log.h"
-#include "esp_timer.h"
+
 #include "alert_manager.h"
+#include "pin_map.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "ds18b20";
 
@@ -158,3 +160,4 @@ void ds18b20_reset_rom(void)
         ow_write_byte(0xCC);
     }
 }
+

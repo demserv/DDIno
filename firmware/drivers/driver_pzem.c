@@ -1,11 +1,14 @@
-// @requirement RF-ENERGY-001 Leitura PZEM Modbus (V, A, W, kWh, PF, Hz)
+﻿// @requirement RF-ENERGY-001 Leitura PZEM Modbus (V, A, W, kWh, PF, Hz)
 // @requirement RF-ENERGY-006 Frequência da rede via PZEM
 #include "driver_pzem.h"
+
+#include <string.h>
+
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+
 #include "pin_map.h"
-#include <string.h>
 
 static const char *TAG = "pzem";
 
@@ -111,3 +114,4 @@ esp_err_t pzem_reset_energy(void)
 
     return ESP_OK;
 }
+

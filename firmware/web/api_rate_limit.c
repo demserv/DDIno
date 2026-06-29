@@ -1,6 +1,8 @@
-// @requirement RNF-SECURITY-001 Rate limiting (5 tentativas/min/IP com bloqueio)
+﻿// @requirement RNF-SECURITY-001 Rate limiting (5 tentativas/min/IP com bloqueio)
 #include "api_rate_limit.h"
+
 #include <string.h>
+
 #include "esp_timer.h"
 
 typedef struct {
@@ -67,3 +69,4 @@ void rate_limit_reset(uint32_t ip_addr)
         memset(&s_entries[idx], 0, sizeof(rate_limit_entry_t));
     }
 }
+

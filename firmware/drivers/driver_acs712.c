@@ -1,13 +1,16 @@
-// @requirement RF-PLUG-003 Proteção de corrente por plugue
+﻿// @requirement RF-PLUG-003 Proteção de corrente por plugue
 // @requirement RF-PLUG-014 Curto-circuito e sobrecarga extrema por plugue
 // @requirement RNF-CALIB-001 Calibração assistida de sensores
 #include "driver_acs712.h"
-#include "driver_mcp3208.h"
-#include "pin_map.h"
+
+#include <math.h>
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_rom_sys.h"
-#include <string.h>
-#include <math.h>
+
+#include "driver_mcp3208.h"
+#include "pin_map.h"
 
 static const char *TAG = "acs712";
 
@@ -151,3 +154,4 @@ bool acs712_is_calibrated(uint8_t plug_id)
     if (idx < 0) return false;
     return s_acs712[idx].calibrated;
 }
+

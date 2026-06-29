@@ -1,10 +1,11 @@
-// @requirement RF-ATO-001 Leitura de nível com debounce ADC temporal (3 amostras)
+﻿// @requirement RF-ATO-001 Leitura de nível com debounce ADC temporal (3 amostras)
 // @requirement RF-ATO-DIGITAL-001 ATO digital ON/OFF com histerese ADC
 // @requirement RF-ATO-002 FSM de proteção ATO com seis estados
 // @requirement RF-ATO-004 Detecção de padrão anormal de refill
 // @requirement RF-ATO-005 Detecção de reservatório vazio ou bloqueio
 // @requirement RF-FSM-ATO-001 Impacto dos estados ATO no estado global
 #include "fsm/ato_fsm.h"
+
 #include <string.h>
 
 static void ato_reset_output(ato_output_t *o)
@@ -130,3 +131,4 @@ const ato_output_t* ato_fsm_get_output(const ato_fsm_t *fsm)
     if (!fsm) return NULL;
     return &fsm->out;
 }
+

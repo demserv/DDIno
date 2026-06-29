@@ -1,11 +1,13 @@
-// @requirement RF-PLUG-001 Modos de operação por plugue
+﻿// @requirement RF-PLUG-001 Modos de operação por plugue
 // @requirement RF-PLUG-009 Religamento sequencial
 #include "driver_relay.h"
+
 #include "driver/gpio.h"
+#include "esp_log.h"
+
 #include "driver_mcp23017.h"
 #include "hardware_config.h"
 #include "pin_map.h"
-#include "esp_log.h"
 
 static uint16_t s_relay_state = 0;
 static bool s_mcp23017_ok = false;
@@ -101,3 +103,4 @@ bool relay_get(uint8_t plug_id)
     uint8_t bit = plug_id - 1;
     return (s_relay_state >> bit) & 1U;
 }
+

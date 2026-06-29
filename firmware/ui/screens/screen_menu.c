@@ -1,7 +1,8 @@
-// @requirement RF-UI-CAROUSEL-001 Tela de menu principal com navegação
+﻿// @requirement RF-UI-CAROUSEL-001 Tela de menu principal com navegação
+#include "lvgl.h"
+
 #include "../ui_screens.h"
 #include "global_state.h"
-#include "lvgl.h"
 
 extern global_state_t g_gs;
 
@@ -102,3 +103,4 @@ static void __attribute__((constructor)) register_menu(void)
 {
     ui_screen_register(SCREEN_MENU, screen_init_menu, screen_update_menu);
 }
+

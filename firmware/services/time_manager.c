@@ -1,12 +1,15 @@
-// @requirement RF-TIME-001..010 Gerenciamento de tempo
+﻿// @requirement RF-TIME-001..010 Gerenciamento de tempo
 // @requirement RF-TIME-003 Sincronizacao NTP funcional com fallback RTC
 #include "time_manager.h"
-#include "driver_ds3231.h"
+
+#include <string.h>
+#include <time.h>
+
 #include "esp_log.h"
 #include "esp_sntp.h"
 #include "esp_timer.h"
-#include <string.h>
-#include <time.h>
+
+#include "driver_ds3231.h"
 
 static const char *TAG = "time_mgr";
 static time_t s_current = 0;
@@ -128,3 +131,4 @@ bool time_is_ntp_synced(void)
 {
     return s_ntp_synced;
 }
+

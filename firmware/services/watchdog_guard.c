@@ -1,9 +1,12 @@
-#include "watchdog_guard.h"
-#include "task_manager.h"
+﻿#include "watchdog_guard.h"
+
+#include <string.h>
+
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
-#include <string.h>
+
+#include "task_manager.h"
 
 static const char *TAG = "wdt_guard";
 
@@ -114,3 +117,4 @@ uint32_t watchdog_guard_get_alive_count(void)
     }
     return alive;
 }
+

@@ -1,10 +1,13 @@
-#include "wdt_advanced.h"
-#include "task_manager.h"
-#include "esp_task_wdt.h"
+﻿#include "wdt_advanced.h"
+
+#include <string.h>
+
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <string.h>
+
+#include "task_manager.h"
 
 static const char *TAG = "wdt_adv";
 
@@ -70,3 +73,4 @@ bool wdt_advanced_is_enabled(int task_id)
     if (task_id < 0 || task_id >= WDT_TASK_COUNT) return false;
     return s_tasks[task_id].enabled;
 }
+

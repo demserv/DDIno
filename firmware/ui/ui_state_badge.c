@@ -1,10 +1,11 @@
-// @requirement RF-GLOBAL-003 Badge de estado sempre visível na UI
+﻿// @requirement RF-GLOBAL-003 Badge de estado sempre visível na UI
 #include "ui_state_badge.h"
-#include "global_state.h"
-#include "system_types.h"
 
 #include "esp_log.h"
 #include "lvgl.h"
+
+#include "global_state.h"
+#include "system_types.h"
 
 static const char *TAG = "ui_state_badge";
 
@@ -84,3 +85,4 @@ void ui_state_badge_update(void)
 
     lv_obj_move_foreground(badge_cont);
 }
+

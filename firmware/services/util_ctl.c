@@ -1,5 +1,6 @@
-// @requirement RF-UTIL-001 a RF-UTIL-027 Utilitários de sistema
+﻿// @requirement RF-UTIL-001 a RF-UTIL-027 Utilitários de sistema
 #include "util_ctl.h"
+
 #include <string.h>
 
 float util_map(float x, float in_min, float in_max, float out_min, float out_max)
@@ -85,3 +86,4 @@ bool util_str_to_bool(const char *str)
 }
 
 const char *util_bool_to_str(bool val) { return val ? "true" : "false"; }
+

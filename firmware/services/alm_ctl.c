@@ -1,8 +1,10 @@
-// @requirement RF-ALERT-007 a RF-ALERT-020 Gerenciamento estendido de alertas
+﻿// @requirement RF-ALERT-007 a RF-ALERT-020 Gerenciamento estendido de alertas
 #include "alm_ctl.h"
-#include "esp_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "alm_ctl";
 #define ALM_CTL_MAX_ACTIVE 16
@@ -72,3 +74,4 @@ alm_ctl_entry_t *alm_ctl_get_active(int index)
 }
 
 esp_err_t alm_ctl_dedup_cooldown(uint32_t ms) { s_cooldown_ms = ms; return ESP_OK; }
+

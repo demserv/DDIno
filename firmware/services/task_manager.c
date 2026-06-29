@@ -1,6 +1,8 @@
-#include "task_manager.h"
-#include "esp_log.h"
+﻿#include "task_manager.h"
+
 #include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "task_mgr";
 
@@ -166,3 +168,4 @@ const task_definition_t *task_manager_get_definition(int task_id)
     if (task_id < 0 || task_id >= TASK_ID_COUNT) return NULL;
     return &s_tasks[task_id];
 }
+

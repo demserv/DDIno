@@ -1,9 +1,10 @@
-// @requirement RF-ENERGY-001 a RF-ENERGY-010 Tela de energia com V, A, W, PF, Hz
+﻿// @requirement RF-ENERGY-001 a RF-ENERGY-010 Tela de energia com V, A, W, PF, Hz
+#include "lvgl.h"
+
 #include "../ui_screens.h"
-#include "global_state.h"
 #include "driver_acs712.h"
 #include "driver_pzem.h"
-#include "lvgl.h"
+#include "global_state.h"
 
 static lv_obj_t *v_label = NULL;
 static lv_obj_t *a_label = NULL;
@@ -119,3 +120,4 @@ static void __attribute__((constructor)) register_energy(void)
 {
     ui_screen_register(SCREEN_ENERGY, screen_init_energy, screen_update_energy);
 }
+

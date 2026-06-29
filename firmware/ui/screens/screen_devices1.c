@@ -1,11 +1,12 @@
-// @requirement RF-PLUG-001 a RF-PLUG-014 Exibição de plugues na UI (P01-P05)
+﻿// @requirement RF-PLUG-001 a RF-PLUG-014 Exibição de plugues na UI (P01-P05)
 // @requirement RF-PLUG-003 Corrente individual visível na tela de dispositivos
+#include "lvgl.h"
+
 #include "../ui_screens.h"
+#include "driver_acs712.h"
 #include "global_state.h"
 #include "plug_model.h"
 #include "services/plug_manager.h"
-#include "driver_acs712.h"
-#include "lvgl.h"
 
 static lv_obj_t *plug_rows[5];
 static lv_obj_t *plug_icon_labels[5];
@@ -125,3 +126,4 @@ static void __attribute__((constructor)) register_devices1(void)
 {
     ui_screen_register(SCREEN_DEVICES1, screen_init_devices1, screen_update_devices1);
 }
+

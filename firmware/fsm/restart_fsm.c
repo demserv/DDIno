@@ -1,8 +1,9 @@
-// @requirement RF-PLUG-009 Religamento sequencial
+﻿// @requirement RF-PLUG-009 Religamento sequencial
 // @requirement RF-PROTECTION-001 Religamento inteligente pós-SAFE_OFF
 // @requirement RF-FSM-RELIG-ELECT-001 FSM de religamento elétrico inteligente
 // @requirement RF-GLOBAL-REARM-001 Blocked plug isolation
 #include "fsm/restart_fsm.h"
+
 #include <string.h>
 
 static const uint8_t RELAY_ENERGIZE_ORDER[PLUG_COUNT_TOTAL] = {
@@ -142,3 +143,4 @@ restart_state_t restart_fsm_get_state(const restart_fsm_t *fsm)
     if (!fsm) return RESTART_STATE_IDLE;
     return fsm->state;
 }
+

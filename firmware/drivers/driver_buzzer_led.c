@@ -1,13 +1,15 @@
-// @requirement RF-LED-001 LED Verde (sistema OK)
+﻿// @requirement RF-LED-001 LED Verde (sistema OK)
 // @requirement RF-LED-002 LED Amarelo (atenção/feed mode)
 // @requirement RF-LED-003 LED Vermelho e padrão crítico
 // @requirement RF-GLOBAL-003 Badge de estado sempre visível
 #include "driver_buzzer_led.h"
-#include "driver_mcp23017.h"
+
 #include "driver/i2c.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
+
+#include "driver_mcp23017.h"
 
 static const char *TAG = "buzzer_led";
 
@@ -91,3 +93,4 @@ void buzzer_led_clear(void)
     s_gpio_state = 0;
     mcp23017_write_gpiob(s_gpio_state);
 }
+

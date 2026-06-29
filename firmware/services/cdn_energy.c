@@ -1,9 +1,12 @@
-// @requirement RF-ENERGY-003 Acumuladores de energia
+﻿// @requirement RF-ENERGY-003 Acumuladores de energia
 // @requirement RF-ENERGY-010 Log periódico SD
 #include "cdn_energy.h"
-#include "storage_sd.h"
-#include "esp_timer.h"
+
 #include <string.h>
+
+#include "esp_timer.h"
+
+#include "storage_sd.h"
 
 typedef struct {
     float energy_wh;
@@ -90,3 +93,4 @@ void cdn_energy_log_to_sd(void)
         (double)total);
     storage_sd_write_log(SD_LOG_TYPE_ENERGY, line);
 }
+

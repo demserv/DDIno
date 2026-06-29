@@ -1,13 +1,14 @@
-// @requirement RF-UI-CAROUSEL-001 Dashboard como tela principal do carrossel
+﻿// @requirement RF-UI-CAROUSEL-001 Dashboard como tela principal do carrossel
 // @requirement RF-THERMAL-001 Exibição de temperatura na UI
 // @requirement RF-ENERGY-001 Exibição de energia na UI
+#include "lvgl.h"
+
 #include "../ui_screens.h"
+#include "driver_ds18b20.h"
+#include "driver_pzem.h"
 #include "global_state.h"
 #include "plug_model.h"
-#include "driver_pzem.h"
-#include "driver_ds18b20.h"
 #include "services/config_manager.h"
-#include "lvgl.h"
 
 static lv_obj_t *temp_value = NULL;
 static lv_obj_t *trend_label = NULL;
@@ -148,3 +149,4 @@ static void __attribute__((constructor)) register_dashboard(void)
 {
     ui_screen_register(SCREEN_DASHBOARD, screen_init_dashboard, screen_update_dashboard);
 }
+

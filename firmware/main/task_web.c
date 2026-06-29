@@ -1,15 +1,17 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "task_manager.h"
-#include "services/wdt_advanced.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "services/watchdog_guard.h"
-#include "web/api_rest.h"
+#include "services/wdt_advanced.h"
 #include "services/web_ctl.h"
 #include "services/wifi_ctl.h"
+#include "task_manager.h"
+#include "web/api_rest.h"
 
 static const char *TAG = "task_web";
 
@@ -35,3 +37,4 @@ void task_web_fn(void *pv)
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_WEB));
     }
 }
+

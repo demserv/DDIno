@@ -1,6 +1,8 @@
-#include "config_staging.h"
-#include "config_manager.h"
+﻿#include "config_staging.h"
+
 #include <string.h>
+
+#include "config_manager.h"
 
 static config_staging_t s_staging;
 static config_staging_t s_backup;
@@ -114,3 +116,4 @@ bool config_staging_is_dirty(void)
 {
     return s_dirty;
 }
+

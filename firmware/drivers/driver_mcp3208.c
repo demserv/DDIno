@@ -1,7 +1,9 @@
-#include "driver_mcp3208.h"
-#include "hal_spi.h"
+﻿#include "driver_mcp3208.h"
+
 #include "driver/gpio.h"
 #include "esp_log.h"
+
+#include "hal_spi.h"
 #include "pin_map.h"
 
 static const char *TAG = "mcp3208";
@@ -34,3 +36,4 @@ esp_err_t mcp3208_read_channel(int cs_gpio, uint8_t channel, uint16_t *adc_value
     *adc_value = ((uint16_t)(rx_buf[1] & 0x0F) << 8) | rx_buf[2];
     return ESP_OK;
 }
+

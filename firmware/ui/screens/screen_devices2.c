@@ -1,10 +1,11 @@
-// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P06-P10
+﻿// @requirement RF-PLUG-001 a RF-PLUG-010 Tela de dispositivos P06-P10
+#include "lvgl.h"
+
 #include "../ui_screens.h"
+#include "driver_acs712.h"
 #include "global_state.h"
 #include "plug_model.h"
 #include "services/plug_manager.h"
-#include "driver_acs712.h"
-#include "lvgl.h"
 
 static lv_obj_t *plug_rows[5];
 static lv_obj_t *plug_icon_labels[5];
@@ -135,3 +136,4 @@ static void __attribute__((constructor)) register_devices2(void)
 {
     ui_screen_register(SCREEN_DEVICES2, screen_init_devices2, screen_update_devices2);
 }
+
