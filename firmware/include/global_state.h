@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "system_types.h"
+#include "alm_ids.h"
 #include "fsm/feed_fsm.h"
 
 #ifdef __cplusplus
@@ -72,7 +73,7 @@ typedef struct {
     bool                 restart_in_progress;
     wizard_step_t        wizard_step;
     bool                 hw_alert_pending;
-    uint16_t             hw_alert_alm_id;
+    alm_id_t             hw_alert_alm_id;
     char                 hw_alert_msg[128];
     char                 reset_status_msg[64];
 } global_state_t;
