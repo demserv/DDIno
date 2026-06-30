@@ -2,6 +2,8 @@
 
 #include "esp_log.h"
 
+#include "config_manager.h"
+#include "param_catalog.h"
 #include "driver_acs712.h"
 #include "driver_pzem.h"
 #include "electric_fsm.h"
@@ -14,7 +16,12 @@ static bool s_pzem_valid = false;
 
 esp_err_t electric_service_init(void)
 {
-    electric_params_t p = { .total_power_limit_w = 1500, .per_plug_current_limit_a = 10.0f };
+    /* @requirement RF-GLOBAL-005 thresholds via NVS */
+    const electric_params_storage_t *cfg = config_get_electric();
+    electric_params_t p = {
+        .total_power_limit_w      = cfg->total_power_limit_w,
+        .per_plug_current_limit_a = cfg->per_plug_current_limit_a
+    };
     electric_fsm_init(&s_fsm, &p);
     s_fsm_out = electric_fsm_get_output(&s_fsm);
     s_pzem_valid = (pzem_init() == ESP_OK);

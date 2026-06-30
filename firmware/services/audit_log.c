@@ -1,6 +1,6 @@
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "services/audit_log.h"
-#include "services/storage_sd.h"
+#include "services/storage_facade.h"
 #include "hardware_config.h"
 #include "esp_timer.h"
 #include <stdio.h>
@@ -24,17 +24,18 @@ static const char *event_type_str(audit_event_type_t type)
     }
 }
 
+/* @requirement RNF-SECURITY-003 audit log com RAM fallback */
 esp_err_t audit_log_event(audit_event_type_t type, const char *msg)
 {
     if (!msg) return ESP_ERR_INVALID_ARG;
-    if (!storage_sd_is_mounted()) return ESP_ERR_INVALID_STATE;
-
+    /* SD ausente: usar o ring buffer interno do storage_sd_write_log
+     * (RF-STORAGE-002 fallback RAM). NÃO retornar erro silencioso. */
     uint64_t now_us = esp_timer_get_time();
     char line[AUDIT_LOG_LINE_SIZE];
     snprintf(line, sizeof(line), "[%llu] [%s] %s",
              (unsigned long long)(now_us / USEC_PER_SEC),
              event_type_str(type), msg);
-    return storage_sd_write_log(SD_LOG_TYPE_AUDIT, line);
+    return storage_facade_write(STORAGE_CHAN_AUDIT_LOG, line, strlen(line) + 1);
 }
 
 esp_err_t audit_log_state_change(const char *from_state, const char *to_state, const char *reason)

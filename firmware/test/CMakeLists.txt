@@ -8,6 +8,10 @@ idf_component_register(
         test_alert.c
         test_temp_filter.c
         test_plug_manager.c
+        test_web_state.c
+        test_audit_log_no_sd.c
+        test_safety_audit_trail.c
+        test_thermal_service.c
     INCLUDE_DIRS
         "${PROJECT_DIR}"
         "${PROJECT_DIR}/include"

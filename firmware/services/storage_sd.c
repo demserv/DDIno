@@ -1,3 +1,4 @@
+/* @requirement RF-STORAGE-001 a RF-STORAGE-005 RNF-STORAGE-006 */
 // @requirement RF-FLOW-BOOT-004 .tmp orphan handling
 // @requirement RF-STORAGE-002 RAM fallback quando SD ausente
 // @requirement RF-STORAGE-003 Escrita atômica
@@ -11,7 +12,6 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "global_state.h"
-#include "conf_ctl.h"
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -217,11 +217,7 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
     char path[96];
     snprintf(path, sizeof(path), "%s/log.txt", full_dir);
 
-    conf_ctl_config_t ctl;
-    size_t max_kb = 512;
-    if (conf_ctl_load(&ctl) == ESP_OK) {
-        max_kb = ctl.log.max_file_size_kb;
-    }
+    size_t max_kb = 512; /* RF-LOG-001 default via config_manager (conf_ctl removido T-10) */
     rotate_log_if_needed(path, max_kb);
 
     char tmp_path[100];

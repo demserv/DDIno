@@ -1,4 +1,5 @@
-#include "ui_touch.h"
+/* @requirement RF-DISP-TOUCH-001 a RF-DISP-TOUCH-005 */
+#include "driver_xpt2046.h"
 #include "pin_map.h"
 #include "hal_spi.h"
 #include "hardware_config.h"
@@ -11,7 +12,7 @@
 #define TOUCH_ADC_MAX    4095
 #define TOUCH_ADC_RANGE  4096
 
-static const char *TAG = "ui_touch";
+static const char *TAG = "driver_xpt2046";
 
 static uint16_t xpt2046_read_raw(uint8_t cmd)
 {
@@ -84,7 +85,7 @@ bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     return false;
 }
 
-esp_err_t ui_touch_init(void)
+esp_err_t driver_xpt2046_init(void)
 {
     ESP_LOGI(TAG, "Initializing touch");
 

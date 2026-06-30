@@ -48,6 +48,9 @@ esp_err_t wifi_ctl_save_creds(const char *ssid, const char *password);
 esp_err_t wifi_ctl_load_creds(char *ssid, size_t ssid_len, char *password, size_t pass_len);
 esp_err_t wifi_ctl_clear_creds(void);
 
+uint32_t wifi_ctl_next_backoff_s(void);
+void     wifi_ctl_reset_backoff(void);
+
 #ifdef __cplusplus
 }
 #endif

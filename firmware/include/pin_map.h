@@ -1,3 +1,4 @@
+/* @requirement RF-HW-PIN-001 a RF-HW-PIN-046 GO CODING RevA */
 // @requirement RNF-HARDWARE-001 Pinagem canônica AF.3 — GPIO, I2C, SPI, UART, ADC
 #ifndef FIRMWARE_INCLUDE_PIN_MAP_H
 #define FIRMWARE_INCLUDE_PIN_MAP_H

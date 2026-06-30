@@ -32,19 +32,14 @@ set(MAIN_SRCS
 
     # Services
     "../services/alert_manager.c"
-    "../services/alert_manager_ext.c"
-    "../services/alm_ctl.c"
     "../services/ato_service.c"
     "../services/audit_log.c"
-    "../services/bom_ctl.c"
     "../services/cdn_energy.c"
     "../services/command_dispatcher.c"
     "../services/command_validator.c"
-    "../services/conf_ctl.c"
     "../services/config_manager.c"
     "../services/config_root.c"
     "../services/config_staging.c"
-    "../services/data_ctl.c"
     "../services/disp_ctl.c"
     "../services/electric_fsm.c"
     "../services/electric_service.c"
@@ -62,6 +57,7 @@ set(MAIN_SRCS
     "../services/self_test.c"
     "../services/sensor_ctl.c"
     "../services/storage_atomic.c"
+    "../services/storage_facade.c"
     "../services/storage_manager.c"
     "../services/storage_sd.c"
     "../services/task_manager.c"
@@ -71,7 +67,6 @@ set(MAIN_SRCS
     "../services/util_ctl.c"
     "../services/watchdog_guard.c"
     "../services/wdt_advanced.c"
-    "../services/web_ctl.c"
     "../services/wifi_ctl.c"
 
     # Web
@@ -80,9 +75,9 @@ set(MAIN_SRCS
     "../web/api_rest.c"
 
     # UI legacy (drivers)
-    "../drivers/ui_display.c"
-    "../drivers/ui_keypad.c"
-    "../drivers/ui_touch.c"
+    "../drivers/driver_ili9488.c"
+    "../drivers/driver_xpt2046.c"
+    "../drivers/driver_ad_keypad_lvgl.c"
 
     # HMI refatorada
     "ui/hmi/ui_app.c"
@@ -96,6 +91,7 @@ set(MAIN_SRCS
     "ui/hmi/components/ui_bar_chart.c"
     "ui/hmi/components/ui_confirm_dialog.c"
     "ui/hmi/components/ui_critical_overlay.c"
+    "ui/hmi/components/ui_inline_hint.c"
     "ui/hmi/components/ui_device_row.c"
     "ui/hmi/components/ui_focus.c"
     "ui/hmi/components/ui_footer.c"
@@ -123,11 +119,11 @@ set(MAIN_SRCS
     "ui/hmi/screens/screen_submenu.c"
 
     # Main task modules
-    "api_sensors_handler.c"
-    "app_main.c"
-    "log_handler.c"
-    "task_web.c"
-    "ui_task.c"
+    "handler/api_sensors_handler.c"
+    "app/app_main.c"
+    "handler/log_handler.c"
+    "task/task_web.c"
+    "task/ui_task.c"
 )
 
 set(MAIN_INCLUDE_DIRS
@@ -142,6 +138,9 @@ set(MAIN_INCLUDE_DIRS
     "../web"
 
     "../security"
+    "app"
+    "task"
+    "handler"
     "ui/hmi"
     "ui/hmi/components"
     "ui/hmi/screens"

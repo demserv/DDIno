@@ -1,4 +1,5 @@
-﻿// @requirement RF-WEB-001 a RF-WEB-008 (API REST)
+﻿/* @requirement RF-WEB-001 a RF-WEB-008 RF-API-SCHEMA-001 a 003 */
+// @requirement RF-WEB-001 a RF-WEB-008 (API REST)
 // @requirement RNF-CALIB-001 Calibração assistida via API
 #include "api_rest.h"
 
@@ -175,7 +176,60 @@ static esp_err_t status_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "active_alm_categories", (double)g_gs.active_alm_categories);
     cJSON_AddNumberToObject(json, "last_reset_reason", g_gs.last_reset_reason);
     cJSON_AddBoolToObject(json, "restart_in_progress", g_gs.restart_in_progress);
+    httpd_resp_set_hdr(req, "X-Deprecated", "use /api/v1/state");
     return send_json_resp(req, json, "200 OK");
+}
+
+/* @requirement RF-WEB-002 GET /api/v1/state (TC-WEB-001) */
+static esp_err_t state_handler(httpd_req_t *req)
+{
+    char buf[768];
+    const char *st = "UNKNOWN";
+    switch (g_gs.system_state) {
+        case SYSTEM_STATE_NORMAL:    st = "NORMAL";    break;
+        case SYSTEM_STATE_DEGRADED:  st = "DEGRADED";  break;
+        case SYSTEM_STATE_SAFE_OFF:  st = "SAFE_OFF";  break;
+        case SYSTEM_STATE_EMERGENCY: st = "EMERGENCY"; break;
+        default: break;
+    }
+    const char *reason = "NONE";
+    switch (g_gs.safeoff_reason) {
+        case SAFEOFF_REASON_NONE:             reason = "NONE";           break;
+        case SAFEOFF_REASON_THERMAL_CRITICAL: reason = "THERMAL";        break;
+        case SAFEOFF_REASON_ATO_OVERFLOW:     reason = "ATO_OVERFLOW";   break;
+        case SAFEOFF_REASON_ELECTRIC_TOTAL:   reason = "ELECTRIC";       break;
+        case SAFEOFF_REASON_SELFTEST_FAIL:    reason = "SELFTEST_FAIL";  break;
+        case SAFEOFF_REASON_MANUAL_CRITICAL:  reason = "MANUAL";         break;
+        default:                              reason = "OTHER";          break;
+    }
+    snprintf(buf, sizeof(buf),
+        "{"
+          "\"system_state\":\"%s\","
+          "\"safeoff_reason\":\"%s\","
+          "\"safeoff_source_alm\":\"%s\","
+          "\"safeoff_entered_at\":\"%s\","
+          "\"restart_in_progress\":%s,"
+          "\"wizard_completed\":%s,"
+          "\"wizard_step\":%u,"
+          "\"monitor_only\":%s,"
+          "\"alerts_active\":%u,"
+          "\"uptime_s\":%llu,"
+          "\"firmware_version\":\"3.11\","
+          "\"selftest_passed\":%s"
+        "}",
+        st, reason,
+        g_gs.safeoff_source_alm,
+        g_gs.safeoff_entered_at,
+        g_gs.restart_in_progress ? "true" : "false",
+        g_gs.wizard_completed ? "true" : "false",
+        (unsigned)g_gs.wizard_step,
+        g_gs.monitor_only_mode ? "true" : "false",
+        (unsigned)alert_manager_active_count(),
+        (unsigned long long)(esp_timer_get_time() / 1000000ULL),
+        g_gs.selftest_passed ? "true" : "false");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_sendstr(req, buf);
 }
 
 static esp_err_t health_handler(httpd_req_t *req)
@@ -861,6 +915,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/auth/logout",   .method = HTTP_POST, .handler = logout_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/auth/password", .method = HTTP_POST, .handler = auth_password_handler, .user_ctx = NULL },
     { .uri = "/api/v1/status",        .method = HTTP_GET,  .handler = status_handler,        .user_ctx = NULL },
+    { .uri = "/api/v1/state",         .method = HTTP_GET,  .handler = state_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/health",        .method = HTTP_GET,  .handler = health_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_GET,  .handler = plugs_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_POST, .handler = plug_set_handler,      .user_ctx = NULL },

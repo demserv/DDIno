@@ -54,6 +54,11 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
         return;
     }
 
+    if (in->sample_valid) {
+        fsm->last_valid_temp_c = in->temp_c;
+        fsm->last_valid_at_ms  = in->now_ms;
+    }
+
     const float t = in->temp_c;
     /* Compute trend: compare current temp to last temp, normalize to °C/min */
     static float s_last_temp = 0;
@@ -140,5 +145,14 @@ const thermal_output_t* thermal_fsm_get_output(const thermal_fsm_t *fsm)
 {
     if (!fsm) return NULL;
     return &fsm->out;
+}
+
+/* @requirement RF-THERMAL-001 getter de última temp válida */
+bool thermal_fsm_get_last_valid_temp(const thermal_fsm_t *f, float *out_c)
+{
+    if (!f || !out_c) return false;
+    if (f->last_valid_at_ms == 0) return false;
+    *out_c = f->last_valid_temp_c;
+    return true;
 }
 

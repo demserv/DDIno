@@ -1,6 +1,8 @@
-﻿#include "ui_display.h"
+﻿/* @requirement RF-DISP-001 a RF-DISP-035 init ILI9488 */
+#include "driver_ili9488.h"
 
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -13,7 +15,7 @@
 #include "hardware_config.h"
 #include "pin_map.h"
 
-static const char *TAG = "ui_display";
+static const char *TAG = "driver_ili9488";
 
 static uint8_t s_brightness_percent = HW_UI_BRIGHTNESS_DEFAULT;
 static uint8_t s_configured_brightness = HW_UI_BRIGHTNESS_DEFAULT;
@@ -103,7 +105,7 @@ static void lvgl_tick_cb(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
-esp_err_t ui_display_init(void)
+esp_err_t driver_ili9488_init(void)
 {
     ESP_LOGI(TAG, "Initializing ILI9488 display");
 
@@ -113,7 +115,8 @@ esp_err_t ui_display_init(void)
 
     ili9488_init();
 
-    gpio_set_level(PIN_TFT_BL_GPIO, s_brightness_percent > 0 ? 1 : 0);
+    ESP_ERROR_CHECK(driver_ili9488_backlight_init(PIN_TFT_BL_GPIO));
+    driver_ili9488_backlight_set(s_brightness_percent);
 
     lv_init();
 
@@ -149,7 +152,7 @@ void ui_display_set_brightness(uint8_t percent)
     }
     s_configured_brightness = percent;
     s_brightness_percent = percent;
-    gpio_set_level(PIN_TFT_BL_GPIO, percent > 0 ? 1 : 0);
+    driver_ili9488_backlight_set(percent);
 }
 
 uint8_t ui_display_get_brightness(void)
@@ -163,8 +166,47 @@ void ui_display_dim_on_inactivity(bool enable, uint32_t timeout_s)
     s_dim_timeout_s = timeout_s;
     if (!enable) {
         s_brightness_percent = s_configured_brightness;
-        gpio_set_level(PIN_TFT_BL_GPIO, s_brightness_percent > 0 ? 1 : 0);
+        driver_ili9488_backlight_set(s_brightness_percent);
     }
+}
+
+/* @requirement RF-DISP-BACKLIGHT-001 PWM via LEDC */
+#define DISP_BL_LEDC_MODE   LEDC_LOW_SPEED_MODE
+#define DISP_BL_LEDC_TIMER  LEDC_TIMER_0
+#define DISP_BL_LEDC_CH     LEDC_CHANNEL_0
+#define DISP_BL_LEDC_FREQ   5000
+#define DISP_BL_LEDC_RES    LEDC_TIMER_13_BIT
+#define DISP_BL_LEDC_DUTY_MAX 8191
+
+esp_err_t driver_ili9488_backlight_init(int gpio_num)
+{
+    ledc_timer_config_t t = {
+        .speed_mode      = DISP_BL_LEDC_MODE,
+        .timer_num       = DISP_BL_LEDC_TIMER,
+        .duty_resolution = DISP_BL_LEDC_RES,
+        .freq_hz         = DISP_BL_LEDC_FREQ,
+        .clk_cfg         = LEDC_AUTO_CLK
+    };
+    esp_err_t err = ledc_timer_config(&t);
+    if (err != ESP_OK) return err;
+    ledc_channel_config_t c = {
+        .gpio_num   = gpio_num,
+        .speed_mode = DISP_BL_LEDC_MODE,
+        .channel    = DISP_BL_LEDC_CH,
+        .timer_sel  = DISP_BL_LEDC_TIMER,
+        .duty       = DISP_BL_LEDC_DUTY_MAX,
+        .hpoint     = 0
+    };
+    return ledc_channel_config(&c);
+}
+
+esp_err_t driver_ili9488_backlight_set(uint8_t percent)
+{
+    if (percent > 100) percent = 100;
+    uint32_t duty = (uint32_t)((DISP_BL_LEDC_DUTY_MAX * (uint32_t)percent) / 100U);
+    esp_err_t err = ledc_set_duty(DISP_BL_LEDC_MODE, DISP_BL_LEDC_CH, duty);
+    if (err != ESP_OK) return err;
+    return ledc_update_duty(DISP_BL_LEDC_MODE, DISP_BL_LEDC_CH);
 }
 
 esp_err_t ui_display_set_backlight(bool enabled)

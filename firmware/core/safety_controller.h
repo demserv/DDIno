@@ -44,4 +44,16 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
 esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s);
 esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_module);
 
+/* @requirement RF-AUDIT RF-GLOBAL-002 mapeamento estado→string */
+static inline const char *system_state_to_str(system_state_t s)
+{
+    switch (s) {
+        case SYSTEM_STATE_NORMAL:    return "NORMAL";
+        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
+        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
+        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
+        default:                     return "UNKNOWN";
+    }
+}
+
 #endif

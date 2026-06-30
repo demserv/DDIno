@@ -1,4 +1,5 @@
-﻿#include "storage_atomic.h"
+﻿/* @requirement RF-STORAGE-003 escrita atômica em ring */
+#include "storage_atomic.h"
 
 #include <string.h>
 

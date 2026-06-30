@@ -145,3 +145,20 @@ esp_err_t wifi_ctl_save_creds(const char *ssid, const char *password) { return E
 esp_err_t wifi_ctl_load_creds(char *ssid, size_t ssid_len, char *password, size_t pass_len) { return ESP_ERR_NOT_FOUND; }
 esp_err_t wifi_ctl_clear_creds(void) { return ESP_OK; }
 
+/* @requirement RF-WIFI-RECONNECT-001 backoff exponencial */
+static uint32_t s_backoff_step = 0;
+static const uint32_t WIFI_BACKOFF_S[] = { 2, 4, 8, 16, 32, 60 };
+#define WIFI_BACKOFF_LEN (sizeof(WIFI_BACKOFF_S)/sizeof(WIFI_BACKOFF_S[0]))
+
+uint32_t wifi_ctl_next_backoff_s(void)
+{
+    uint32_t v = WIFI_BACKOFF_S[s_backoff_step];
+    if (s_backoff_step < WIFI_BACKOFF_LEN - 1) s_backoff_step++;
+    return v;
+}
+
+void wifi_ctl_reset_backoff(void)
+{
+    s_backoff_step = 0;
+}
+

@@ -34,11 +34,17 @@ esp_err_t thermal_service_set_setpoint(float c)
     return ESP_OK;
 }
 
+/* @requirement RF-THERMAL-001 leitura via FSM (sem hardcode 0) */
 esp_err_t thermal_service_get_current(float *out_c)
 {
     if (!out_c) return ESP_ERR_INVALID_ARG;
+    float v;
+    if (thermal_fsm_get_last_valid_temp(&s_fsm, &v)) {
+        *out_c = v;
+        return ESP_OK;
+    }
     *out_c = 0.0f;
-    return ESP_OK;
+    return ESP_ERR_INVALID_STATE;
 }
 
 esp_err_t thermal_service_is_heating(bool *out)

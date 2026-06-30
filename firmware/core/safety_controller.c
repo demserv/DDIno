@@ -21,17 +21,6 @@ static const char *TAG = "safety_controller";
 
 static safety_context_t s_ctx;
 
-static const char *state_to_str(system_state_t s)
-{
-    switch (s) {
-        case SYSTEM_STATE_NORMAL:    return "NORMAL";
-        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
-        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
-        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
-        default:                     return "UNKNOWN";
-    }
-}
-
 void safety_controller_init(global_state_t *gs)
 {
     if (!gs) return;
@@ -65,7 +54,7 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
 
     ESP_LOGE("safety", "SAFE_OFF entered from %d reason=%d alm=%s module=%s",
              (int)prev, (int)reason, source_alm ? source_alm : "?", source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "SAFE_OFF", source_module ? source_module : "enter_safeoff");
+    audit_log_state_change(system_state_to_str(prev), "SAFE_OFF", source_module ? source_module : "enter_safeoff");
     return ESP_OK;
 }
 
@@ -80,7 +69,7 @@ esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_mo
     relay_all_off();
 
     ESP_LOGE("safety", "EMERGENCY entered from %d module=%s", (int)prev, source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "EMERGENCY", source_module ? source_module : "enter_emergency");
+    audit_log_state_change(system_state_to_str(prev), "EMERGENCY", source_module ? source_module : "enter_emergency");
     return ESP_OK;
 }
 
@@ -91,7 +80,7 @@ esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_mod
 
     gs->system_state = SYSTEM_STATE_DEGRADED;
     ESP_LOGW("safety", "DEGRADED entered module=%s", source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "DEGRADED", source_module ? source_module : "enter_degraded");
+    audit_log_state_change(system_state_to_str(prev), "DEGRADED", source_module ? source_module : "enter_degraded");
     return ESP_OK;
 }
 
@@ -137,14 +126,14 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     if (gs->system_state == SYSTEM_STATE_SAFE_OFF && gs->restart_in_progress) {
         if (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED) {
             ESP_LOGV(TAG, "RESTART: bloqueada transicao %s->%s durante religamento",
-                     state_to_str(prev), state_to_str(next));
+                     system_state_to_str(prev), system_state_to_str(next));
             return;
         }
     }
 
     if (!check_antiflap(next, now_s * MS_PER_SEC)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
-                 state_to_str(prev), state_to_str(next),
+                 system_state_to_str(prev), system_state_to_str(next),
                  HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
         return;
     }
@@ -184,7 +173,7 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     s_ctx.last_transition_ms = now_s * MS_PER_SEC;
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
-             state_to_str(prev), state_to_str(next),
+             system_state_to_str(prev), system_state_to_str(next),
              in->transition_cause ? in->transition_cause : "N/A");
 }
 

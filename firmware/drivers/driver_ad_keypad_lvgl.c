@@ -1,6 +1,7 @@
+/* @requirement RF-UI-INPUT-001 a RF-UI-INPUT-003 keypad analógico */
 // @requirement RF-UI-INPUT-001 Entrada por keypad AD 5 botões
 // @requirement RNF-HARDWARE-001 Keypad via MCP3208 CH3
-#include "ui_keypad.h"
+#include "driver_ad_keypad_lvgl.h"
 #include "hardware_config.h"
 #include "pin_map.h"
 #include "driver_mcp3208.h"
@@ -9,7 +10,7 @@
 #include "esp_log.h"
 #include "lvgl.h"
 
-static const char *TAG = "ui_keypad";
+static const char *TAG = "driver_ad_keypad_lvgl";
 
 static uint32_t last_key_time = 0;
 static uint16_t last_adc = 4096;
@@ -60,7 +61,7 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     return false;
 }
 
-esp_err_t ui_keypad_init(void)
+esp_err_t driver_ad_keypad_lvgl_init(void)
 {
     ESP_LOGI(TAG, "Initializing AD keypad");
 

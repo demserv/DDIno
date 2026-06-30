@@ -1,3 +1,4 @@
+// @requirement RF-FLOW-BOOT-001 a RF-FLOW-BOOT-010 RF-FLOW-RUNTIME-001
 // @requirement RF-FLOW-BOOT-001 Ponto de entrada principal do firmware
 // @requirement RF-FLOW-BOOT-002 Inicializacao sequencial de modulos
 // @requirement RF-FLOW-BOOT-003 Self-test no boot com fallback SAFE_OFF
@@ -40,9 +41,12 @@
 #include "drivers/driver_buzzer_led.h"
 #include "fsm/ato_fsm.h"
 #include "web/api_rest.h"
-#include "drivers/ui_display.h"
+#include "drivers/driver_ili9488.h"
+#include "drivers/driver_xpt2046.h"
+#include "drivers/driver_ad_keypad_lvgl.h"
 #include "ui/hmi/ui_screen_manager.h"
 #include "ui/hmi/ui_app.h"
+#include "ui/hmi/ui_lvgl_mutex.h"
 #include "core/circuit_breaker.h"
 #include "services/self_test.h"
 #include "services/temp_filter.h"
@@ -58,11 +62,7 @@
 #include "sensor_ctl.h"
 #include "disp_ctl.h"
 #include "log_ctl.h"
-#include "conf_ctl.h"
-#include "web_ctl.h"
-#include "alm_ctl.h"
-#include "bom_ctl.h"
-#include "data_ctl.h"
+#include "storage_facade.h"
 #include "thermal_service.h"
 #include "ato_service.h"
 #include "electric_service.h"
@@ -70,6 +70,9 @@
 #include "pending_actions.h"
 #include "sec_policy.h"
 #include "watchdog_guard.h"
+
+extern void task_ui_fn(void *pv);
+extern void task_web_fn(void *pv);
 
 static const char *TAG = "app_main";
 
@@ -539,7 +542,7 @@ static void task_safety_core_fn(void *pv)
         if (reset_handler_is_pending()) {
             wdt_advanced_reset(TASK_ID_SAFETY_CORE);
             feed_fsm_update(&s_feed_fsm, now_ms);
-            lv_timer_handler();
+            ui_lvgl_tick(pdMS_TO_TICKS(20));
             vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
             continue;
         }
@@ -678,36 +681,6 @@ static void task_storage_fn(void *pv)
     }
 }
 
-static void task_ui_fn(void *pv)
-{
-    (void)pv;
-    ESP_LOGI(TAG, "ui task iniciada");
-
-    while (1) {
-        wdt_advanced_reset(TASK_ID_UI);
-        watchdog_guard_heartbeat(TASK_ID_UI);
-        ui_screen_update_all();
-        ui_app_tick();
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_UI));
-    }
-}
-
-static void task_web_fn(void *pv)
-{
-    (void)pv;
-    ESP_LOGI(TAG, "web task iniciada");
-
-    while (1) {
-        wdt_advanced_reset(TASK_ID_WEB);
-        watchdog_guard_heartbeat(TASK_ID_WEB);
-
-        lv_timer_handler();
-
-        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_WEB));
-    }
-}
-
 static void task_diag_fn(void *pv)
 {
     (void)pv;
@@ -842,10 +815,12 @@ void app_main(void)
         }
     }
 
-    esp_err_t ui_err = ui_display_init();
+    esp_err_t ui_err = driver_ili9488_init();
     if (ui_err != ESP_OK) {
         ESP_LOGW(TAG, "Display LVGL nao disponivel (sistema continua sem UI)");
     }
+    /* @requirement RNF-RESILIENCE-001 LVGL thread-safety */
+    ESP_ERROR_CHECK(ui_lvgl_mutex_init());
     ui_app_init();
 
     esp_netif_init();
@@ -857,15 +832,12 @@ void app_main(void)
     event_bus_init();
     health_matrix_init();
 
-    conf_ctl_init();
+    ESP_ERROR_CHECK(storage_facade_init());
+
     log_ctl_init();
     disp_ctl_init();
     sensor_ctl_init();
     wifi_ctl_init();
-    web_ctl_init();
-    alm_ctl_init();
-    bom_ctl_init();
-    data_ctl_init();
 
     thermal_service_init();
     ato_service_init();

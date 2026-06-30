@@ -7,7 +7,7 @@
 #include "task_manager.h"
 #include "services/wdt_advanced.h"
 #include "services/watchdog_guard.h"
-#include "drivers/ui_display.h"
+#include "drivers/driver_ili9488.h"
 #include "ui/hmi/ui_app.h"
 #include "ui/hmi/ui_lvgl_mutex.h"
 #include "lvgl.h"

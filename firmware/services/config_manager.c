@@ -1,4 +1,5 @@
-﻿// @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
+﻿/* @requirement RF-CONF-001 a RF-CONF-020 RF-PERSIST-001 a RF-PERSIST-015 */
+// @requirement RF-GLOBAL-005 Proibição de valores operacionais fixos em código
 // @requirement RF-UI-WIZARD-001..005 Wizard step persistence
 // @requirement RNF-CALIB-001 Calibração assistida de sensores
 // @requirement RF-ATO-003 Configuração ATO com validação LOW/HIGH
