@@ -4,6 +4,11 @@
 #include "esp_random.h"
 #include <string.h>
 
+#define PASSWORD_MIN_LEN 8
+#define PASSWORD_MAX_LEN 64
+#define TOKEN_MIN_SIZE   32
+#define TOKEN_MAX_LEN    128
+
 static const char *TAG = "sec_policy";
 
 esp_err_t sec_policy_init(void)
@@ -14,7 +19,7 @@ esp_err_t sec_policy_init(void)
 
 bool sec_policy_validate_password(const char *password, size_t len)
 {
-    if (!password || len < 8 || len > 64) return false;
+    if (!password || len < PASSWORD_MIN_LEN || len > PASSWORD_MAX_LEN) return false;
     return true;
 }
 
@@ -22,9 +27,9 @@ static const char hex_chars[] = "0123456789abcdef";
 
 esp_err_t sec_policy_generate_token(char *out, size_t out_size)
 {
-    if (!out || out_size < 32) return ESP_ERR_INVALID_ARG;
+    if (!out || out_size < TOKEN_MIN_SIZE) return ESP_ERR_INVALID_ARG;
     size_t token_len = out_size - 1;
-    if (token_len > 128) token_len = 128;
+    if (token_len > TOKEN_MAX_LEN) token_len = TOKEN_MAX_LEN;
     uint8_t *raw = malloc(token_len);
     if (!raw) return ESP_ERR_NO_MEM;
     esp_fill_random(raw, token_len);

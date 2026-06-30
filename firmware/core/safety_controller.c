@@ -139,7 +139,7 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
         }
     }
 
-    if (!check_antiflap(next, now_s * 1000ULL)) {
+    if (!check_antiflap(next, now_s * MS_PER_SEC)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
                  state_to_str(prev), state_to_str(next),
                  HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
@@ -178,7 +178,7 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     }
 
     gs->system_state = next;
-    s_ctx.last_transition_ms = now_s * 1000ULL;
+    s_ctx.last_transition_ms = now_s * MS_PER_SEC;
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
              state_to_str(prev), state_to_str(next),
@@ -196,8 +196,8 @@ bool safety_controller_can_exit_safeoff(const global_state_t *gs, const safety_i
     if (!in->manual_ack_received) return false;
 
     if (in->cause_resolved_at_ms > 0) {
-        uint64_t elapsed = (now_s * 1000ULL) - in->cause_resolved_at_ms;
-        if (elapsed < (HW_SAFEOFF_CAUSE_STABLE_S * 1000ULL)) return false;
+        uint64_t elapsed = (now_s * MS_PER_SEC) - in->cause_resolved_at_ms;
+        if (elapsed < (HW_SAFEOFF_CAUSE_STABLE_S * MS_PER_SEC)) return false;
     }
 
     return true;
@@ -212,8 +212,8 @@ bool safety_controller_can_exit_emergency(const global_state_t *gs, const safety
     if (!in->manual_ack_received) return false;
 
     if (in->cause_resolved_at_ms > 0) {
-        uint64_t elapsed = (now_s * 1000ULL) - in->cause_resolved_at_ms;
-        if (elapsed < (HW_EMERGENCY_CAUSE_STABLE_S * 1000ULL)) return false;
+        uint64_t elapsed = (now_s * MS_PER_SEC) - in->cause_resolved_at_ms;
+        if (elapsed < (HW_EMERGENCY_CAUSE_STABLE_S * MS_PER_SEC)) return false;
     }
 
     return true;

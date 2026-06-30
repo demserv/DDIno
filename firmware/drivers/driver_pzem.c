@@ -1,6 +1,7 @@
 // @requirement RF-ENERGY-001 Leitura PZEM Modbus (V, A, W, kWh, PF, Hz)
 // @requirement RF-ENERGY-006 Frequência da rede via PZEM
 #include "driver_pzem.h"
+#include "hardware_config.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -95,7 +96,7 @@ esp_err_t pzem_read_all(pzem_data_t *data)
     data->frequency_hz = (float)((resp[15] << 8) | resp[16]) / 10.0f;
     data->pf = (float)((resp[17] << 8) | resp[18]) / 100.0f;
     data->valid = true;
-    data->last_read_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+    data->last_read_ms = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
 
     return ESP_OK;
 }

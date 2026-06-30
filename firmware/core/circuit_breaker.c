@@ -1,6 +1,7 @@
 // @requirement RNF-ELECTRICAL-001 Circuit breaker por barramento com fail count
 // @requirement RF-ENERGY-008 Proteção de sobrecorrente total via circuit breaker
 #include "circuit_breaker.h"
+#include "hardware_config.h"
 #include "esp_timer.h"
 #include <string.h>
 
@@ -41,7 +42,7 @@ void circuit_breaker_record_failure(cb_bus_id_t id)
     if (id >= CB_COUNT) return;
     circuit_breaker_t *cb = &s_breakers[id];
     cb->failure_count++;
-    cb->last_failure_ms = esp_timer_get_time() / 1000ULL;
+    cb->last_failure_ms = esp_timer_get_time() / USEC_PER_MSEC;
     if (cb->state == CB_STATE_CLOSED && cb->failure_count >= cb->failure_threshold) {
         cb->state = CB_STATE_OPEN;
         cb->opened_at_ms = cb->last_failure_ms;
@@ -78,7 +79,7 @@ void circuit_breaker_reset(cb_bus_id_t id)
 
 void circuit_breaker_update(void)
 {
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     for (int i = 0; i < CB_COUNT; i++) {
         circuit_breaker_t *cb = &s_breakers[i];
         if (cb->state == CB_STATE_OPEN) {

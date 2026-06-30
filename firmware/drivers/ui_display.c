@@ -10,6 +10,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "ui/hmi/ui_theme.h"
 
 static const char *TAG = "ui_display";
 
@@ -47,15 +48,15 @@ static void ili9488_send_cmd_data(uint8_t cmd, uint8_t data)
 static void ili9488_init(void)
 {
     gpio_set_level(PIN_TFT_RST_GPIO, 0);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(HW_TFT_RESET_PULSE_MS));
     gpio_set_level(PIN_TFT_RST_GPIO, 1);
-    vTaskDelay(pdMS_TO_TICKS(120));
+    vTaskDelay(pdMS_TO_TICKS(HW_TFT_INIT_DELAY_MS));
 
     ili9488_send_cmd(0x01);
-    vTaskDelay(pdMS_TO_TICKS(120));
+    vTaskDelay(pdMS_TO_TICKS(HW_TFT_INIT_DELAY_MS));
 
     ili9488_send_cmd(0x11);
-    vTaskDelay(pdMS_TO_TICKS(120));
+    vTaskDelay(pdMS_TO_TICKS(HW_TFT_INIT_DELAY_MS));
 
     ili9488_send_cmd_data(0x3A, 0x55);
     ili9488_send_cmd_data(0x36, 0x48);
@@ -134,7 +135,7 @@ esp_err_t ui_display_init(void)
     };
     esp_timer_handle_t tick_timer;
     ESP_ERROR_CHECK(esp_timer_create(&tick_timer_args, &tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, LVGL_TICK_PERIOD_MS * 1000));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, LVGL_TICK_PERIOD_MS * USEC_PER_MSEC));
 
     ESP_LOGI(TAG, "ILI9488 display initialized");
     return ESP_OK;
@@ -142,8 +143,8 @@ esp_err_t ui_display_init(void)
 
 void ui_display_set_brightness(uint8_t percent)
 {
-    if (percent > 100) {
-        percent = 100;
+    if (percent > HW_DISP_BRIGHTNESS_MAX_PCT) {
+        percent = HW_DISP_BRIGHTNESS_MAX_PCT;
     }
     s_configured_brightness = percent;
     s_brightness_percent = percent;
@@ -167,6 +168,6 @@ void ui_display_dim_on_inactivity(bool enable, uint32_t timeout_s)
 
 esp_err_t ui_display_set_backlight(bool enabled)
 {
-    ui_display_set_brightness(enabled ? 100U : 0U);
+    ui_display_set_brightness(enabled ? HW_DISP_BRIGHTNESS_MAX_PCT : 0U);
     return ESP_OK;
 }

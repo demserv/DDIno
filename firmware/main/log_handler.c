@@ -18,9 +18,11 @@ static log_severity_t esp_to_log_severity(char esp_level)
     }
 }
 
+#define LOG_HANDLER_BUF_SIZE 192
+
 esp_err_t log_handler_write(const char *module, log_severity_t severity, const char *fmt, ...)
 {
-    char buf[192];
+    char buf[LOG_HANDLER_BUF_SIZE];
     va_list args;
     va_start(args, fmt);
     int n = vsnprintf(buf, sizeof(buf), fmt, args);
@@ -31,7 +33,7 @@ esp_err_t log_handler_write(const char *module, log_severity_t severity, const c
 
 esp_err_t log_handler_write_esp(const char *module, char esp_level, const char *fmt, ...)
 {
-    char buf[192];
+    char buf[LOG_HANDLER_BUF_SIZE];
     va_list args;
     va_start(args, fmt);
     int n = vsnprintf(buf, sizeof(buf), fmt, args);

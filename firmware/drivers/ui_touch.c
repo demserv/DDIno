@@ -1,11 +1,15 @@
 #include "ui_touch.h"
 #include "pin_map.h"
 #include "hal_spi.h"
+#include "hardware_config.h"
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "lvgl.h"
+
+#define TOUCH_ADC_MAX    4095
+#define TOUCH_ADC_RANGE  4096
 
 static const char *TAG = "ui_touch";
 
@@ -42,15 +46,15 @@ bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     uint16_t raw_x = xpt2046_read_raw(0x90);
     uint16_t raw_y = xpt2046_read_raw(0xD0);
 
-    if (raw_x == 0 || raw_x >= 4095 || raw_y == 0 || raw_y >= 4095) {
+    if (raw_x == 0 || raw_x >= TOUCH_ADC_MAX || raw_y == 0 || raw_y >= TOUCH_ADC_MAX) {
         prev_pressed = false;
         debounce_count = 0;
         data->state = LV_INDEV_STATE_REL;
         return false;
     }
 
-    int new_x = (int)((4095 - raw_x) * 480 / 4096);
-    int new_y = (int)((4095 - raw_y) * 320 / 4096);
+    int new_x = (int)((TOUCH_ADC_MAX - raw_x) * 480 / TOUCH_ADC_RANGE);
+    int new_y = (int)((TOUCH_ADC_MAX - raw_y) * 320 / TOUCH_ADC_RANGE);
 
     if (new_x < 0) new_x = 0;
     if (new_x > 479) new_x = 479;

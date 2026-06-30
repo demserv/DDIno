@@ -381,7 +381,7 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
         return send_error(req, cv.error_code, ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
 
-    uint64_t now = esp_timer_get_time() / 1000000ULL;
+    uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
     int acked = 0;
     if (specific_id > 0) {
         if (alert_manager_is_active(specific_id)) {
@@ -440,7 +440,7 @@ static esp_err_t command_handler(httpd_req_t *req)
         }
     } else if (strcmp(cmd, "ack_all") == 0) {
         res.allowed = true;
-        uint64_t now = esp_timer_get_time() / 1000000ULL;
+        uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
         int acked = 0;
         for (int16_t id = 1; id <= 65; id++) {
             if (alert_manager_is_active(id)) {
@@ -506,7 +506,7 @@ static esp_err_t log_handler(httpd_req_t *req)
     cJSON *arr = cJSON_CreateArray();
     for (int i = 0; i < 10; i++) {
         cJSON *e = cJSON_CreateObject();
-        cJSON_AddNumberToObject(e, "ts", (double)(esp_timer_get_time() / 1000000ULL) - i * 60);
+        cJSON_AddNumberToObject(e, "ts", (double)(esp_timer_get_time() / USEC_PER_SEC) - i * 60);
         cJSON_AddStringToObject(e, "msg", "system_running");
         cJSON_AddStringToObject(e, "level", "info");
         cJSON_AddItemToArray(arr, e);

@@ -2,6 +2,7 @@
 // @requirement RF-STORAGE-002 RAM fallback quando SD ausente
 // @requirement RF-STORAGE-003 Escrita atômica
 #include "services/storage_sd.h"
+#include "hardware_config.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
@@ -287,7 +288,7 @@ esp_err_t storage_sd_backup_config(void)
     }
 
     fprintf(f, "{\"type\":\"config_backup\",\"ts\":%llu,\"state\":%d,\"alerts\":%d}\n",
-        (unsigned long long)(esp_timer_get_time() / 1000ULL),
+        (unsigned long long)(esp_timer_get_time() / USEC_PER_MSEC),
         g_gs.system_state, g_gs.active_alerts_count);
 
     char final_path[128];

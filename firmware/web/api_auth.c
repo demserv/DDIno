@@ -63,7 +63,7 @@ static void generate_token(char *out)
 static int find_token(const char *token)
 {
     if (!token) return -1;
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     for (int i = 0; i < API_AUTH_MAX_TOKENS; i++) {
         if (strlen(s_tokens[i].token) > 0 &&
             strcmp(s_tokens[i].token, token) == 0) {
@@ -108,7 +108,7 @@ static int find_fail_entry(uint32_t ip)
 
 static bool check_fail_limit(uint32_t ip)
 {
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     int idx = find_fail_entry(ip);
     if (idx < 0) return false;
 
@@ -129,7 +129,7 @@ static bool check_fail_limit(uint32_t ip)
 
 static void record_fail(uint32_t ip)
 {
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     int idx = find_fail_entry(ip);
     if (idx < 0) return;
     fail_tracker_t *f = &s_fail_trackers[idx];
@@ -221,7 +221,7 @@ const char* api_auth_login(const char *user, const char *password)
     memset(t, 0, sizeof(api_auth_token_t));
     generate_token(t->token);
     strncpy(t->user, user, API_USER_MAX - 1);
-    t->created_ms = esp_timer_get_time() / 1000ULL;
+    t->created_ms = esp_timer_get_time() / USEC_PER_MSEC;
     t->expires_ms = t->created_ms + TOKEN_EXPIRY_MS;
 
     return t->token;
@@ -238,7 +238,7 @@ esp_err_t api_auth_logout(const char *token)
 int api_auth_active_count(void)
 {
     int count = 0;
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     for (int i = 0; i < API_AUTH_MAX_TOKENS; i++) {
         if (strlen(s_tokens[i].token) > 0 && now_ms < s_tokens[i].expires_ms) {
             count++;

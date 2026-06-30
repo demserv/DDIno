@@ -1,5 +1,6 @@
 // @requirement RNF-SECURITY-001 Rate limiting (5 tentativas/min/IP com bloqueio)
 #include "api_rate_limit.h"
+#include "hardware_config.h"
 #include <string.h>
 #include "esp_timer.h"
 
@@ -10,7 +11,7 @@ typedef struct {
 } rate_limit_entry_t;
 
 static rate_limit_entry_t s_entries[RATE_LIMIT_TRACKED_IPS];
-static const uint64_t s_window_ms = RATE_LIMIT_WINDOW_S * 1000ULL;
+static const uint64_t s_window_ms = RATE_LIMIT_WINDOW_S * MS_PER_SEC;
 
 static int find_entry(uint32_t ip)
 {
@@ -34,7 +35,7 @@ static int find_free_slot(void)
 
 bool rate_limit_check(uint32_t ip_addr)
 {
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
     int idx = find_entry(ip_addr);
 
     if (idx < 0) {

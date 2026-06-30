@@ -48,9 +48,9 @@ esp_err_t reset_handler_init(void)
 esp_err_t reset_handler_start(void)
 {
     if (s_reset.state == RESET_STATE_IDLE) {
-        uint64_t now = (uint64_t)(esp_timer_get_time() / 1000ULL);
+        uint64_t now = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
         s_reset.state = RESET_STATE_CONFIRM1;
-        s_reset.deadline_ms = now + (uint64_t)HW_RESTART_CONFIRM_WINDOW_S * 1000ULL;
+        s_reset.deadline_ms = now + (uint64_t)HW_RESTART_CONFIRM_WINDOW_S * MS_PER_SEC;
         ESP_LOGW(TAG, "Factory reset initiated - confirmation required within %ds",
                  HW_RESTART_CONFIRM_WINDOW_S);
         audit_log_event(AUDIT_FACTORY_RESET, "Factory reset initiated - CONFIRM1");
@@ -69,9 +69,9 @@ esp_err_t reset_handler_confirm(void)
         ESP_LOGE(TAG, "Cannot confirm in state %s", state_str(s_reset.state));
         return ESP_ERR_INVALID_STATE;
     }
-    uint64_t now = (uint64_t)(esp_timer_get_time() / 1000ULL);
+    uint64_t now = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
     s_reset.state = RESET_STATE_CONFIRM2;
-    s_reset.deadline_ms = now + (uint64_t)HW_RESTART_CONFIRM_WINDOW_S * 1000ULL;
+    s_reset.deadline_ms = now + (uint64_t)HW_RESTART_CONFIRM_WINDOW_S * MS_PER_SEC;
     ESP_LOGW(TAG, "Factory reset confirmed");
     audit_log_event(AUDIT_FACTORY_RESET, "Factory reset confirmed - CONFIRM2");
     return ESP_OK;
@@ -107,7 +107,7 @@ void reset_handler_tick(uint64_t now_ms)
 
         case RESET_STATE_CONFIRM2:
             s_reset.state = RESET_STATE_COUNTDOWN;
-            s_reset.deadline_ms = now_ms + (uint64_t)HW_RESTART_COUNTDOWN_DEFAULT_S * 1000ULL;
+            s_reset.deadline_ms = now_ms + (uint64_t)HW_RESTART_COUNTDOWN_DEFAULT_S * MS_PER_SEC;
             ESP_LOGW(TAG, "Factory reset countdown %ds", HW_RESTART_COUNTDOWN_DEFAULT_S);
             break;
 
@@ -143,9 +143,9 @@ bool reset_handler_is_pending(void)
 int reset_handler_remaining_s(void)
 {
     if (s_reset.state == RESET_STATE_IDLE || s_reset.deadline_ms == 0) return 0;
-    uint64_t now = (uint64_t)(esp_timer_get_time() / 1000ULL);
+    uint64_t now = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
     if (now >= s_reset.deadline_ms) return 0;
-    return (int)((s_reset.deadline_ms - now) / 1000ULL);
+    return (int)((s_reset.deadline_ms - now) / MS_PER_SEC);
 }
 
 reset_state_t reset_handler_get_state(void)

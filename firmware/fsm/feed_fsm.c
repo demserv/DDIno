@@ -61,7 +61,7 @@ void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms)
         case FEED_STATE_ACTIVE:
             if (fsm->state_started_ms > 0) {
                 uint64_t elapsed = now_ms - fsm->state_started_ms;
-                if (elapsed >= (uint64_t)fsm->duration_s * 1000ULL) {
+                if (elapsed >= (uint64_t)fsm->duration_s * MS_PER_SEC) {
                     feed_fsm_stop(fsm);
                 }
             }
@@ -70,7 +70,7 @@ void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms)
         case FEED_STATE_COOLDOWN:
             if (fsm->cooldown_s > 0) {
                 uint64_t elapsed = now_ms - fsm->state_started_ms;
-                if (elapsed >= (uint64_t)fsm->cooldown_s * 1000ULL) {
+                if (elapsed >= (uint64_t)fsm->cooldown_s * MS_PER_SEC) {
                     fsm->state = FEED_STATE_IDLE;
                     fsm->state_started_ms = 0;
                 }
@@ -102,6 +102,6 @@ uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm, uint64_t now_ms)
 {
     if (!fsm || fsm->state != FEED_STATE_ACTIVE) return 0;
     uint64_t elapsed_ms = now_ms - fsm->state_started_ms;
-    if (elapsed_ms >= (uint64_t)fsm->duration_s * 1000ULL) return 0;
-    return fsm->duration_s - (uint32_t)(elapsed_ms / 1000ULL);
+    if (elapsed_ms >= (uint64_t)fsm->duration_s * MS_PER_SEC) return 0;
+    return fsm->duration_s - (uint32_t)(elapsed_ms / MS_PER_SEC);
 }

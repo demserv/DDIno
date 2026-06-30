@@ -2,6 +2,8 @@
 #include <string.h>
 #include "esp_err.h"
 #include "esp_timer.h"
+#include "plug_model.h"
+#include "hardware_config.h"
 #include "global_state.h"
 #include "core/circuit_breaker.h"
 #include "drivers/driver_ds18b20.h"
@@ -18,7 +20,7 @@ typedef struct {
     bool    temp_valid;
     int32_t ato_level_adc;
     bool    ato_valid;
-    float   plug_currents_a[10];
+    float   plug_currents_a[PLUG_COUNT_TOTAL];
     float   pzem_voltage_v;
     float   pzem_current_a;
     float   pzem_power_w;
@@ -32,7 +34,7 @@ esp_err_t api_sensors_take_snapshot(sensor_snapshot_t *snap)
     if (!snap) return ESP_ERR_INVALID_ARG;
 
     memset(snap, 0, sizeof(*snap));
-    snap->timestamp_ms = esp_timer_get_time() / 1000ULL;
+    snap->timestamp_ms = esp_timer_get_time() / USEC_PER_MSEC;
 
     snap->temp_valid = circuit_breaker_is_available(CB_BUS_DS18B20);
     if (snap->temp_valid) {
@@ -55,7 +57,7 @@ esp_err_t api_sensors_take_snapshot(sensor_snapshot_t *snap)
         snap->pzem_energy_wh = g_pzem.energy_wh;
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         acs712_read_plug(i + 1, &snap->plug_currents_a[i]);
     }
 
