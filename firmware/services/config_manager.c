@@ -124,6 +124,7 @@ static void set_defaults(void)
     s_security.session_timeout_min    = PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT;
     s_security.max_login_attempts     = PARAM_SECURITY_DEFAULT_MAX_LOGIN;
     s_security.login_block_duration_min = PARAM_SECURITY_DEFAULT_BLOCK_DURATION;
+    s_security.ack_timeout_s          = PARAM_SECURITY_DEFAULT_ACK_TIMEOUT_S;
     s_security.read_requires_auth     = false;
 
     s_antiflap.tempo_min_estabilizacao_s = PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S;

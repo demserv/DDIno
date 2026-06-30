@@ -43,6 +43,8 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
                                      uint64_t now_s);
 esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s);
 esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_module);
+esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_module);
+esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_module);
 
 /* @requirement RF-AUDIT RF-GLOBAL-002 mapeamento estado→string */
 static inline const char *system_state_to_str(system_state_t s)

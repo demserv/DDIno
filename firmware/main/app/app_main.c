@@ -742,8 +742,8 @@ static void task_safety_core_fn(void *pv)
         g_gs.critical_alerts_count = alert_manager_critical_count();
         {
             const security_params_storage_t *sec = config_get_security();
-            uint32_t ack_to = (sec && sec->session_timeout_min > 0)
-                                  ? sec->session_timeout_min * 60U : 300U;
+            uint32_t ack_to = (sec && sec->ack_timeout_s > 0)
+                                  ? sec->ack_timeout_s : PARAM_SECURITY_DEFAULT_ACK_TIMEOUT_S;
             alert_manager_check_ack_timeout(now_s, ack_to);
         }
         g_gs.uptime_s = now_s;

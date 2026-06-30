@@ -69,11 +69,7 @@ void ui_events_emit(ui_event_t event)
             uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
             for (int16_t id = 1; id <= 65; id++) {
                 if (!alert_manager_is_active(id)) continue;
-                if (alert_manager_ext_double_ack_required(id)) {
-                    alert_manager_ext_ack_critical(id, now_s);
-                } else {
-                    alert_manager_ack(id, now_s);
-                }
+                alert_manager_ack_with_policy(id, now_s);
                 safe_state_ack_on_alert_ack(id, now_s);
             }
             audit_log_event(AUDIT_COMMAND, "ACK alerts via UI (criticos exigem 2o ACK)");

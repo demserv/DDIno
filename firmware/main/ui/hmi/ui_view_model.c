@@ -149,6 +149,9 @@ static void fill_alert_vm(ui_alert_vm_t *av, const alert_slot_t *slot)
         snprintf(av->timestamp, sizeof(av->timestamp), "--:--:--");
     }
     av->acked = slot->acked;
+    av->ack_required = slot->ack_req;
+    av->value = slot->value;
+    av->related_plug_id = slot->related_plug_id;
     uint64_t now_s = esp_timer_get_time() / 1000000ULL;
     av->silenced = alert_manager_is_silenced(slot->alm_id, now_s);
     snprintf(av->action_hint, sizeof(av->action_hint), "%s", slot->action_hint);

@@ -91,6 +91,22 @@ esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_mod
     return ESP_OK;
 }
 
+esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_module)
+{
+    if (!gs) return ESP_ERR_INVALID_ARG;
+    if (gs->system_state == SYSTEM_STATE_NORMAL) return ESP_OK;
+
+    system_state_t prev = gs->system_state;
+    gs->system_state = SYSTEM_STATE_NORMAL;
+    gs->safeoff_reason = SAFEOFF_REASON_NONE;
+    gs->safeoff_source_alm[0] = '\0';
+    gs->electric_ok = true;
+    ESP_LOGI("safety", "NORMAL entered from %s module=%s",
+             system_state_to_str(prev), source_module ? source_module : "?");
+    audit_log_state_change(system_state_to_str(prev), "NORMAL", source_module ? source_module : "enter_normal");
+    return ESP_OK;
+}
+
 static bool check_antiflap(system_state_t next, uint64_t now_ms)
 {
     (void)next;
@@ -142,10 +158,6 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     /* EMERGENCY não rebaixa automaticamente. */
     if (prev == SYSTEM_STATE_EMERGENCY && next != SYSTEM_STATE_EMERGENCY) return;
 
-    /* @requirement RNF-GLOBAL-ANTIFLAP-001 / RF-GLOBAL-002 O anti-flap só pode
-     * atrasar recuperação/rebaixamento (entrada em NORMAL/DEGRADED). O escalonamento
-     * para SAFE_OFF/EMERGENCY é SEMPRE imediato — nunca pode ser bloqueado, sob risco
-     * de segurança. */
     bool is_recovery = (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED);
     if (is_recovery && !check_antiflap(next, now_s * MS_PER_SEC)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
@@ -154,43 +166,22 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
         return;
     }
 
-    if (next == SYSTEM_STATE_SAFE_OFF) {
-        gs->safeoff_reason = in->safeoff_reason_if_any;
-        snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
-                 (unsigned long long)now_s);
-        if (in->safeoff_source_alm) {
-            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", in->safeoff_source_alm);
-        } else {
-            gs->safeoff_source_alm[0] = '\0';
-        }
-        gs->electric_ok = false;
-        safeoff_record_append(in->safeoff_reason_if_any, in->safeoff_source_alm, now_s);
-    } else if (next == SYSTEM_STATE_EMERGENCY) {
-        gs->electric_ok = false;
-    } else if (next == SYSTEM_STATE_NORMAL) {
-        gs->safeoff_reason = SAFEOFF_REASON_NONE;
-        gs->safeoff_source_alm[0] = '\0';
-        gs->electric_ok = true;
+    const char *cause = in->transition_cause ? in->transition_cause : "safety_controller";
+
+    if (next == SYSTEM_STATE_EMERGENCY) {
+        global_state_enter_emergency(gs, cause, now_s);
+    } else if (next == SYSTEM_STATE_SAFE_OFF) {
+        global_state_enter_safeoff(gs, in->safeoff_reason_if_any, in->safeoff_source_alm, cause, now_s);
     } else if (next == SYSTEM_STATE_DEGRADED) {
-        if (prev == SYSTEM_STATE_SAFE_OFF || prev == SYSTEM_STATE_EMERGENCY) {
-            gs->safeoff_reason = SAFEOFF_REASON_NONE;
-            gs->safeoff_source_alm[0] = '\0';
-        }
+        global_state_enter_degraded(gs, cause);
+    } else if (next == SYSTEM_STATE_NORMAL) {
+        global_state_enter_normal(gs, cause);
     }
 
-    gs->system_state = next;
     s_ctx.last_transition_ms = now_s * MS_PER_SEC;
 
-    if (next == SYSTEM_STATE_SAFE_OFF || next == SYSTEM_STATE_EMERGENCY) {
-        relay_abstraction_all_off();
-    }
-
-    audit_log_state_change(system_state_to_str(prev), system_state_to_str(next),
-                           in->transition_cause ? in->transition_cause : "safety_controller");
-
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
-             system_state_to_str(prev), system_state_to_str(next),
-             in->transition_cause ? in->transition_cause : "N/A");
+             system_state_to_str(prev), system_state_to_str(next), cause);
 }
 
 bool safety_controller_can_exit_safeoff(const global_state_t *gs, const safety_inputs_t *in, uint64_t now_s)

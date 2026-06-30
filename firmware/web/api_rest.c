@@ -696,7 +696,7 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     int acked = 0;
     if (specific_id > 0) {
         if (alert_manager_is_active(specific_id)) {
-            if (alert_manager_ack(specific_id, now)) {
+            if (alert_manager_ack_with_policy(specific_id, now)) {
                 acked++;
                 safe_state_ack_on_alert_ack((int16_t)specific_id, now);
             }
@@ -704,7 +704,7 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     } else {
         for (int16_t id = 1; id <= 65; id++) {
             if (alert_manager_is_active(id)) {
-                if (alert_manager_ack(id, now)) {
+                if (alert_manager_ack_with_policy(id, now)) {
                     acked++;
                     safe_state_ack_on_alert_ack(id, now);
                 }
@@ -713,6 +713,9 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     }
     cJSON *json = cJSON_CreateObject();
     cJSON_AddNumberToObject(json, "acked", acked);
+    if (specific_id > 0 && alert_manager_ext_is_critical_and_pending(specific_id)) {
+        cJSON_AddStringToObject(json, "ack_stage", "first_pending_confirm");
+    }
     if (specific_id > 0) {
         audit_log_event(AUDIT_COMMAND, "alert ACK via API");
     } else if (acked > 0) {
@@ -789,7 +792,7 @@ static esp_err_t command_handler(httpd_req_t *req)
             acked_count = 0;
             for (int16_t id = 1; id <= 65; id++) {
                 if (alert_manager_is_active(id)) {
-                    if (alert_manager_ack(id, now)) {
+                    if (alert_manager_ack_with_policy(id, now)) {
                         acked_count++;
                         safe_state_ack_on_alert_ack(id, now);
                     }
@@ -1568,7 +1571,7 @@ esp_err_t api_rest_init(void)
 {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.server_port = 80;
-    cfg.max_uri_handlers = 36;
+    cfg.max_uri_handlers = 64;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
     esp_err_t err = httpd_start(&s_server, &cfg);
     if (err != ESP_OK) {
@@ -1578,6 +1581,26 @@ esp_err_t api_rest_init(void)
     for (int i = 0; i < sizeof(g_uris) / sizeof(g_uris[0]); i++) {
         if (httpd_register_uri_handler(s_server, &g_uris[i]) != ESP_OK) {
             ESP_LOGW(TAG, "Falha ao registrar %s", g_uris[i].uri);
+        }
+    }
+    static const char *cors_paths[] = {
+        "/api/v1/status", "/api/v1/state", "/api/v1/health",
+        "/api/v1/plugs", "/api/v1/plugs/presets", "/api/v1/plugs/preset", "/api/v1/plugs/mode",
+        "/api/v1/sensors", "/api/v1/energy", "/api/v1/alerts",
+        "/api/v1/config", "/api/v1/config/export", "/api/v1/config/import", "/api/v1/config/monitor",
+        "/api/v1/command", "/api/v1/calibrate", "/api/v1/feed", "/api/v1/system", "/api/v1/log",
+        "/api/v1/wizard", "/api/v1/reset",
+        "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password", "/api/v1/auth/recovery"
+    };
+    for (size_t i = 0; i < sizeof(cors_paths) / sizeof(cors_paths[0]); i++) {
+        httpd_uri_t opt = {
+            .uri = cors_paths[i],
+            .method = HTTP_OPTIONS,
+            .handler = cors_options_handler,
+            .user_ctx = NULL
+        };
+        if (httpd_register_uri_handler(s_server, &opt) != ESP_OK) {
+            ESP_LOGW(TAG, "Falha OPTIONS %s", cors_paths[i]);
         }
     }
     ESP_LOGI(TAG, "API /api/v1 iniciada na porta 80");

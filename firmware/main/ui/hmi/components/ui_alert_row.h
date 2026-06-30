@@ -16,6 +16,7 @@ typedef struct {
     lv_obj_t *category_label;
     lv_obj_t *silence_label;
     lv_obj_t *action_label;
+    lv_obj_t *meta_label;
 } ui_alert_row_t;
 
 void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y);

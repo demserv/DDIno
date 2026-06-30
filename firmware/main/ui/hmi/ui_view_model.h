@@ -80,9 +80,12 @@ typedef struct {
     char message[80];
     char timestamp[20];
     bool acked;
+    bool ack_required;
     bool silenced;
     char category_text[16];
     char action_hint[96];
+    float value;
+    uint16_t related_plug_id;
     alert_category_t category;
 } ui_alert_vm_t;
 

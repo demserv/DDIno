@@ -17,7 +17,7 @@ static lv_color_t severity_color(ui_alert_severity_t sev)
 void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y)
 {
     row->root = lv_obj_create(parent);
-    lv_obj_set_size(row->root, 460, 42);
+    lv_obj_set_size(row->root, 460, 48);
     lv_obj_set_pos(row->root, x, y);
     lv_obj_set_style_bg_color(row->root, UI_COLOR_PANEL, 0);
     lv_obj_set_style_radius(row->root, UI_RADIUS_CARD, 0);
@@ -25,7 +25,7 @@ void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y)
     lv_obj_clear_flag(row->root, LV_OBJ_FLAG_SCROLLABLE);
 
     row->side_bar = lv_obj_create(row->root);
-    lv_obj_set_size(row->side_bar, 5, 42);
+    lv_obj_set_size(row->side_bar, 5, 48);
     lv_obj_set_pos(row->side_bar, 0, 0);
     lv_obj_set_style_border_width(row->side_bar, 0, 0);
     lv_obj_set_style_radius(row->side_bar, 0, 0);
@@ -75,6 +75,12 @@ void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y)
     lv_obj_set_style_text_font(row->action_label, UI_FONT_SMALL, 0);
     lv_obj_set_style_text_color(row->action_label, UI_COLOR_TEXT_DIM, 0);
     lv_obj_set_pos(row->action_label, 220, 22);
+
+    row->meta_label = lv_label_create(row->root);
+    lv_label_set_text(row->meta_label, "");
+    lv_obj_set_style_text_font(row->meta_label, UI_FONT_SMALL, 0);
+    lv_obj_set_style_text_color(row->meta_label, UI_COLOR_TEXT_DIM, 0);
+    lv_obj_set_pos(row->meta_label, 12, 34);
 }
 
 void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert)
@@ -102,6 +108,9 @@ void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert)
     if (alert->acked) {
         lv_label_set_text(row->ack_label, "ACK");
         lv_obj_set_style_text_color(row->ack_label, UI_COLOR_OK, 0);
+    } else if (alert->ack_required) {
+        lv_label_set_text(row->ack_label, "ACK?");
+        lv_obj_set_style_text_color(row->ack_label, UI_COLOR_CRITICAL, 0);
     } else {
         lv_label_set_text(row->ack_label, "PENDENTE");
         lv_obj_set_style_text_color(row->ack_label, UI_COLOR_WARN, 0);
@@ -114,5 +123,23 @@ void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert)
         lv_obj_clear_flag(row->action_label, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(row->action_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    {
+        char meta[48];
+        if (alert->related_plug_id > 0) {
+            snprintf(meta, sizeof(meta), "P%02u val=%.1f",
+                     (unsigned)alert->related_plug_id, (double)alert->value);
+        } else if (alert->value != 0.0f) {
+            snprintf(meta, sizeof(meta), "val=%.1f", (double)alert->value);
+        } else {
+            meta[0] = '\0';
+        }
+        if (meta[0] != '\0') {
+            lv_label_set_text(row->meta_label, meta);
+            lv_obj_clear_flag(row->meta_label, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(row->meta_label, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 }

@@ -61,6 +61,7 @@ typedef struct {
     uint32_t session_timeout_min;
     uint32_t max_login_attempts;
     uint32_t login_block_duration_min;
+    uint32_t ack_timeout_s;
     bool     read_requires_auth;
 } security_params_storage_t;
 
@@ -125,6 +126,7 @@ typedef struct {
 #define PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT   60
 #define PARAM_SECURITY_DEFAULT_MAX_LOGIN         5
 #define PARAM_SECURITY_DEFAULT_BLOCK_DURATION    15
+#define PARAM_SECURITY_DEFAULT_ACK_TIMEOUT_S     300
 
 #define PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S   10
 #define PARAM_ANTIFLAP_DEFAULT_JANELA_S          60

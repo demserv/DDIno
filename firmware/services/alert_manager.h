@@ -34,6 +34,7 @@ bool         alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, aler
                                       uint16_t related_plug, bool ack_req, bool state_associated, uint64_t ts);
 bool         alert_manager_raise(int16_t alm_id, bool ack_req, uint64_t ts);
 bool         alert_manager_ack(int16_t alm_id, uint64_t ts);
+bool         alert_manager_ack_with_policy(int16_t alm_id, uint64_t ts);
 bool         alert_manager_is_active(int16_t alm_id);
 void         alert_manager_clear(int16_t alm_id);
 void         alert_manager_check_ack_timeout(uint64_t now_s, uint32_t timeout_s);

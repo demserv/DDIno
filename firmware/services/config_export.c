@@ -41,6 +41,25 @@ static cJSON *thermal_to_json(const thermal_params_storage_t *p)
     return o;
 }
 
+static cJSON *electric_to_json(const electric_params_storage_t *p)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddNumberToObject(o, "total_power_limit_w", p->total_power_limit_w);
+    cJSON_AddNumberToObject(o, "per_plug_current_limit_a", p->per_plug_current_limit_a);
+    cJSON_AddNumberToObject(o, "hysteresis_w", p->hysteresis_w);
+    cJSON_AddNumberToObject(o, "overvoltage_limit_v", p->overvoltage_limit_v);
+    cJSON_AddNumberToObject(o, "undervoltage_limit_v", p->undervoltage_limit_v);
+    cJSON_AddNumberToObject(o, "overvoltage_time_s", (double)p->overvoltage_time_s);
+    cJSON_AddNumberToObject(o, "undervoltage_time_s", (double)p->undervoltage_time_s);
+    cJSON_AddNumberToObject(o, "total_current_limit_a", p->total_current_limit_a);
+    cJSON_AddNumberToObject(o, "total_current_time_s", (double)p->total_current_time_s);
+    cJSON_AddNumberToObject(o, "pf_min", p->pf_min);
+    cJSON_AddNumberToObject(o, "pf_time_s", (double)p->pf_time_s);
+    cJSON_AddNumberToObject(o, "fator_curto", p->fator_curto);
+    cJSON_AddNumberToObject(o, "tempo_deteccao_curto_ms", (double)p->tempo_deteccao_curto_ms);
+    return o;
+}
+
 static cJSON *root_to_json(const config_root_t *root)
 {
     cJSON *o = cJSON_CreateObject();
@@ -54,17 +73,13 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON_AddNumberToObject(ato, "overflow_margin_adc", (double)root->ato.overflow_margin_adc);
     cJSON_AddNumberToObject(ato, "refill_timeout_s", (double)root->ato.refill_timeout_s);
     cJSON_AddItemToObject(o, "ato", ato);
-    cJSON *elec = cJSON_CreateObject();
-    cJSON_AddNumberToObject(elec, "total_power_limit_w", root->electric.total_power_limit_w);
-    cJSON_AddNumberToObject(elec, "per_plug_current_limit_a", root->electric.per_plug_current_limit_a);
-    cJSON_AddNumberToObject(elec, "overvoltage_limit_v", root->electric.overvoltage_limit_v);
-    cJSON_AddNumberToObject(elec, "undervoltage_limit_v", root->electric.undervoltage_limit_v);
-    cJSON_AddNumberToObject(elec, "total_current_limit_a", root->electric.total_current_limit_a);
-    cJSON_AddItemToObject(o, "electric", elec);
+    cJSON_AddItemToObject(o, "electric", electric_to_json(&root->electric));
     cJSON *sys = cJSON_CreateObject();
     cJSON_AddBoolToObject(sys, "wizard_completed", root->system.wizard_completed);
     cJSON_AddNumberToObject(sys, "mains_voltage", root->system.mains_voltage);
     cJSON_AddBoolToObject(sys, "monitor_only_mode", root->system.monitor_only_mode);
+    cJSON_AddBoolToObject(sys, "maintenance_mode", root->system.maintenance_mode);
+    cJSON_AddNumberToObject(sys, "wizard_step", (double)root->system.wizard_step);
     cJSON_AddItemToObject(o, "system", sys);
     cJSON *pl = cJSON_CreateObject();
     cJSON_AddNumberToObject(pl, "min_on_time_s", (double)root->plug_limits.min_on_time_s);
@@ -83,6 +98,7 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON_AddNumberToObject(sec, "session_timeout_min", (double)root->security.session_timeout_min);
     cJSON_AddNumberToObject(sec, "max_login_attempts", (double)root->security.max_login_attempts);
     cJSON_AddNumberToObject(sec, "login_block_duration_min", (double)root->security.login_block_duration_min);
+    cJSON_AddNumberToObject(sec, "ack_timeout_s", (double)root->security.ack_timeout_s);
     cJSON_AddBoolToObject(sec, "read_requires_auth", root->security.read_requires_auth);
     cJSON_AddItemToObject(o, "security", sec);
     cJSON *af = cJSON_CreateObject();
@@ -110,36 +126,80 @@ esp_err_t config_export_to_json(cJSON **out_json)
     return *out_json ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
+static bool parse_number_f(cJSON *obj, const char *key, float *out)
+{
+    cJSON *v = cJSON_GetObjectItem(obj, key);
+    if (cJSON_IsNumber(v)) {
+        *out = (float)v->valuedouble;
+        return true;
+    }
+    return false;
+}
+
+static bool parse_number_u32(cJSON *obj, const char *key, uint32_t *out)
+{
+    cJSON *v = cJSON_GetObjectItem(obj, key);
+    if (cJSON_IsNumber(v)) {
+        *out = (uint32_t)v->valuedouble;
+        return true;
+    }
+    return false;
+}
+
 static bool parse_thermal(cJSON *j, thermal_params_storage_t *p)
 {
     if (!j || !p) return false;
-    cJSON *v;
-    v = cJSON_GetObjectItem(j, "temp_normal_c");
-    if (cJSON_IsNumber(v)) p->temp_normal_c = (float)v->valuedouble;
-    v = cJSON_GetObjectItem(j, "temp_critical_c");
-    if (cJSON_IsNumber(v)) p->temp_critical_c = (float)v->valuedouble;
-    v = cJSON_GetObjectItem(j, "temp_min_c");
-    if (cJSON_IsNumber(v)) p->temp_min_c = (float)v->valuedouble;
-    v = cJSON_GetObjectItem(j, "temp_max_c");
-    if (cJSON_IsNumber(v)) p->temp_max_c = (float)v->valuedouble;
+    parse_number_f(j, "temp_normal_c", &p->temp_normal_c);
+    parse_number_f(j, "temp_critical_c", &p->temp_critical_c);
+    parse_number_f(j, "temp_extreme_c", &p->temp_extreme_c);
+    parse_number_f(j, "temp_min_c", &p->temp_min_c);
+    parse_number_f(j, "temp_max_c", &p->temp_max_c);
+    parse_number_f(j, "hysteresis_c", &p->hysteresis_c);
+    cJSON *en = cJSON_GetObjectItem(j, "extreme_enabled");
+    if (cJSON_IsBool(en)) p->extreme_enabled = cJSON_IsTrue(en);
     if (p->temp_min_c >= p->temp_max_c) return false;
+    return true;
+}
+
+static bool parse_electric(cJSON *j, electric_params_storage_t *p)
+{
+    if (!j || !p) return false;
+    parse_number_f(j, "total_power_limit_w", &p->total_power_limit_w);
+    parse_number_f(j, "per_plug_current_limit_a", &p->per_plug_current_limit_a);
+    parse_number_f(j, "hysteresis_w", &p->hysteresis_w);
+    parse_number_f(j, "overvoltage_limit_v", &p->overvoltage_limit_v);
+    parse_number_f(j, "undervoltage_limit_v", &p->undervoltage_limit_v);
+    parse_number_u32(j, "overvoltage_time_s", &p->overvoltage_time_s);
+    parse_number_u32(j, "undervoltage_time_s", &p->undervoltage_time_s);
+    parse_number_f(j, "total_current_limit_a", &p->total_current_limit_a);
+    parse_number_u32(j, "total_current_time_s", &p->total_current_time_s);
+    parse_number_f(j, "pf_min", &p->pf_min);
+    parse_number_u32(j, "pf_time_s", &p->pf_time_s);
+    parse_number_f(j, "fator_curto", &p->fator_curto);
+    parse_number_u32(j, "tempo_deteccao_curto_ms", &p->tempo_deteccao_curto_ms);
     return true;
 }
 
 static bool json_to_root(cJSON *json, config_root_t *root, const config_root_t *base, uint32_t *expected_crc)
 {
-    if (!json || !root || !base) return false;
+    if (!json || !root || !base || !expected_crc) return false;
     *root = *base;
+
     cJSON *sv = cJSON_GetObjectItem(json, "schema_version");
     if (cJSON_IsString(sv)) {
         snprintf(root->schema_version, sizeof(root->schema_version), "%s", sv->valuestring);
     }
+
     cJSON *crc = cJSON_GetObjectItem(json, "crc32");
-    if (cJSON_IsNumber(crc) && expected_crc) {
-        *expected_crc = (uint32_t)crc->valuedouble;
+    if (!cJSON_IsNumber(crc)) {
+        ESP_LOGW(TAG, "Import rejected: crc32 obrigatorio ausente");
+        return false;
     }
+    *expected_crc = (uint32_t)crc->valuedouble;
+
     cJSON *th = cJSON_GetObjectItem(json, "thermal");
-    if (th && !parse_thermal(th, &root->thermal)) return false;
+    if (!th || !parse_thermal(th, &root->thermal)) return false;
+
     cJSON *ato = cJSON_GetObjectItem(json, "ato");
     if (cJSON_IsObject(ato)) {
         cJSON *en = cJSON_GetObjectItem(ato, "enabled");
@@ -148,28 +208,81 @@ static bool json_to_root(cJSON *json, config_root_t *root, const config_root_t *
         if (cJSON_IsNumber(v)) root->ato.low_level_adc = (int32_t)v->valuedouble;
         v = cJSON_GetObjectItem(ato, "high_level_adc");
         if (cJSON_IsNumber(v)) root->ato.high_level_adc = (int32_t)v->valuedouble;
+        v = cJSON_GetObjectItem(ato, "overflow_margin_adc");
+        if (cJSON_IsNumber(v)) root->ato.overflow_margin_adc = (int32_t)v->valuedouble;
+        parse_number_u32(ato, "refill_timeout_s", &root->ato.refill_timeout_s);
     }
+
     cJSON *elec = cJSON_GetObjectItem(json, "electric");
-    if (cJSON_IsObject(elec)) {
-        cJSON *v = cJSON_GetObjectItem(elec, "total_power_limit_w");
-        if (cJSON_IsNumber(v)) root->electric.total_power_limit_w = (float)v->valuedouble;
-        v = cJSON_GetObjectItem(elec, "per_plug_current_limit_a");
-        if (cJSON_IsNumber(v)) root->electric.per_plug_current_limit_a = (float)v->valuedouble;
+    if (!elec || !parse_electric(elec, &root->electric)) return false;
+
+    cJSON *pl = cJSON_GetObjectItem(json, "plug_limits");
+    if (cJSON_IsObject(pl)) {
+        parse_number_u32(pl, "min_on_time_s", &root->plug_limits.min_on_time_s);
+        parse_number_u32(pl, "min_off_time_s", &root->plug_limits.min_off_time_s);
     }
+
+    cJSON *feed = cJSON_GetObjectItem(json, "feed");
+    if (cJSON_IsObject(feed)) {
+        parse_number_u32(feed, "feed_duration_min", &root->feed.feed_duration_min);
+        parse_number_u32(feed, "feed_cooldown_min", &root->feed.feed_cooldown_min);
+    }
+
+    cJSON *rst = cJSON_GetObjectItem(json, "restart");
+    if (cJSON_IsObject(rst)) {
+        parse_number_u32(rst, "tempo_espera_religamento_s", &root->restart.tempo_espera_religamento_s);
+        parse_number_u32(rst, "intervalo_religamento_s", &root->restart.intervalo_religamento_s);
+        parse_number_u32(rst, "tempo_monitoramento_pos_relig_s", &root->restart.tempo_monitoramento_pos_relig_s);
+    }
+
+    cJSON *sec = cJSON_GetObjectItem(json, "security");
+    if (cJSON_IsObject(sec)) {
+        parse_number_u32(sec, "session_timeout_min", &root->security.session_timeout_min);
+        parse_number_u32(sec, "max_login_attempts", &root->security.max_login_attempts);
+        parse_number_u32(sec, "login_block_duration_min", &root->security.login_block_duration_min);
+        parse_number_u32(sec, "ack_timeout_s", &root->security.ack_timeout_s);
+        cJSON *v = cJSON_GetObjectItem(sec, "read_requires_auth");
+        if (cJSON_IsBool(v)) root->security.read_requires_auth = cJSON_IsTrue(v);
+    }
+
+    cJSON *af = cJSON_GetObjectItem(json, "antiflap");
+    if (cJSON_IsObject(af)) {
+        parse_number_u32(af, "tempo_min_estabilizacao_s", &root->antiflap.tempo_min_estabilizacao_s);
+        parse_number_u32(af, "janela_flap_s", &root->antiflap.janela_flap_s);
+        parse_number_u32(af, "max_transicoes_flap", &root->antiflap.max_transicoes_flap);
+        parse_number_u32(af, "cooldown_reentrada_s", &root->antiflap.cooldown_reentrada_s);
+    }
+
+    cJSON *st = cJSON_GetObjectItem(json, "selftest");
+    if (cJSON_IsObject(st)) {
+        parse_number_u32(st, "selftest_timeout_ms", &root->selftest.selftest_timeout_ms);
+    }
+
     cJSON *sys = cJSON_GetObjectItem(json, "system");
     if (cJSON_IsObject(sys)) {
         cJSON *v = cJSON_GetObjectItem(sys, "monitor_only_mode");
         if (cJSON_IsBool(v)) root->system.monitor_only_mode = cJSON_IsTrue(v);
+        v = cJSON_GetObjectItem(sys, "wizard_completed");
+        if (cJSON_IsBool(v)) root->system.wizard_completed = cJSON_IsTrue(v);
+        v = cJSON_GetObjectItem(sys, "maintenance_mode");
+        if (cJSON_IsBool(v)) root->system.maintenance_mode = cJSON_IsTrue(v);
+        v = cJSON_GetObjectItem(sys, "mains_voltage");
+        if (cJSON_IsNumber(v)) root->system.mains_voltage = (uint16_t)v->valuedouble;
+        v = cJSON_GetObjectItem(sys, "wizard_step");
+        if (cJSON_IsNumber(v)) root->system.wizard_step = (uint8_t)v->valuedouble;
     }
-    cJSON *sec = cJSON_GetObjectItem(json, "security");
-    if (cJSON_IsObject(sec)) {
-        cJSON *v = cJSON_GetObjectItem(sec, "read_requires_auth");
-        if (cJSON_IsBool(v)) root->security.read_requires_auth = cJSON_IsTrue(v);
+
+    cJSON *cal = cJSON_GetObjectItem(json, "calibration");
+    if (cJSON_IsObject(cal)) {
+        cJSON *v = cJSON_GetObjectItem(cal, "ato_zero_offset_adc");
+        if (cJSON_IsNumber(v)) root->calibration.ato_zero_offset_adc = (int32_t)v->valuedouble;
+        parse_number_f(cal, "temp_offset_c", &root->calibration.temp_offset_c);
     }
+
     config_root_compute_crc(root);
-    if (expected_crc != 0 && root->crc32 != expected_crc) {
+    if (root->crc32 != *expected_crc) {
         ESP_LOGW(TAG, "Import CRC mismatch: expected 0x%08lX computed 0x%08lX",
-                 (unsigned long)expected_crc, (unsigned long)root->crc32);
+                 (unsigned long)*expected_crc, (unsigned long)root->crc32);
         return false;
     }
     return config_root_validate(root);
@@ -206,9 +319,7 @@ esp_err_t config_import_from_json(cJSON *json, bool dry_run, bool *valid_out, ui
     err = config_set_antiflap(&incoming.antiflap); if (err) goto rollback;
     err = config_set_selftest(&incoming.selftest); if (err) goto rollback;
     err = config_set_calibration(&incoming.calibration); if (err) goto rollback;
-    if (incoming.system.monitor_only_mode != backup.system.monitor_only_mode) {
-        config_set_monitor_only(incoming.system.monitor_only_mode);
-    }
+    err = config_set_system(&incoming.system); if (err) goto rollback;
     err = config_save_all();
     if (err) goto rollback;
     ESP_LOGI(TAG, "Import committed crc=0x%08lX", (unsigned long)incoming.crc32);
@@ -225,7 +336,7 @@ rollback:
     config_set_antiflap(&backup.antiflap);
     config_set_selftest(&backup.selftest);
     config_set_calibration(&backup.calibration);
-    config_set_monitor_only(backup.system.monitor_only_mode);
+    config_set_system(&backup.system);
     config_save_all();
     ESP_LOGE(TAG, "Import failed, rolled back");
     return err;

@@ -323,3 +323,12 @@ bool alert_manager_ext_double_ack_required(int16_t alm_id)
     return (slot->severity == ALERT_SEVERITY_CRITICAL);
 }
 
+bool alert_manager_ack_with_policy(int16_t alm_id, uint64_t ts)
+{
+    if (!alert_manager_is_active(alm_id)) return false;
+    if (alert_manager_ext_double_ack_required(alm_id)) {
+        return alert_manager_ext_ack_critical(alm_id, ts);
+    }
+    return alert_manager_ack(alm_id, ts);
+}
+
