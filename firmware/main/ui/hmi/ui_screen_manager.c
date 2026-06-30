@@ -257,7 +257,6 @@ void ui_screen_manager_go_home(void)
 void ui_screen_manager_on_user_interaction(void)
 {
     s_last_interaction_ms = esp_timer_get_time() / USEC_PER_MSEC;
-    s_carousel_paused = true;
 }
 
 void ui_screen_manager_carousel_pause(void)

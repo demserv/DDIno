@@ -35,6 +35,9 @@ typedef enum {
     SUB_WIFI,
     SUB_RTC,
     SUB_RELAY_BOARD,
+    SUB_UI,
+    SUB_WEB_SECURITY,
+    SUB_WDT,
     SUB_COUNT
 } subsystem_id_t;
 

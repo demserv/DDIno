@@ -83,6 +83,7 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON_AddNumberToObject(sec, "session_timeout_min", (double)root->security.session_timeout_min);
     cJSON_AddNumberToObject(sec, "max_login_attempts", (double)root->security.max_login_attempts);
     cJSON_AddNumberToObject(sec, "login_block_duration_min", (double)root->security.login_block_duration_min);
+    cJSON_AddBoolToObject(sec, "read_requires_auth", root->security.read_requires_auth);
     cJSON_AddItemToObject(o, "security", sec);
     cJSON *af = cJSON_CreateObject();
     cJSON_AddNumberToObject(af, "tempo_min_estabilizacao_s", (double)root->antiflap.tempo_min_estabilizacao_s);
@@ -160,7 +161,17 @@ static bool json_to_root(cJSON *json, config_root_t *root, const config_root_t *
         cJSON *v = cJSON_GetObjectItem(sys, "monitor_only_mode");
         if (cJSON_IsBool(v)) root->system.monitor_only_mode = cJSON_IsTrue(v);
     }
+    cJSON *sec = cJSON_GetObjectItem(json, "security");
+    if (cJSON_IsObject(sec)) {
+        cJSON *v = cJSON_GetObjectItem(sec, "read_requires_auth");
+        if (cJSON_IsBool(v)) root->security.read_requires_auth = cJSON_IsTrue(v);
+    }
     config_root_compute_crc(root);
+    if (expected_crc != 0 && root->crc32 != expected_crc) {
+        ESP_LOGW(TAG, "Import CRC mismatch: expected 0x%08lX computed 0x%08lX",
+                 (unsigned long)expected_crc, (unsigned long)root->crc32);
+        return false;
+    }
     return config_root_validate(root);
 }
 

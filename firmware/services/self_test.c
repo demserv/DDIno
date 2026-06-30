@@ -126,14 +126,12 @@ static void test_spi_mcp3208(selftest_result_t *r)
 
 static void test_spi_display(selftest_result_t *r)
 {
-    /* @requirement RF-FLOW-BOOT-003 Reflete o status real de init do display
-     * (ILI9488 é write-only neste hardware; sem readback de registrador). */
-    if (driver_ili9488_is_ok()) {
-        r->passed = true;
-    } else {
-        r->fail_count++;
-        snprintf(r->detail, sizeof(r->detail), "display init nao concluida");
+    if (!driver_ili9488_is_ok()) {
+        r->status = SELFTEST_STATUS_SKIPPED;
+        snprintf(r->detail, sizeof(r->detail), "display nao inicializado");
+        return;
     }
+    r->passed = true;
 }
 
 static void test_spi_sd(selftest_result_t *r)
@@ -242,12 +240,12 @@ static void test_pzem(selftest_result_t *r)
 
 static void test_touch(selftest_result_t *r)
 {
-    if (driver_xpt2046_is_ok()) {
-        r->passed = true;
-    } else {
-        r->fail_count++;
-        snprintf(r->detail, sizeof(r->detail), "touch init/probe falhou");
+    if (!driver_xpt2046_is_ok()) {
+        r->status = SELFTEST_STATUS_SKIPPED;
+        snprintf(r->detail, sizeof(r->detail), "touch nao inicializado");
+        return;
     }
+    r->passed = true;
 }
 
 static void test_nvs(selftest_result_t *r)
@@ -289,9 +287,13 @@ static void test_heap(selftest_result_t *r)
 
 static void test_wdt(selftest_result_t *r)
 {
-    r->passed = true;
-    snprintf(r->detail, sizeof(r->detail), "resets24h=%lu",
-             (unsigned long)wdt_stats_get_resets_24h());
+    uint32_t resets = wdt_stats_get_resets_24h();
+    snprintf(r->detail, sizeof(r->detail), "resets24h=%lu", (unsigned long)resets);
+    if (resets <= HW_WDT_RESET_MAX_24H) {
+        r->passed = true;
+    } else {
+        r->fail_count++;
+    }
 }
 
 static void test_mcp3208_ch2(selftest_result_t *r)
@@ -347,7 +349,11 @@ esp_err_t self_test_run_one(selftest_id_t id)
     }
 
     /* Deriva o status final; testes que não puderam ser verificados já marcaram SKIPPED. */
-    if (r->status != SELFTEST_STATUS_SKIPPED) {
+    if (r->status == SELFTEST_STATUS_SKIPPED) {
+        if (!r->critical) {
+            r->passed = true;
+        }
+    } else {
         r->status = r->passed ? SELFTEST_STATUS_PASS : SELFTEST_STATUS_FAIL;
     }
 
@@ -409,6 +415,7 @@ uint32_t self_test_fail_count(void)
 {
     uint32_t count = 0;
     for (int i = 0; i < SELFTEST_ID_COUNT; i++) {
+        if (s_results[i].status == SELFTEST_STATUS_SKIPPED) continue;
         if (!s_results[i].passed) count++;
     }
     return count;

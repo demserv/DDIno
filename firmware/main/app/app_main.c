@@ -47,6 +47,7 @@
 #include "drivers/driver_buzzer_led.h"
 #include "fsm/ato_fsm.h"
 #include "web/api_rest.h"
+#include "web/api_auth.h"
 #include "drivers/driver_ili9488.h"
 #include "drivers/driver_xpt2046.h"
 #include "drivers/driver_ad_keypad_lvgl.h"
@@ -94,6 +95,29 @@ static feed_fsm_t s_feed_fsm;
 static thermal_params_t s_tcfg;
 static electric_params_t s_ecfg;
 static ato_params_t s_acfg;
+
+static uint64_t s_safeoff_resolved_at_ms;
+static uint64_t s_emergency_resolved_at_ms;
+
+static void fill_safeoff_stabilization(safety_inputs_t *sin, bool cause_resolved, uint64_t now_ms)
+{
+    if (!cause_resolved) {
+        s_safeoff_resolved_at_ms = 0;
+    } else if (s_safeoff_resolved_at_ms == 0) {
+        s_safeoff_resolved_at_ms = now_ms;
+    }
+    sin->cause_resolved_at_ms = s_safeoff_resolved_at_ms;
+}
+
+static void fill_emergency_stabilization(safety_inputs_t *sin, bool emerg_resolved, uint64_t now_ms)
+{
+    if (!emerg_resolved) {
+        s_emergency_resolved_at_ms = 0;
+    } else if (s_emergency_resolved_at_ms == 0) {
+        s_emergency_resolved_at_ms = now_ms;
+    }
+    sin->cause_resolved_at_ms = s_emergency_resolved_at_ms;
+}
 
 static esp_err_t init_nvs_safe(void)
 {
@@ -202,10 +226,10 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
     safety_inputs_t sin;
     memset(&sin, 0, sizeof(sin));
     sin.safeoff_cause_resolved = safeoff_cause_is_resolved();
-    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.ato_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
     sin.manual_ack_received = safe_state_ack_manual_received(&g_gs);
-    sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
+    fill_safeoff_stabilization(&sin, sin.safeoff_cause_resolved, now_ms);
 
     if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
         bool degraded = (!g_gs.temp_ok || !g_gs.ato_ok || !g_gs.selftest_passed ||
@@ -246,20 +270,27 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
         g_gs.restart_in_progress = true;
         audit_log_event(AUDIT_SAFE_OFF, "Restart sequence started");
         restart_fsm_start(&g_restart_fsm, now_ms);
+    } else if (sin.safeoff_cause_resolved && sin.manual_ack_received && sin.all_sensors_valid) {
+        ESP_LOGD(TAG, "SAFE_OFF exit aguardando estabilizacao (%llums)",
+                 (unsigned long long)(now_ms - s_safeoff_resolved_at_ms));
     }
 }
 
-static void handle_emergency_exit(uint64_t now_s)
+static void handle_emergency_exit(uint64_t now_s, uint64_t now_ms)
 {
+    const thermal_output_t *tout = thermal_fsm_get_output(&s_thermal_fsm);
+    bool emerg_resolved = !(tout && tout->force_emergency);
+
     safety_inputs_t sin;
     memset(&sin, 0, sizeof(sin));
-    sin.emergency_resolved = true;
-    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.emergency_resolved = emerg_resolved;
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.ato_ok && g_gs.pzem_ok);
     sin.manual_ack_received = safe_state_ack_manual_received(&g_gs);
-    sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
+    fill_emergency_stabilization(&sin, emerg_resolved, now_ms);
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
         ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
+        s_safeoff_resolved_at_ms = 0;
         global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_FSM_INVALID, "ALM-003", "emergency_exit", now_s);
     }
 }
@@ -550,7 +581,11 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
         const char *from_s = (*prev_state < SYSTEM_STATE_COUNT) ? state_names[*prev_state] : "?";
         const char *to_s = (g_gs.system_state < SYSTEM_STATE_COUNT) ? state_names[g_gs.system_state] : "?";
         audit_log_state_change(from_s, to_s, sin.transition_cause);
-        if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
+        if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
+            s_safeoff_resolved_at_ms = 0;
+            ui_screen_manager_carousel_pause();
+        } else if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
+            s_emergency_resolved_at_ms = 0;
             ui_screen_manager_carousel_pause();
         } else if (*prev_state >= SYSTEM_STATE_SAFE_OFF && g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
             ui_screen_manager_carousel_resume();
@@ -635,7 +670,7 @@ static void task_safety_core_fn(void *pv)
         }
 
         if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
-            handle_emergency_exit(now_s);
+            handle_emergency_exit(now_s, now_ms);
         }
         if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
             handle_safeoff_exit(now_s, now_ms);
@@ -705,6 +740,12 @@ static void task_safety_core_fn(void *pv)
 
         g_gs.active_alerts_count = alert_manager_active_count();
         g_gs.critical_alerts_count = alert_manager_critical_count();
+        {
+            const security_params_storage_t *sec = config_get_security();
+            uint32_t ack_to = (sec && sec->session_timeout_min > 0)
+                                  ? sec->session_timeout_min * 60U : 300U;
+            alert_manager_check_ack_timeout(now_s, ack_to);
+        }
         g_gs.uptime_s = now_s;
 
         update_energy_accumulators(plug_currents);
@@ -760,6 +801,15 @@ static void task_safety_core_fn(void *pv)
                 ph_sensor_is_ok() ? HEALTH_OK : HEALTH_DEGRADED,
                 ph_sensor_is_ok() ? NULL : "leitura pH indisponivel");
             health_report(SUB_SENSOR_FLOW, HEALTH_UNKNOWN, "sensor nao presente neste produto");
+            health_report(SUB_UI, g_gs.ui_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_WEB_SECURITY,
+                api_auth_has_password() ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            {
+                uint32_t wdt_resets = wdt_stats_get_resets_24h();
+                health_report(SUB_WDT,
+                    wdt_resets <= HW_WDT_RESET_MAX_24H ? HEALTH_OK : HEALTH_DEGRADED,
+                    wdt_resets > HW_WDT_RESET_MAX_24H ? "wdt_resets_24h alto" : NULL);
+            }
             health_matrix_update();
 
             /* @requirement RNF-ELECTRICAL-001 Integra os barramentos SD e I2C ao

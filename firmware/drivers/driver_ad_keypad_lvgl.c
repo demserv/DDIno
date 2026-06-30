@@ -8,6 +8,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "ui_screen_manager.h"
 
 static const char *TAG = "driver_ad_keypad_lvgl";
 
@@ -127,6 +128,7 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
     data->state = LV_INDEV_STATE_PR;
     data->key = key;
+    ui_screen_manager_on_user_interaction();
 
     return false;
 }

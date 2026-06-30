@@ -1,6 +1,8 @@
 // @requirement RF-UI-DIAG-001 Tela de diagnóstico com 9 subsistemas + heap/SD/fw
 // @requirement RF-FLOW-BOOT-003 Exibição de self-test na UI
+// @requirement RF-UI-DIAG-002 Drill-down por subsistema
 #include "ui_screen_diagnostics.h"
+#include "ui_screen_diag_detail.h"
 #include "../ui_screen_manager.h"
 #include "../ui_theme.h"
 #include <stdio.h>
@@ -18,6 +20,7 @@ static void diag_row_click_cb(lv_event_t *e)
     lv_obj_t *panel = lv_event_get_target(e);
     for (int i = 0; i < 9; i++) {
         if (rows[i].panel == panel) {
+            ui_screen_diag_detail_show_subsystem(i);
             ui_screen_manager_show(UI_SCREEN_DIAG_DETAIL);
             return;
         }

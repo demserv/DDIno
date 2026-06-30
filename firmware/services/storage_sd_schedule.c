@@ -380,6 +380,72 @@ static esp_err_t write_hourly_log_txt(void)
     return err;
 }
 
+esp_err_t storage_sd_backup_config_now(void)
+{
+    if (!storage_sd_is_mounted() || !time_ready()) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return write_daily_backup_txt();
+}
+
+static uint32_t parse_crc_from_file(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    char line[128];
+    uint32_t crc = 0;
+    while (fgets(line, sizeof(line), f)) {
+        unsigned long val = 0;
+        if (sscanf(line, "crc32=0x%lX", &val) == 1 || sscanf(line, "crc32=0x%lx", &val) == 1) {
+            crc = (uint32_t)val;
+            break;
+        }
+    }
+    fclose(f);
+    return crc;
+}
+
+bool storage_sd_verify_backup_crc(const char *path, uint32_t *out_crc)
+{
+    if (!path) return false;
+    FILE *f = fopen(path, "r");
+    if (!f) return false;
+
+    long footer = -1;
+    char line[SD_LOG_LINE_MAX_LEN];
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "[CRC32]", 5) == 0) {
+            footer = ftell(f);
+            break;
+        }
+    }
+    if (footer < 0) {
+        fclose(f);
+        return false;
+    }
+
+    rewind(f);
+    uint32_t crc = 0xFFFFFFFFU;
+    long pos = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "[CRC32]", 5) == 0) break;
+        for (char *p = line; *p; p++) {
+            crc ^= (uint8_t)*p;
+            for (int i = 0; i < 8; i++) {
+                crc = (crc >> 1) ^ (0xEDB88320U & (uint32_t)(-(int32_t)(crc & 1U)));
+            }
+        }
+        pos = ftell(f);
+        (void)pos;
+    }
+    crc = ~crc;
+    fclose(f);
+
+    uint32_t stored = parse_crc_from_file(path);
+    if (out_crc) *out_crc = crc;
+    return (stored != 0 && stored == crc);
+}
+
 void storage_sd_tick_schedules(void)
 {
     if (!storage_sd_is_mounted() || !time_ready()) return;

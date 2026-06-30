@@ -91,7 +91,10 @@ static esp_err_t send_json_resp(httpd_req_t *req, cJSON *json, const char *statu
         return ESP_FAIL;
     }
     httpd_resp_set_status(req, status_str);
-    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_type(req, "application/json; charset=utf-8");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type, X-Auth-Token");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
     esp_err_t ret = httpd_resp_sendstr(req, str);
     free(str);
@@ -149,10 +152,30 @@ static bool is_auth_path(const char *uri)
            (strcmp(uri, "/api/v1/wizard") == 0);
 }
 
+static bool is_read_get_path(const char *uri)
+{
+    return (strcmp(uri, "/api/v1/state") == 0) ||
+           (strcmp(uri, "/api/v1/status") == 0) ||
+           (strcmp(uri, "/api/v1/health") == 0) ||
+           (strcmp(uri, "/api/v1/alerts") == 0) ||
+           (strcmp(uri, "/api/v1/sensors") == 0) ||
+           (strcmp(uri, "/api/v1/energy") == 0) ||
+           (strcmp(uri, "/api/v1/plugs") == 0);
+}
+
 static esp_err_t auth_guard(httpd_req_t *req)
 {
     if (is_auth_path(req->uri)) return ESP_OK;
-    if (!auth_middleware(req)) {
+
+    const security_params_storage_t *sec = config_get_security();
+    bool need_auth = true;
+    if (req->method == HTTP_GET && is_read_get_path(req->uri) &&
+        sec && !sec->read_requires_auth) {
+        need_auth = false;
+    }
+
+    if (need_auth && !auth_middleware(req)) {
+        audit_log_event(AUDIT_LOGIN, "auth_required rejected");
         send_error(req, "auth_required", ERR_AUTH_REQUIRED, 401, "401 Unauthorized");
         return ESP_FAIL;
     }
@@ -262,7 +285,7 @@ static void format_iso8601(uint64_t epoch_s, char *out, size_t out_len)
         snprintf(out, out_len, "1970-01-01T00:00:00Z");
         return;
     }
-    snprintf(out, out_len, "%04d-%02d-%02dT%02d:%02d:%02d",
+    snprintf(out, out_len, "%04d-%02d-%02dT%02d:%02d:%02dZ",
              tm_info.tm_year + 1900, tm_info.tm_mon + 1, tm_info.tm_mday,
              tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec);
 }
@@ -323,6 +346,42 @@ static esp_err_t state_handler(httpd_req_t *req)
     cJSON_AddStringToObject(json, "config_schema_version", g_gs.config_schema_version);
     cJSON_AddStringToObject(json, "firmware_version", g_gs.fw_version);
     cJSON_AddStringToObject(json, "srs_version", g_gs.srs_version);
+
+    {
+        int on_count = 0, blocked = 0, critical_on = 0;
+        for (int i = 1; i <= 10; i++) {
+            bool st = relay_get((uint8_t)i);
+            plug_model_t *pm = plug_manager_get((plug_id_t)i);
+            if (st) on_count++;
+            if (pm && pm->blocked_by_safe_state) blocked++;
+            if (st && pm && pm->is_critical) critical_on++;
+        }
+        cJSON *plugs = cJSON_CreateObject();
+        cJSON_AddNumberToObject(plugs, "on_count", on_count);
+        cJSON_AddNumberToObject(plugs, "off_count", 10 - on_count);
+        cJSON_AddNumberToObject(plugs, "blocked_count", blocked);
+        cJSON_AddNumberToObject(plugs, "critical_on_count", critical_on);
+        cJSON_AddItemToObject(json, "plugs_summary", plugs);
+    }
+
+    {
+        cJSON *sensors = cJSON_CreateObject();
+        cJSON_AddNumberToObject(sensors, "temp_filtered_c", (double)g_gs.temp_filtered_c);
+        cJSON_AddBoolToObject(sensors, "temp_ok", g_gs.temp_ok);
+        cJSON_AddBoolToObject(sensors, "ato_ok", g_gs.ato_ok);
+        cJSON_AddBoolToObject(sensors, "pzem_ok", g_gs.pzem_ok);
+        cJSON_AddBoolToObject(sensors, "electric_ok", g_gs.electric_ok);
+        cJSON_AddItemToObject(json, "sensors_summary", sensors);
+    }
+
+    {
+        cJSON *alerts = cJSON_CreateObject();
+        cJSON_AddNumberToObject(alerts, "active", (double)alert_manager_active_count());
+        cJSON_AddNumberToObject(alerts, "critical", (double)g_gs.critical_alerts_count);
+        cJSON_AddNumberToObject(alerts, "categories_mask", (double)g_gs.active_alm_categories);
+        cJSON_AddItemToObject(json, "alerts_summary", alerts);
+    }
+
     return send_json_resp(req, json, "200 OK");
 }
 
@@ -396,7 +455,8 @@ static esp_err_t health_handler(httpd_req_t *req)
     /* @requirement RF-HEALTH-MATRIX-001 / RF-WEB-005 Expõe a matriz de saúde. */
     static const char *sub_names[SUB_COUNT] = {
         "TEMP", "PH", "LEVEL", "FLOW", "CURRENT", "VOLTAGE",
-        "BUS_SPI", "BUS_I2C", "BUS_1WIRE", "NVS", "SD", "WIFI", "RTC", "RELAY_BOARD"
+        "BUS_SPI", "BUS_I2C", "BUS_1WIRE", "NVS", "SD", "WIFI", "RTC", "RELAY_BOARD",
+        "UI", "WEB_SECURITY", "WDT"
     };
     static const char *health_status_names[] = {
         "OK", "DEGRADED", "FAILED", "OPEN", "HALF_OPEN", "CLOSED", "UNKNOWN"
@@ -481,7 +541,8 @@ static esp_err_t plug_set_handler(httpd_req_t *req)
         return send_error(req, "plug_denied", ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
 
-    /* ALM-065 + DEGRADED em desligamento crítico: tratado em plug_manager_toggle_ex. */
+    audit_log_event(AUDIT_COMMAND,
+                    target_state ? "plug ON via API" : "plug OFF via API");
 
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddNumberToObject(resp, "id", plug_id);
@@ -566,6 +627,11 @@ static esp_err_t energy_handler(httpd_req_t *req)
     return send_json_resp(req, json, "200 OK");
 }
 
+static void format_alm_code(int16_t id, char *buf, size_t len)
+{
+    snprintf(buf, len, "ALM-%03d", (int)id);
+}
+
 static esp_err_t alerts_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
@@ -575,12 +641,21 @@ static esp_err_t alerts_handler(httpd_req_t *req)
         const alert_slot_t *aslot = alert_manager_get_slot(id);
         if (!aslot || !aslot->active) continue;
         cJSON *a = cJSON_CreateObject();
+        char code[16];
+        format_alm_code(id, code, sizeof(code));
+        cJSON_AddStringToObject(a, "alm_code", code);
         cJSON_AddNumberToObject(a, "id", id);
         cJSON_AddStringToObject(a, "severity", alert_severity_str(aslot->severity));
         cJSON_AddStringToObject(a, "category", alert_category_str(aslot->category));
         cJSON_AddStringToObject(a, "message", aslot->message);
+        cJSON_AddBoolToObject(a, "ack_required", aslot->ack_req);
+        cJSON_AddNumberToObject(a, "value", (double)aslot->value);
+        cJSON_AddNumberToObject(a, "related_plug_id", (double)aslot->related_plug_id);
+        cJSON_AddBoolToObject(a, "state_associated", aslot->state_associated);
         {
             char ts[32];
+            format_iso8601(aslot->first_seen_ts, ts, sizeof(ts));
+            cJSON_AddStringToObject(a, "first_seen", ts);
             format_iso8601(aslot->last_seen_ts, ts, sizeof(ts));
             cJSON_AddStringToObject(a, "timestamp", ts);
         }
@@ -638,6 +713,11 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     }
     cJSON *json = cJSON_CreateObject();
     cJSON_AddNumberToObject(json, "acked", acked);
+    if (specific_id > 0) {
+        audit_log_event(AUDIT_COMMAND, "alert ACK via API");
+    } else if (acked > 0) {
+        audit_log_event(AUDIT_COMMAND, "alerts ACK all via API");
+    }
     return send_json_resp(req, json, "200 OK");
 }
 
@@ -658,6 +738,7 @@ static esp_err_t command_handler(httpd_req_t *req)
 
     cmd_validation_t res = { .allowed = false, .requires_double_confirmation = false, .error_code = "unknown_cmd" };
     const char *status_msg = "command_accepted";
+    int acked_count = -1;
 
     if (strcmp(cmd, "toggle_plug") == 0) {
         cJSON *plug_item = cJSON_GetObjectItem(json, "plug_id");
@@ -705,14 +786,17 @@ static esp_err_t command_handler(httpd_req_t *req)
         res = command_validator_can_ack_alert(&g_gs, 0);
         if (res.allowed) {
             uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
-            int acked = 0;
+            acked_count = 0;
             for (int16_t id = 1; id <= 65; id++) {
                 if (alert_manager_is_active(id)) {
-                    if (alert_manager_ack(id, now)) acked++;
+                    if (alert_manager_ack(id, now)) {
+                        acked_count++;
+                        safe_state_ack_on_alert_ack(id, now);
+                    }
                 }
             }
             status_msg = "alerts_acked";
-            cJSON_AddNumberToObject(json, "acked", acked);
+            audit_log_event(AUDIT_COMMAND, "ack_all via command API");
         }
     }
 
@@ -723,6 +807,9 @@ static esp_err_t command_handler(httpd_req_t *req)
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "status", status_msg);
     cJSON_AddStringToObject(resp, "cmd", cmd);
+    if (acked_count >= 0) {
+        cJSON_AddNumberToObject(resp, "acked", acked_count);
+    }
     return send_json_resp(req, resp, "200 OK");
 }
 
@@ -877,6 +964,7 @@ static esp_err_t config_export_handler(httpd_req_t *req)
     if (config_export_to_json(&json) != ESP_OK || !json) {
         return send_error(req, "export_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
     }
+    audit_log_event(AUDIT_CONFIG_CHANGE, "config exported via API");
     esp_err_t err = send_json_resp(req, json, "200 OK");
     cJSON_Delete(json);
     return err;
@@ -1391,9 +1479,26 @@ static esp_err_t plug_preset_set_handler(httpd_req_t *req)
 
 static esp_err_t auth_recovery_handler(httpd_req_t *req)
 {
+    AUTH_GUARD();
     if (!g_gs.maintenance_mode) {
         return send_error(req, "maintenance_required", ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
+
+    char *body = read_body(req);
+    bool confirmed = false;
+    if (body) {
+        cJSON *json = cJSON_Parse(body);
+        if (json) {
+            cJSON *confirm = cJSON_GetObjectItem(json, "confirm");
+            confirmed = cJSON_IsTrue(confirm);
+            cJSON_Delete(json);
+        }
+        free(body);
+    }
+    if (!confirmed) {
+        return send_error(req, "confirmation_required", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
     esp_err_t err = auth_recovery_sd_process(true);
     if (err == ESP_OK) {
         cJSON *resp = cJSON_CreateObject();
@@ -1409,6 +1514,17 @@ static esp_err_t auth_recovery_handler(httpd_req_t *req)
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
+}
+
+static esp_err_t cors_options_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "204 No Content");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type, X-Auth-Token");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    httpd_resp_set_hdr(req, "Access-Control-Max-Age", "86400");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
 }
 
 static httpd_uri_t g_uris[] = {
@@ -1445,6 +1561,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/reset",         .method = HTTP_POST, .handler = reset_api_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_GET,  .handler = catch_all_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_POST, .handler = catch_all_handler,     .user_ctx = NULL },
+    { .uri = "/api/v1/*",             .method = HTTP_OPTIONS, .handler = cors_options_handler, .user_ctx = NULL },
 };
 
 esp_err_t api_rest_init(void)

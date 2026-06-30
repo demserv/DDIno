@@ -12,6 +12,7 @@
 
 #include "config_root.h"
 #include "driver_acs712.h"
+#include "services/storage_sd.h"
 
 static const char *TAG = "config_mgr";
 
@@ -123,6 +124,7 @@ static void set_defaults(void)
     s_security.session_timeout_min    = PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT;
     s_security.max_login_attempts     = PARAM_SECURITY_DEFAULT_MAX_LOGIN;
     s_security.login_block_duration_min = PARAM_SECURITY_DEFAULT_BLOCK_DURATION;
+    s_security.read_requires_auth     = false;
 
     s_antiflap.tempo_min_estabilizacao_s = PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S;
     s_antiflap.janela_flap_s             = PARAM_ANTIFLAP_DEFAULT_JANELA_S;
@@ -425,6 +427,9 @@ esp_err_t config_save_all(void)
     e = save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
     if (e != ESP_OK) return e;
     e = save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+    if (e == ESP_OK) {
+        (void)storage_sd_backup_config_now();
+    }
     return e;
 }
 

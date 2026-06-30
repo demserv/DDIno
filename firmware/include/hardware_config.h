@@ -122,6 +122,7 @@
 // --- WDT ---
 #define HW_WDT_TIMEOUT_MS                (2000U)
 #define HW_WDT_ADV_TIMEOUT_MS            (10000U)
+#define HW_WDT_RESET_MAX_24H             (3U)
 
 // --- SD card ---
 #define HW_SD_SPI_HOST                   (SPI2_HOST)

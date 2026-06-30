@@ -8,6 +8,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "ui_screen_manager.h"
 
 #define TOUCH_ADC_MAX    4095
 #define TOUCH_ADC_RANGE  4096
@@ -79,6 +80,7 @@ bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_PR;
         data->point.x = stable_x;
         data->point.y = stable_y;
+        ui_screen_manager_on_user_interaction();
     } else {
         data->state = LV_INDEV_STATE_REL;
     }

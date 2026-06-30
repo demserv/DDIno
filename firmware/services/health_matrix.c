@@ -12,7 +12,8 @@ static health_entry_t s_entries[SUB_COUNT];
 static const char *SUB_NAMES[SUB_COUNT] = {
     "TEMP", "PH", "LEVEL", "FLOW", "CURRENT", "VOLTAGE",
     "BUS_SPI", "BUS_I2C", "BUS_1WIRE",
-    "NVS", "SD", "WIFI", "RTC", "RELAY_BOARD"
+    "NVS", "SD", "WIFI", "RTC", "RELAY_BOARD",
+    "UI", "WEB_SECURITY", "WDT"
 };
 
 static const char *status_str(health_status_t s)

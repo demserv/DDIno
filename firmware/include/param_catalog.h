@@ -61,6 +61,7 @@ typedef struct {
     uint32_t session_timeout_min;
     uint32_t max_login_attempts;
     uint32_t login_block_duration_min;
+    bool     read_requires_auth;
 } security_params_storage_t;
 
 typedef struct {
