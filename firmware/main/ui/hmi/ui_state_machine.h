@@ -1,5 +1,6 @@
 // @requirement RF-GLOBAL-001 FSM de estados da UI
-#pragma once
+#ifndef HMI_UI_STATE_MACHINE_H
+#define HMI_UI_STATE_MACHINE_H
 
 #include "ui_types.h"
 
@@ -14,3 +15,5 @@ typedef struct {
 
 void ui_state_machine_init(ui_state_machine_t *sm);
 void ui_state_machine_transition(ui_state_machine_t *sm, ui_system_state_t new_state);
+
+#endif

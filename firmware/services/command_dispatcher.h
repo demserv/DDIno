@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERVICES_COMMAND_DISPATCHER_H
+#define SERVICES_COMMAND_DISPATCHER_H
 
 #include "esp_err.h"
 #include "global_state.h"
@@ -25,4 +26,7 @@ esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* SERVICES_COMMAND_DISPATCHER_H */

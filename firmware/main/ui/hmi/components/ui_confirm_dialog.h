@@ -1,5 +1,6 @@
 // @requirement RF-RESET-004 Diálogo de confirmação para ações críticas
-#pragma once
+#ifndef HMI_COMPONENTS_UI_CONFIRM_DIALOG_H
+#define HMI_COMPONENTS_UI_CONFIRM_DIALOG_H
 
 #include "lvgl.h"
 
@@ -18,3 +19,5 @@ void ui_confirm_dialog_create(ui_confirm_dialog_t *dlg, lv_obj_t *parent, const 
 void ui_confirm_dialog_set_confirm_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb);
 void ui_confirm_dialog_set_cancel_cb(ui_confirm_dialog_t *dlg, lv_event_cb_t cb);
 void ui_confirm_dialog_show(ui_confirm_dialog_t *dlg, bool show);
+
+#endif

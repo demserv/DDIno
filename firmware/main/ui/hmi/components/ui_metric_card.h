@@ -1,5 +1,6 @@
 // @requirement RF-ENERGY-001 Card de métrica com valor, unidade, ícone
-#pragma once
+#ifndef HMI_COMPONENTS_UI_METRIC_CARD_H
+#define HMI_COMPONENTS_UI_METRIC_CARD_H
 
 #include "lvgl.h"
 
@@ -13,3 +14,5 @@ typedef struct {
 void ui_metric_card_create(ui_metric_card_t *card, lv_obj_t *parent, int x, int y, int w, int h, const char *title);
 void ui_metric_card_set_value(ui_metric_card_t *card, const char *value, const char *unit);
 void ui_metric_card_set_color(ui_metric_card_t *card, lv_color_t color);
+
+#endif

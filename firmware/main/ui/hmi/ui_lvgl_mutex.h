@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HMI_UI_LVGL_MUTEX_H
+#define HMI_UI_LVGL_MUTEX_H
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -15,4 +16,7 @@ bool ui_lvgl_mutex_give(void);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* HMI_UI_LVGL_MUTEX_H */

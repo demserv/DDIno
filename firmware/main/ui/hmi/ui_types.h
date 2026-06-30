@@ -1,5 +1,6 @@
 // @requirement RF-GLOBAL-001 Tipos de dados compartilhados da HMI
-#pragma once
+#ifndef HMI_UI_TYPES_H
+#define HMI_UI_TYPES_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -46,3 +47,5 @@ typedef enum {
     UI_HEALTH_DEGRADED,
     UI_HEALTH_FAILED
 } ui_health_state_t;
+
+#endif

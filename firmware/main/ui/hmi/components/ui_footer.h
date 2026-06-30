@@ -1,5 +1,6 @@
 // @requirement RF-UI-STATUS-001 Footer persistente
-#pragma once
+#ifndef HMI_COMPONENTS_UI_FOOTER_H
+#define HMI_COMPONENTS_UI_FOOTER_H
 
 #include "lvgl.h"
 #include "../ui_view_model.h"
@@ -14,3 +15,5 @@ typedef struct {
 
 void ui_footer_create(ui_footer_t *footer, lv_obj_t *parent);
 void ui_footer_update(ui_footer_t *footer, const ui_footer_vm_t *vm);
+
+#endif

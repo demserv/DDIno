@@ -1,5 +1,6 @@
 // @requirement RF-UI-INPUT-001 Eventos de HMI desacoplados
-#pragma once
+#ifndef HMI_UI_EVENTS_H
+#define HMI_UI_EVENTS_H
 
 #include <stdint.h>
 
@@ -18,3 +19,5 @@ typedef enum {
 } ui_event_t;
 
 void ui_events_emit(ui_event_t event);
+
+#endif

@@ -1,8 +1,11 @@
 // @requirement RF-UI-WIZARD-001 Tela de wizard
-#pragma once
+#ifndef HMI_SCREENS_UI_SCREEN_WIZARD_H
+#define HMI_SCREENS_UI_SCREEN_WIZARD_H
 
 #include "lvgl.h"
 #include "../ui_view_model.h"
 
 void ui_screen_wizard_create(lv_obj_t *parent, ui_root_vm_t *vm);
 void ui_screen_wizard_update(ui_root_vm_t *vm);
+
+#endif

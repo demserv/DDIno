@@ -1,5 +1,8 @@
 // @requirement RF-UI-CAROUSEL-001 Ponto de entrada da HMI
-#pragma once
+#ifndef HMI_UI_APP_H
+#define HMI_UI_APP_H
 
 void ui_app_init(void);
 void ui_app_tick(void);
+
+#endif

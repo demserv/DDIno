@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERVICES_LOG_MANAGER_H
+#define SERVICES_LOG_MANAGER_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -34,4 +35,7 @@ esp_err_t log_manager_clear(void);
 
 #ifdef __cplusplus
 }
-#endif
+
+#endif /* __cplusplus */
+
+#endif /* SERVICES_LOG_MANAGER_H */

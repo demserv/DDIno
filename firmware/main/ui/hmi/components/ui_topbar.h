@@ -1,5 +1,6 @@
 // @requirement RF-UI-STATUS-001 Topbar com informações de sistema
-#pragma once
+#ifndef HMI_COMPONENTS_UI_TOPBAR_H
+#define HMI_COMPONENTS_UI_TOPBAR_H
 
 #include "lvgl.h"
 #include "../ui_view_model.h"
@@ -14,3 +15,5 @@ typedef struct {
 
 void ui_topbar_create(ui_topbar_t *bar, lv_obj_t *parent);
 void ui_topbar_update(ui_topbar_t *bar, const ui_topbar_vm_t *vm);
+
+#endif
