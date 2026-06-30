@@ -39,7 +39,7 @@ void ui_screen_system_create(lv_obj_t *parent, ui_root_vm_t *vm)
 
     static const char *icons[] = {"\xe2\x9a\x95", "\xe2\x9a\x99", "\xe2\x9f\xb9", "\xe2\x84\xb9"};
     static const char *texts[] = {"Diagnostico", "Manutencao", "Reset Seguro", "Ver does"};
-    static int actions[] = {0, 1, 2, 3};
+    static const int actions[] = {0, 1, 2, 3};
 
     static const int x_pos[2] = {15, 245};
     static const int y_pos[2] = {40, 130};
