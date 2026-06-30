@@ -19,6 +19,9 @@
 #include "driver_ili9488.h"
 #include "driver_xpt2046.h"
 #include "esp_heap_caps.h"
+#include "nvs_flash.h"
+#include "services/wdt_stats.h"
+#include "driver_ds3231.h"
 #include <stdio.h>
 
 static const char *TAG = "self_test";
@@ -46,6 +49,11 @@ static const char * const s_names[SELFTEST_ID_COUNT] = {
     [SELFTEST_ID_AD_KEYPAD]    = "AD_KEYPAD",
     [SELFTEST_ID_PZEM]         = "PZEM",
     [SELFTEST_ID_TOUCH]        = "TOUCH",
+    [SELFTEST_ID_NVS]          = "NVS",
+    [SELFTEST_ID_RTC]          = "RTC_DS3231",
+    [SELFTEST_ID_HEAP]         = "HEAP",
+    [SELFTEST_ID_WDT]          = "WDT",
+    [SELFTEST_ID_MCP3208_CH2]  = "MCP3208_CH2",
 };
 
 static const bool s_critical[SELFTEST_ID_COUNT] = {
@@ -69,6 +77,11 @@ static const bool s_critical[SELFTEST_ID_COUNT] = {
     [SELFTEST_ID_AD_KEYPAD]    = false,
     [SELFTEST_ID_PZEM]         = false,
     [SELFTEST_ID_TOUCH]        = false,
+    [SELFTEST_ID_NVS]          = true,
+    [SELFTEST_ID_RTC]          = false,
+    [SELFTEST_ID_HEAP]         = true,
+    [SELFTEST_ID_WDT]          = false,
+    [SELFTEST_ID_MCP3208_CH2]  = true,
 };
 
 esp_err_t self_test_init(void)
@@ -229,12 +242,68 @@ static void test_pzem(selftest_result_t *r)
 
 static void test_touch(selftest_result_t *r)
 {
-    /* @requirement RF-DISP-TOUCH-001 Reflete o status real de init/probe do touch. */
     if (driver_xpt2046_is_ok()) {
         r->passed = true;
     } else {
         r->fail_count++;
         snprintf(r->detail, sizeof(r->detail), "touch init/probe falhou");
+    }
+}
+
+static void test_nvs(selftest_result_t *r)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open("selftest", NVS_READWRITE, &nvs);
+    if (err == ESP_OK) {
+        nvs_close(nvs);
+        r->passed = true;
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "nvs open %s", esp_err_to_name(err));
+    }
+}
+
+static void test_rtc(selftest_result_t *r)
+{
+    ds3231_time_t rt = {0};
+    if (ds3231_get_time(&rt) == ESP_OK && rt.year >= 2020) {
+        r->passed = true;
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "rtc read fail");
+    }
+}
+
+static void test_heap(selftest_result_t *r)
+{
+    size_t free_heap = esp_get_free_heap_size();
+    if (free_heap >= HW_HEAP_MIN_BYTES) {
+        r->passed = true;
+        snprintf(r->detail, sizeof(r->detail), "free=%u", (unsigned)free_heap);
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "free=%u min=%u",
+                 (unsigned)free_heap, (unsigned)HW_HEAP_MIN_BYTES);
+    }
+}
+
+static void test_wdt(selftest_result_t *r)
+{
+    r->passed = true;
+    snprintf(r->detail, sizeof(r->detail), "resets24h=%lu",
+             (unsigned long)wdt_stats_get_resets_24h());
+}
+
+static void test_mcp3208_ch2(selftest_result_t *r)
+{
+    uint16_t adc_val = 0;
+    esp_err_t err = mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_P03_ACS, &adc_val);
+    if (err == ESP_OK) {
+        r->passed = true;
+        snprintf(r->detail, sizeof(r->detail), "adc=%u", (unsigned)adc_val);
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "err %s", esp_err_to_name(err));
     }
 }
 
@@ -269,6 +338,11 @@ esp_err_t self_test_run_one(selftest_id_t id)
     case SELFTEST_ID_AD_KEYPAD:    test_ad_keypad(r);     break;
     case SELFTEST_ID_PZEM:         test_pzem(r);          break;
     case SELFTEST_ID_TOUCH:        test_touch(r);         break;
+    case SELFTEST_ID_NVS:          test_nvs(r);           break;
+    case SELFTEST_ID_RTC:          test_rtc(r);           break;
+    case SELFTEST_ID_HEAP:         test_heap(r);          break;
+    case SELFTEST_ID_WDT:          test_wdt(r);           break;
+    case SELFTEST_ID_MCP3208_CH2:  test_mcp3208_ch2(r);   break;
     default: break;
     }
 

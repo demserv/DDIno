@@ -17,6 +17,7 @@
 #include "event_log.h"
 #include "hardware_config.h"
 #include "services/safeoff_record.h"
+#include "services/safe_state_ack.h"
 
 static const char *TAG = "safety_controller";
 
@@ -54,6 +55,7 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
     relay_abstraction_all_off();
 
     safeoff_record_append(reason, source_alm, now_s);
+    safe_state_ack_on_enter_safeoff(gs);
 
     ESP_LOGE("safety", "SAFE_OFF entered from %d reason=%d alm=%s module=%s",
              (int)prev, (int)reason, source_alm ? source_alm : "?", source_module ? source_module : "?");
@@ -70,6 +72,7 @@ esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_mo
     gs->system_state = SYSTEM_STATE_EMERGENCY;
     gs->electric_ok = false;
     relay_abstraction_all_off();
+    safe_state_ack_on_enter_emergency();
 
     ESP_LOGE("safety", "EMERGENCY entered from %d module=%s", (int)prev, source_module ? source_module : "?");
     audit_log_state_change(system_state_to_str(prev), "EMERGENCY", source_module ? source_module : "enter_emergency");

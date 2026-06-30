@@ -13,6 +13,7 @@ static lv_obj_t *badge_label = NULL;
 static lv_obj_t *summary_label = NULL;
 static lv_obj_t *history_title = NULL;
 static lv_obj_t *filter_roller = NULL;
+static ui_root_vm_t *s_alerts_vm = NULL;
 static int s_category_filter = -1; /* -1 = todas */
 
 static void ack_all_cb(lv_event_t *e)
@@ -27,6 +28,9 @@ static void filter_changed_cb(lv_event_t *e)
     if (!filter_roller) return;
     uint16_t sel = lv_roller_get_selected(filter_roller);
     s_category_filter = (int)sel - 1;
+    if (s_alerts_vm) {
+        ui_screen_alerts_update(s_alerts_vm);
+    }
 }
 
 static bool alert_matches_filter(const ui_alert_vm_t *av)
@@ -37,6 +41,7 @@ static bool alert_matches_filter(const ui_alert_vm_t *av)
 
 void ui_screen_alerts_create(lv_obj_t *parent, ui_root_vm_t *vm)
 {
+    s_alerts_vm = vm;
     lv_obj_t *title = lv_label_create(parent);
     lv_label_set_text(title, "Alertas Ativos");
     lv_obj_set_style_text_font(title, UI_FONT_MEDIUM, 0);
@@ -90,6 +95,7 @@ void ui_screen_alerts_create(lv_obj_t *parent, ui_root_vm_t *vm)
 void ui_screen_alerts_update(ui_root_vm_t *vm)
 {
     if (!vm) return;
+    s_alerts_vm = vm;
     char buf[64];
 
     uint8_t shown = 0;

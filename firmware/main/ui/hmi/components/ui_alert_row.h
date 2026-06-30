@@ -13,6 +13,8 @@ typedef struct {
     lv_obj_t *timestamp_label;
     lv_obj_t *message_label;
     lv_obj_t *ack_label;
+    lv_obj_t *category_label;
+    lv_obj_t *silence_label;
     lv_obj_t *action_label;
 } ui_alert_row_t;
 

@@ -65,6 +65,25 @@ static esp_err_t atomic_write_txt(const char *final_path, const char *tmp_path, 
     return ESP_OK;
 }
 
+static uint32_t crc32_file_content(FILE *f)
+{
+    uint32_t crc = 0xFFFFFFFFU;
+    long pos = ftell(f);
+    rewind(f);
+    int c;
+    while ((c = fgetc(f)) != EOF) {
+        crc ^= (uint32_t)c;
+        for (int i = 0; i < 8; i++) {
+            crc = (crc >> 1) ^ (0xEDB88320U & (uint32_t)(-(int32_t)(crc & 1U)));
+        }
+    }
+    fseek(f, 0, SEEK_END);
+    if (pos >= 0) {
+        (void)pos;
+    }
+    return ~crc;
+}
+
 static void rotate_backups(void)
 {
     struct dirent *entry;
@@ -277,6 +296,9 @@ static esp_err_t write_daily_backup_txt(void)
 
     fprintf(f, "\n[ULTIMOS_10_LOGS]\n");
     append_last_event_logs(f, 10);
+
+    uint32_t crc = crc32_file_content(f);
+    fprintf(f, "\n[CRC32]\ncrc32=0x%08lX\n", (unsigned long)crc);
 
     esp_err_t err = atomic_write_txt(final_path, tmp_path, f);
     if (err == ESP_OK) {

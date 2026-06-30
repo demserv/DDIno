@@ -78,8 +78,10 @@ typedef struct {
     ui_alert_severity_t severity;
     char severity_text[16];
     char message[80];
-    char timestamp[16];
+    char timestamp[20];
     bool acked;
+    bool silenced;
+    char category_text[16];
     char action_hint[96];
     alert_category_t category;
 } ui_alert_vm_t;

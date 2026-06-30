@@ -15,6 +15,7 @@
 #include "driver_buzzer_led.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "services/storage_sd.h"
 #include "hardware_config.h"
 #include <time.h>
@@ -124,14 +125,32 @@ static void fill_alert_vm(ui_alert_vm_t *av, const alert_slot_t *slot)
     snprintf(av->id, sizeof(av->id), "ALM-%03d", (int)slot->alm_id);
     av->severity = map_alert_severity(slot->severity);
     av->category = slot->category;
+    switch (slot->category) {
+        case ALERT_CATEGORY_PROCESS:  snprintf(av->category_text, sizeof(av->category_text), "Processo"); break;
+        case ALERT_CATEGORY_SYSTEM:   snprintf(av->category_text, sizeof(av->category_text), "Sistema"); break;
+        case ALERT_CATEGORY_SECURITY: snprintf(av->category_text, sizeof(av->category_text), "Seguranca"); break;
+        default: snprintf(av->category_text, sizeof(av->category_text), "?"); break;
+    }
     snprintf(av->severity_text, sizeof(av->severity_text), "%s",
              slot->severity == ALERT_SEVERITY_CRITICAL ? "CRITICO" :
              slot->severity == ALERT_SEVERITY_HIGH ? "ALTO" :
              slot->severity == ALERT_SEVERITY_WARNING ? "AVISO" : "INFO");
     snprintf(av->message, sizeof(av->message), "%s", slot->message);
-    snprintf(av->timestamp, sizeof(av->timestamp), "%llu",
-             (unsigned long long)slot->last_seen_ts);
+    if (slot->last_seen_ts > 0 && g_gs.time_valid) {
+        time_t t = (time_t)slot->last_seen_ts;
+        struct tm tm_info;
+        if (localtime_r(&t, &tm_info) != NULL) {
+            snprintf(av->timestamp, sizeof(av->timestamp), "%02d:%02d:%02d",
+                     tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec);
+        } else {
+            snprintf(av->timestamp, sizeof(av->timestamp), "--:--:--");
+        }
+    } else {
+        snprintf(av->timestamp, sizeof(av->timestamp), "--:--:--");
+    }
     av->acked = slot->acked;
+    uint64_t now_s = esp_timer_get_time() / 1000000ULL;
+    av->silenced = alert_manager_is_silenced(slot->alm_id, now_s);
     snprintf(av->action_hint, sizeof(av->action_hint), "%s", slot->action_hint);
 }
 

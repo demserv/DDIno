@@ -1,15 +1,28 @@
 // @requirement RF-UI-DIAG-001 Tela de diagnóstico com 9 subsistemas + heap/SD/fw
 // @requirement RF-FLOW-BOOT-003 Exibição de self-test na UI
 #include "ui_screen_diagnostics.h"
+#include "../ui_screen_manager.h"
 #include "../ui_theme.h"
 #include <stdio.h>
 
 typedef struct {
+    lv_obj_t *panel;
     lv_obj_t *name_label;
     lv_obj_t *status_label;
 } diag_row_t;
 
 static diag_row_t rows[12];
+
+static void diag_row_click_cb(lv_event_t *e)
+{
+    lv_obj_t *panel = lv_event_get_target(e);
+    for (int i = 0; i < 9; i++) {
+        if (rows[i].panel == panel) {
+            ui_screen_manager_show(UI_SCREEN_DIAG_DETAIL);
+            return;
+        }
+    }
+}
 
 static lv_color_t health_color(ui_health_state_t state)
 {
@@ -67,6 +80,8 @@ void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
         lv_obj_set_style_radius(panel, UI_RADIUS_SMALL, 0);
         lv_obj_set_style_border_width(panel, 0, 0);
         lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(panel, LV_OBJ_FLAG_CLICKABLE);
+        rows[i].panel = panel;
 
         rows[i].name_label = lv_label_create(panel);
         lv_label_set_text(rows[i].name_label, names[i]);
@@ -78,6 +93,9 @@ void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
         lv_label_set_text(rows[i].status_label, "UNKNOWN");
         lv_obj_set_style_text_font(rows[i].status_label, UI_FONT_SMALL, 0);
         lv_obj_set_pos(rows[i].status_label, 340, 1);
+        if (i < 9) {
+            lv_obj_add_event_cb(panel, diag_row_click_cb, LV_EVENT_CLICKED, NULL);
+        }
     }
 
     ui_screen_diagnostics_update(vm);

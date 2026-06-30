@@ -32,6 +32,7 @@
 #include "health_matrix.h"
 #include "pin_map.h"
 #include "services/alert_manager.h"
+#include "alert_model.h"
 #include "services/audit_log.h"
 #include "services/command_validator.h"
 #include "services/config_manager.h"
@@ -42,7 +43,10 @@
 #include "services/wdt_stats.h"
 #include "services/relay_safety_service.h"
 #include "services/reset_handler.h"
+#include "services/safe_state_ack.h"
+#include "services/auth_recovery_sd.h"
 #include "system_types.h"
+#include <time.h>
 
 static const char *TAG = "api_rest";
 
@@ -207,6 +211,62 @@ static const char *time_source_str(time_source_t s)
     }
 }
 
+static const char *reset_reason_str(uint32_t r)
+{
+    switch (r) {
+        case 1:  return "POWERON";
+        case 2:  return "EXT";
+        case 3:  return "SW";
+        case 4:  return "PANIC";
+        case 5:  return "INT_WDT";
+        case 6:  return "TASK_WDT";
+        case 7:  return "WDT";
+        case 8:  return "DEEPSLEEP";
+        case 9:  return "BROWNOUT";
+        case 10: return "SDIO";
+        default: return "UNKNOWN";
+    }
+}
+
+static const char *alert_category_str(alert_category_t c)
+{
+    switch (c) {
+        case ALERT_CATEGORY_PROCESS:   return "PROCESS";
+        case ALERT_CATEGORY_SYSTEM:    return "SYSTEM";
+        case ALERT_CATEGORY_SECURITY:  return "SECURITY";
+        default: return "UNKNOWN";
+    }
+}
+
+static const char *alert_severity_str(alert_severity_t s)
+{
+    switch (s) {
+        case ALERT_SEVERITY_CRITICAL: return "CRITICAL";
+        case ALERT_SEVERITY_HIGH:     return "HIGH";
+        case ALERT_SEVERITY_WARNING:  return "WARNING";
+        case ALERT_SEVERITY_INFO:     return "INFO";
+        default: return "UNKNOWN";
+    }
+}
+
+static void format_iso8601(uint64_t epoch_s, char *out, size_t out_len)
+{
+    if (!out || out_len == 0) return;
+    if (epoch_s == 0 || !g_gs.time_valid) {
+        snprintf(out, out_len, "1970-01-01T00:00:00Z");
+        return;
+    }
+    time_t t = (time_t)epoch_s;
+    struct tm tm_info;
+    if (localtime_r(&t, &tm_info) == NULL) {
+        snprintf(out, out_len, "1970-01-01T00:00:00Z");
+        return;
+    }
+    snprintf(out, out_len, "%04d-%02d-%02dT%02d:%02d:%02d",
+             tm_info.tm_year + 1900, tm_info.tm_mon + 1, tm_info.tm_mday,
+             tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec);
+}
+
 /* @requirement RF-WEB-002 / RF-DADOS-001 Schema canônico completo do GlobalState. */
 static esp_err_t state_handler(httpd_req_t *req)
 {
@@ -270,6 +330,7 @@ static esp_err_t health_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
     cJSON *json = cJSON_CreateObject();
+    cJSON_AddStringToObject(json, "state", system_state_to_str(g_gs.system_state));
     cJSON_AddNumberToObject(json, "system_state", g_gs.system_state);
     cJSON_AddBoolToObject(json, "temp_ok", g_gs.temp_ok);
     cJSON_AddBoolToObject(json, "ato_ok", g_gs.ato_ok);
@@ -280,10 +341,15 @@ static esp_err_t health_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "uptime_s", (double)g_gs.uptime_s);
     cJSON_AddNumberToObject(json, "alerts_count", g_gs.active_alerts_count);
     cJSON_AddStringToObject(json, "version", g_gs.fw_version);
-    cJSON_AddNumberToObject(json, "last_reset_reason", g_gs.last_reset_reason);
+    cJSON_AddStringToObject(json, "last_reset_reason", reset_reason_str(g_gs.last_reset_reason));
+    cJSON_AddNumberToObject(json, "last_reset_reason_code", (double)g_gs.last_reset_reason);
     cJSON_AddNumberToObject(json, "heap_free_kb", (double)(esp_get_free_heap_size() / 1024));
     cJSON_AddNumberToObject(json, "wdt_resets_24h", (double)wdt_stats_get_resets_24h());
-    cJSON_AddNumberToObject(json, "last_health_check_timestamp", (double)g_gs.last_health_check_timestamp);
+    {
+        char ts[32];
+        format_iso8601(g_gs.last_health_check_timestamp, ts, sizeof(ts));
+        cJSON_AddStringToObject(json, "last_health_check_timestamp", ts);
+    }
 
     /* @requirement RF-WEB-005 Campos adicionais de saúde. */
     cJSON_AddBoolToObject(json, "monitor_only_mode", g_gs.monitor_only_mode);
@@ -503,15 +569,25 @@ static esp_err_t energy_handler(httpd_req_t *req)
 static esp_err_t alerts_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
+    uint64_t now_s = esp_timer_get_time() / USEC_PER_SEC;
     cJSON *arr = cJSON_CreateArray();
     for (int16_t id = 1; id <= 65; id++) {
-        if (alert_manager_is_active(id)) {
-            cJSON *a = cJSON_CreateObject();
-            cJSON_AddNumberToObject(a, "id", id);
-            const alert_slot_t *aslot = alert_manager_get_slot((int16_t)id);
-            cJSON_AddBoolToObject(a, "acked", aslot ? aslot->acked : false);
-            cJSON_AddItemToArray(arr, a);
+        const alert_slot_t *aslot = alert_manager_get_slot(id);
+        if (!aslot || !aslot->active) continue;
+        cJSON *a = cJSON_CreateObject();
+        cJSON_AddNumberToObject(a, "id", id);
+        cJSON_AddStringToObject(a, "severity", alert_severity_str(aslot->severity));
+        cJSON_AddStringToObject(a, "category", alert_category_str(aslot->category));
+        cJSON_AddStringToObject(a, "message", aslot->message);
+        {
+            char ts[32];
+            format_iso8601(aslot->last_seen_ts, ts, sizeof(ts));
+            cJSON_AddStringToObject(a, "timestamp", ts);
         }
+        cJSON_AddBoolToObject(a, "acked", aslot->acked);
+        cJSON_AddBoolToObject(a, "silenced", alert_manager_is_silenced(id, now_s));
+        cJSON_AddStringToObject(a, "action_hint", aslot->action_hint);
+        cJSON_AddItemToArray(arr, a);
     }
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddItemToObject(resp, "alerts", arr);
@@ -545,12 +621,18 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     int acked = 0;
     if (specific_id > 0) {
         if (alert_manager_is_active(specific_id)) {
-            if (alert_manager_ack(specific_id, now)) acked++;
+            if (alert_manager_ack(specific_id, now)) {
+                acked++;
+                safe_state_ack_on_alert_ack((int16_t)specific_id, now);
+            }
         }
     } else {
         for (int16_t id = 1; id <= 65; id++) {
             if (alert_manager_is_active(id)) {
-                if (alert_manager_ack(id, now)) acked++;
+                if (alert_manager_ack(id, now)) {
+                    acked++;
+                    safe_state_ack_on_alert_ack(id, now);
+                }
             }
         }
     }
@@ -1307,6 +1389,23 @@ static esp_err_t plug_preset_set_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static esp_err_t auth_recovery_handler(httpd_req_t *req)
+{
+    if (!g_gs.maintenance_mode) {
+        return send_error(req, "maintenance_required", ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
+    esp_err_t err = auth_recovery_sd_process(true);
+    if (err == ESP_OK) {
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddStringToObject(resp, "status", "recovery_ok");
+        return send_json_resp(req, resp, "200 OK");
+    }
+    if (err == ESP_ERR_INVALID_ARG) {
+        return send_error(req, "invalid_recovery_token", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+    return send_error(req, "recovery_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+}
+
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
@@ -1316,6 +1415,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/auth/login",    .method = HTTP_POST, .handler = login_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/auth/logout",   .method = HTTP_POST, .handler = logout_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/auth/password", .method = HTTP_POST, .handler = auth_password_handler, .user_ctx = NULL },
+    { .uri = "/api/v1/auth/recovery", .method = HTTP_POST, .handler = auth_recovery_handler, .user_ctx = NULL },
     { .uri = "/api/v1/status",        .method = HTTP_GET,  .handler = status_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/state",         .method = HTTP_GET,  .handler = state_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/health",        .method = HTTP_GET,  .handler = health_handler,        .user_ctx = NULL },

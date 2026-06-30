@@ -27,5 +27,6 @@ bool api_auth_validate(const char *token);
 const char* api_auth_login(const char *user, const char *password, uint32_t client_ip);
 esp_err_t api_auth_logout(const char *token);
 int api_auth_active_count(void);
+esp_err_t api_auth_reset_password_to_default(void);
 
 #endif

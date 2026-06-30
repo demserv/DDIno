@@ -18,6 +18,7 @@
 #include "screens/ui_screen_logs.h"
 #include "screens/ui_screen_wizard.h"
 #include "screens/ui_screen_ato.h"
+#include "screens/ui_screen_diag_detail.h"
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -48,8 +49,8 @@ static const ui_screen_id_t s_carousel_screens[] = {
 typedef void (*ui_screen_create_fn_t)(lv_obj_t *, ui_root_vm_t *);
 typedef void (*ui_screen_update_fn_t)(ui_root_vm_t *);
 
-static ui_screen_create_fn_t g_create_fns[13];
-static ui_screen_update_fn_t g_update_fns[13];
+static ui_screen_create_fn_t g_create_fns[14];
+static ui_screen_update_fn_t g_update_fns[14];
 
 extern global_state_t g_gs;
 
@@ -93,6 +94,9 @@ static void register_screens(void)
 
     g_create_fns[UI_SCREEN_ATO] = ui_screen_ato_create;
     g_update_fns[UI_SCREEN_ATO] = ui_screen_ato_update;
+
+    g_create_fns[UI_SCREEN_DIAG_DETAIL] = ui_screen_diag_detail_create;
+    g_update_fns[UI_SCREEN_DIAG_DETAIL] = ui_screen_diag_detail_update;
 }
 
 /* @requirement RF-UI-INPUT-001/002 Navegação por keypad sem touch: após montar a
@@ -193,7 +197,7 @@ void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm)
 
 void ui_screen_manager_show(ui_screen_id_t screen_id)
 {
-    if (screen_id >= 13) {
+    if (screen_id >= 14) {
         ESP_LOGW(TAG, "screen_id invalido: %d", (int)screen_id);
         return;
     }

@@ -18,7 +18,8 @@ typedef enum {
     UI_SCREEN_SYSTEM,
     UI_SCREEN_LOGS,
     UI_SCREEN_WIZARD,
-    UI_SCREEN_ATO
+    UI_SCREEN_ATO,
+    UI_SCREEN_DIAG_DETAIL
 } ui_screen_id_t;
 
 void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm);

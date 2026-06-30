@@ -111,6 +111,7 @@
 
 // --- NVS ---
 #define HW_NVS_ERASE_IF_CORRUPT          (1U)
+#define HW_HEAP_MIN_BYTES                (32768U)
 
 // --- Circuit breaker (RNF-ELECTRICAL-001) ---
 #define HW_CB_FAILURE_THRESHOLD          (5U)

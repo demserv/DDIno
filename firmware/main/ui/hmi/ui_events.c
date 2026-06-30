@@ -10,6 +10,7 @@
 #include "global_state.h"
 #include "system_types.h"
 #include "services/alert_manager.h"
+#include "services/safe_state_ack.h"
 #include "services/audit_log.h"
 #include "driver_buzzer_led.h"
 
@@ -73,6 +74,7 @@ void ui_events_emit(ui_event_t event)
                 } else {
                     alert_manager_ack(id, now_s);
                 }
+                safe_state_ack_on_alert_ack(id, now_s);
             }
             audit_log_event(AUDIT_COMMAND, "ACK alerts via UI (criticos exigem 2o ACK)");
             break;

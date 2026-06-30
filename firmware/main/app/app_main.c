@@ -32,6 +32,9 @@
 #include "services/electric_fsm.h"
 #include "services/storage_sd.h"
 #include "services/safeoff_record.h"
+#include "services/safe_state_ack.h"
+#include "services/health_matrix.h"
+#include "services/auth_recovery_sd.h"
 #include "services/wdt_stats.h"
 #include "services/cdn_energy.h"
 #include "services/config_manager.h"
@@ -201,12 +204,18 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
     sin.safeoff_cause_resolved = safeoff_cause_is_resolved();
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
-    sin.manual_ack_received = true;
+    sin.manual_ack_received = safe_state_ack_manual_received(&g_gs);
     sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
 
     if (g_gs.restart_in_progress && restart_fsm_is_complete(&g_restart_fsm)) {
-        ESP_LOGW(TAG, "RESTART: sequencia completa -> NORMAL");
-        g_gs.system_state = SYSTEM_STATE_NORMAL;
+        bool degraded = (!g_gs.temp_ok || !g_gs.ato_ok || !g_gs.selftest_passed ||
+                         health_aggregate() != HEALTH_OK);
+        ESP_LOGW(TAG, "RESTART: sequencia completa -> %s", degraded ? "DEGRADED" : "NORMAL");
+        if (degraded) {
+            global_state_enter_degraded(&g_gs, "restart_complete");
+        } else {
+            g_gs.system_state = SYSTEM_STATE_NORMAL;
+        }
         g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
         g_gs.restart_in_progress = false;
         g_gs.safeoff_source_alm[0] = '\0';
@@ -246,7 +255,7 @@ static void handle_emergency_exit(uint64_t now_s)
     memset(&sin, 0, sizeof(sin));
     sin.emergency_resolved = true;
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
-    sin.manual_ack_received = true;
+    sin.manual_ack_received = safe_state_ack_manual_received(&g_gs);
     sin.cause_resolved_at_ms = (now_s - HW_SAFE_EXIT_STABLE_S) * 1000ULL;
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
@@ -845,6 +854,9 @@ static void task_diag_fn(void *pv)
             health_matrix_update();
             g_gs.last_health_check_timestamp = now_s;
             g_gs.sd_ok = storage_sd_is_mounted();
+            if (g_gs.maintenance_mode) {
+                (void)auth_recovery_sd_process(true);
+            }
             last_health_s = now_s;
         }
 
@@ -996,6 +1008,7 @@ void app_main(void)
     if (api_err != ESP_OK) {
         ESP_LOGW(TAG, "API web nao iniciou (sistema continua sem API)");
     }
+    auth_recovery_sd_init();
 
     event_bus_init();
     health_matrix_init();

@@ -66,6 +66,37 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON_AddNumberToObject(sys, "mains_voltage", root->system.mains_voltage);
     cJSON_AddBoolToObject(sys, "monitor_only_mode", root->system.monitor_only_mode);
     cJSON_AddItemToObject(o, "system", sys);
+    cJSON *pl = cJSON_CreateObject();
+    cJSON_AddNumberToObject(pl, "min_on_time_s", (double)root->plug_limits.min_on_time_s);
+    cJSON_AddNumberToObject(pl, "min_off_time_s", (double)root->plug_limits.min_off_time_s);
+    cJSON_AddItemToObject(o, "plug_limits", pl);
+    cJSON *feed = cJSON_CreateObject();
+    cJSON_AddNumberToObject(feed, "feed_duration_min", (double)root->feed.feed_duration_min);
+    cJSON_AddNumberToObject(feed, "feed_cooldown_min", (double)root->feed.feed_cooldown_min);
+    cJSON_AddItemToObject(o, "feed", feed);
+    cJSON *rst = cJSON_CreateObject();
+    cJSON_AddNumberToObject(rst, "tempo_espera_religamento_s", (double)root->restart.tempo_espera_religamento_s);
+    cJSON_AddNumberToObject(rst, "intervalo_religamento_s", (double)root->restart.intervalo_religamento_s);
+    cJSON_AddNumberToObject(rst, "tempo_monitoramento_pos_relig_s", (double)root->restart.tempo_monitoramento_pos_relig_s);
+    cJSON_AddItemToObject(o, "restart", rst);
+    cJSON *sec = cJSON_CreateObject();
+    cJSON_AddNumberToObject(sec, "session_timeout_min", (double)root->security.session_timeout_min);
+    cJSON_AddNumberToObject(sec, "max_login_attempts", (double)root->security.max_login_attempts);
+    cJSON_AddNumberToObject(sec, "login_block_duration_min", (double)root->security.login_block_duration_min);
+    cJSON_AddItemToObject(o, "security", sec);
+    cJSON *af = cJSON_CreateObject();
+    cJSON_AddNumberToObject(af, "tempo_min_estabilizacao_s", (double)root->antiflap.tempo_min_estabilizacao_s);
+    cJSON_AddNumberToObject(af, "janela_flap_s", (double)root->antiflap.janela_flap_s);
+    cJSON_AddNumberToObject(af, "max_transicoes_flap", (double)root->antiflap.max_transicoes_flap);
+    cJSON_AddNumberToObject(af, "cooldown_reentrada_s", (double)root->antiflap.cooldown_reentrada_s);
+    cJSON_AddItemToObject(o, "antiflap", af);
+    cJSON *st = cJSON_CreateObject();
+    cJSON_AddNumberToObject(st, "selftest_timeout_ms", (double)root->selftest.selftest_timeout_ms);
+    cJSON_AddItemToObject(o, "selftest", st);
+    cJSON *cal = cJSON_CreateObject();
+    cJSON_AddNumberToObject(cal, "ato_zero_offset_adc", (double)root->calibration.ato_zero_offset_adc);
+    cJSON_AddNumberToObject(cal, "temp_offset_c", (double)root->calibration.temp_offset_c);
+    cJSON_AddItemToObject(o, "calibration", cal);
     return o;
 }
 

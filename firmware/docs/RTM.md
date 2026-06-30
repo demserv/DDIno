@@ -81,7 +81,7 @@ Linhas abaixo refletem somente código realmente presente após a correção.
 | NC-003 | RF-PLUG-011 | web/api_rest.c | plug_set_handler | confirm obrigatório p/ relé crítico → 409 | COMPLIANT |
 | NC-004 | RF-UI-INPUT-001/002 | main/app/app_main.c; drivers/driver_xpt2046.c; drivers/driver_ad_keypad_lvgl.c | indev register + grupo padrão | touch e keypad registrados no boot | COMPLIANT |
 | NC-005 | RF-UI-MUTE-001/RF-FEED-001/RF-ALERT-004 | main/ui/hmi/ui_events.c; drivers/driver_buzzer_led.c | ui_events_emit; buzzer_set_mute | FEED validado; MUTE só silencia; ACK funcional | COMPLIANT |
-| NC-006 | RF-WEB-006 | web/api_rest.c | config_monitor_handler / wizard_handler / ack_all / config_set | auth + command_validator em todas as escritas | COMPLIANT |
+| NC-006 | RF-WEB-006 | services/auth_recovery_sd.c; web/api_rest.c | POST /auth/recovery + token SD em maintenance | COMPLIANT |
 | NC-007 | RF-FLOW-BOOT-003 | services/self_test.c | test_relay | P03-P10 refletem relay_mcp23017_ok | COMPLIANT |
 | NC-008 | RF-HEALTH-MATRIX-001/RF-WEB-005 | main/app/app_main.c; web/api_rest.c | health_report / health_handler | matriz alimentada e exposta em /health | COMPLIANT |
 | NC-009 | RF-ENERGY-008/RF-PLUG-004 | services/electric_fsm.c; main/app/app_main.c | total_current check; plug_manager_set_plug_current | limite total e bypass por plugue ativos | COMPLIANT |
@@ -105,3 +105,16 @@ Linhas abaixo refletem somente código realmente presente após a correção.
 | NC-PRESET-UI | Presets P03-P10 | ui_preset_picker.c, ui_device_row.c | picker UI + API /plugs/preset | COMPLIANT |
 | NC-U13 | Telas órfãs | main/CMakeLists.txt | screen_calibration/submenu removidas | COMPLIANT |
 | NC-I01 | Self-test relés | services/self_test.c | GPIO readback P01/P02, MCP read P03-P10 | COMPLIANT |
+
+## Sprint Fase I (compliance >= 95% rigoroso) — 2026-06-30
+
+| Gap | Requisito | Arquivo | Evidência | Status |
+|---|---|---|---|---|
+| GAP-S01 | RF-GLOBAL-SAFEOFF-EXIT-001 / RF-GLOBAL-EMERG-EXIT-001 | services/safe_state_ack.c; main/app/app_main.c | ACK manual real via safe_state_ack_manual_received; UI/API propagam ACK | COMPLIANT |
+| GAP-A01 | RF-WEB-006 | services/auth_recovery_sd.c; web/api_rest.c | Token SD + POST /api/v1/auth/recovery em maintenance | COMPLIANT |
+| GAP-A02-A04 | RF-WEB-005 / RF-WEB-008 | web/api_rest.c; services/config_export.c | /health state string + ISO8601; /alerts contrato completo; export JSON CRC | COMPLIANT |
+| GAP-U01 | RF-UI-ALERTS-001 | ui_alert_row.c; ui_view_model.c | categoria, timestamp HH:MM, badge MUTE, filtro refresh | COMPLIANT |
+| GAP-U02 | RF-UI-WIZARD-INT-001 | ui_screen_wizard.c | spinboxes editáveis thermal/ATO/elétrica + 127/220V | COMPLIANT |
+| GAP-U03 | RF-UI-DIAG-002 | ui_screen_diag_detail.c | drill-down self-test por subsistema | COMPLIANT |
+| GAP-F01 | RF-FLOW-SELFTEST-001 | services/self_test.c | +NVS, RTC, HEAP, WDT, MCP3208_CH2 (25 testes) | COMPLIANT |
+| GAP-B02 | RF-STORAGE-004 | services/storage_sd_schedule.c | footer CRC32 no backup TXT diário | COMPLIANT |

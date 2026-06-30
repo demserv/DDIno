@@ -309,3 +309,20 @@ int api_auth_active_count(void)
     }
     return count;
 }
+
+esp_err_t api_auth_reset_password_to_default(void)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(AUTH_NVS_NS, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) return err;
+
+    (void)nvs_erase_key(nvs, NVS_KEY_PW_HASH);
+    nvs_commit(nvs);
+    nvs_close(nvs);
+
+    memset(s_admin_hash, 0, sizeof(s_admin_hash));
+    s_has_password = false;
+    memset(s_tokens, 0, sizeof(s_tokens));
+    ESP_LOGW(TAG, "Admin password cleared — reconfigure via wizard/API");
+    return ESP_OK;
+}

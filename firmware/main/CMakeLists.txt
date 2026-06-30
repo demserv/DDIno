@@ -57,6 +57,8 @@ set(MAIN_SRCS
     "../services/reset_handler.c"
     "../services/safeoff_alm_map.c"
     "../services/safeoff_record.c"
+    "../services/safe_state_ack.c"
+    "../services/auth_recovery_sd.c"
     "../services/safety_gate.c"
     "../services/self_test.c"
     "../services/sensor_ctl.c"
@@ -120,6 +122,7 @@ set(MAIN_SRCS
     "ui/hmi/screens/ui_screen_main_menu.c"
     "ui/hmi/screens/ui_screen_system.c"
     "ui/hmi/screens/ui_screen_wizard.c"
+    "ui/hmi/screens/ui_screen_diag_detail.c"
 
     # Main task modules
     "handler/api_sensors_handler.c"
