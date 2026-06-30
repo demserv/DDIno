@@ -33,6 +33,8 @@ typedef enum {
 
 esp_err_t relay_abstraction_init(void);
 esp_err_t relay_abstraction_set(relay_id_t id, bool on);
+/* @requirement RF-PLUG-011 Arma confirmação dupla (uso único) para relé crítico. */
+void relay_abstraction_arm_critical_confirm(relay_id_t id);
 esp_err_t relay_abstraction_set_blocked(relay_id_t id, bool blocked);
 relay_state_t relay_abstraction_get_state(relay_id_t id);
 bool relay_abstraction_is_on(relay_id_t id);

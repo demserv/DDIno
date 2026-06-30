@@ -477,8 +477,28 @@ static esp_err_t command_handler(httpd_req_t *req)
     if (strcmp(cmd, "toggle_plug") == 0) {
         cJSON *plug_item = cJSON_GetObjectItem(json, "plug_id");
         cJSON *state_item = cJSON_GetObjectItem(json, "state");
+        cJSON *confirm_item = cJSON_GetObjectItem(json, "confirm");
+        bool confirmed = cJSON_IsTrue(confirm_item);
         if (cJSON_IsNumber(plug_item) && cJSON_IsBool(state_item)) {
-            res = command_validator_can_toggle_plug(&g_gs, (uint8_t)plug_item->valueint, cJSON_IsTrue(state_item));
+            uint8_t plug_id = (uint8_t)plug_item->valueint;
+            bool desired_on = cJSON_IsTrue(state_item);
+            res = command_validator_can_toggle_plug(&g_gs, plug_id, desired_on);
+            if (res.allowed) {
+                /* @requirement RF-PLUG-011 Dupla confirmação para relé crítico. */
+                if (res.requires_double_confirmation && !confirmed) {
+                    res.allowed = false;
+                    res.error_code = "double_confirmation_required";
+                } else {
+                    /* @requirement RF-PLUG-001 Rota única: atuação via plug_manager. */
+                    esp_err_t act = plug_manager_toggle((plug_id_t)plug_id, desired_on);
+                    if (act != ESP_OK) {
+                        res.allowed = false;
+                        res.error_code = "actuation_blocked_by_safety";
+                    } else {
+                        status_msg = "plug_toggled";
+                    }
+                }
+            }
         } else {
             res.error_code = "missing_plug_params";
         }

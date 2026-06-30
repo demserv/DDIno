@@ -23,6 +23,7 @@ typedef enum {
 
 void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm);
 void ui_screen_manager_show(ui_screen_id_t screen_id);
+void ui_screen_manager_go_home(void);
 void ui_screen_manager_refresh(void);
 void ui_screen_manager_tick(void);
 void ui_screen_manager_on_user_interaction(void);

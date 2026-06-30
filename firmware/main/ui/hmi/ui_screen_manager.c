@@ -191,6 +191,16 @@ ui_screen_id_t ui_screen_manager_get_current(void)
     return g_current_screen;
 }
 
+/* @requirement RF-UI-NAV-HOME-001 HOME retorna ao dashboard principal e
+ * retoma o carrossel a partir da tela primária. */
+void ui_screen_manager_go_home(void)
+{
+    ui_screen_manager_show(UI_SCREEN_DASHBOARD);
+    s_carousel_paused = false;
+    s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
+    s_last_interaction_ms = s_last_carousel_ms;
+}
+
 void ui_screen_manager_on_user_interaction(void)
 {
     s_last_interaction_ms = esp_timer_get_time() / USEC_PER_MSEC;

@@ -16,6 +16,7 @@
 
 #include "driver_acs712.h"
 #include "driver_relay.h"
+#include "relay_abstraction.h"
 #include "global_state.h"
 #include "services/alert_manager.h"
 #include "services/audit_log.h"
@@ -24,6 +25,20 @@
 extern global_state_t g_gs;
 
 static const char *TAG = "plug_manager";
+
+/* @requirement RF-PLUG-001 Rota única de acionamento: o plug_manager é o serviço
+ * autorizado de atuação (a jusante do command_validator). Toda comutação passa
+ * pela camada de abstração; para relés críticos a confirmação é armada aqui pois
+ * o comando já foi validado upstream. */
+static esp_err_t plug_actuate(plug_id_t id, bool on)
+{
+    if (id < 1 || id > PLUG_COUNT_TOTAL) return ESP_ERR_INVALID_ARG;
+    relay_id_t rid = (relay_id_t)(id - 1);
+    if (on && s_plugs[id - 1].is_critical) {
+        relay_abstraction_arm_critical_confirm(rid);
+    }
+    return relay_abstraction_set(rid, on);
+}
 
 static plug_model_t s_plugs[PLUG_COUNT_TOTAL];
 static bool s_thermal_heater = false;
@@ -146,7 +161,7 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
 
         bool current = relay_get(p->id);
         if (target_on != current) {
-            relay_set(p->id, target_on);
+            plug_actuate(p->id, target_on);
             s_last_toggle_ms[i] = now_s * MS_PER_SEC;
         }
 
@@ -238,7 +253,8 @@ esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms)
         }
     }
 
-    relay_set(id, on);
+    esp_err_t act = plug_actuate(id, on);
+    if (act != ESP_OK) return act;
     if (now_ms > 0) {
         s_last_toggle_ms[id - 1] = now_ms;
     }
@@ -265,7 +281,7 @@ void plug_manager_apply_safe_off(void)
 {
     s_in_safe_off = true;
     s_restart_energized_mask = 0;
-    relay_all_off();
+    relay_abstraction_all_off();
     for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         s_plugs[i].effective_state = PLUG_EFFECTIVE_STATE_OFF;
         s_plugs[i].visual_state = PLUG_VISUAL_STATE_OFF_FAULT;

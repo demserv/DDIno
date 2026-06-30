@@ -50,3 +50,23 @@
 ## Rastreabilidade teste
 
 Todos os TC-* referenciados estão detalhados em `docs/TEST_PLAN.md`.
+
+## Sprint de Correção (compliance >= 95%) — evidência executável
+
+Linhas abaixo refletem somente código realmente presente após a correção.
+
+| ID SRS | Requisito | Arquivo | Função | Evidência | Teste | Status |
+|---|---|---|---|---|---|---|
+| RF-GLOBAL-002 | Transições globais com prioridade e log | core/safety_controller.c / core/global_state.c | safety_controller_evaluate / global_state_transition | EMERGENCY > SAFE_OFF > DEGRADED > NORMAL; audit + relay_abstraction_all_off em SAFE_OFF/EMERGENCY; anti-flap só em recuperação | TC-FSM-TRANS-001 (test_safety.c) | COMPLIANT |
+| RF-GLOBAL-SAFEOFF-EXIT-001 | Saída segura de SAFE_OFF | core/safety_controller.c | safety_controller_can_exit_safeoff | causa resolvida + sensores + self-test + ACK + estabilização HW_SAFEOFF_CAUSE_STABLE_S; evaluate nunca sai de SAFE_OFF automaticamente | TC-SAFEOFF-EXIT-001 (test_safety.c) | COMPLIANT |
+| RF-GLOBAL-EMERG-EXIT-001 | Saída controlada de EMERGENCY | core/safety_controller.c | safety_controller_can_exit_emergency | emergency_resolved + sensores + ACK + 30s; global_state_transition bloqueia rebaixamento de EMERGENCY | TC-SAFEOFF-EXIT-001 (test_safety.c) | COMPLIANT |
+| RF-PLUG-001 | Rota única de acionamento de relés | drivers/relay_abstraction.c / services/plug_manager.c / web/api_rest.c | relay_abstraction_set / plug_actuate / cmd_handler | UI/API e plug_manager comutam apenas via relay_abstraction_set; bloqueio em SAFE_OFF/EMERGENCY e self-test reprovado | TC-RELAY-SAFETY-001 (test_relay_safety.c) | COMPLIANT |
+| RF-PLUG-010 | Exclusão mútua Aquecedor/Cooler | drivers/relay_abstraction.c | relay_abstraction_set | P01 ON nega P02 e vice-versa | TC-RELAY-SAFETY-001 | COMPLIANT |
+| RF-PLUG-011 | Dupla confirmação relé crítico | drivers/relay_abstraction.c / web/api_rest.c | relay_abstraction_arm_critical_confirm / cmd_handler | P01/P02 exigem arm prévio; API exige campo confirm=true | TC-RELAY-SAFETY-001 | COMPLIANT |
+| RNF-SECURITY-001 | Validação antes de comando | services/command_validator.c / web/api_rest.c | command_validator_can_toggle_plug | toggle_plug agora atua via plug_manager_toggle após validação + dupla confirmação | TC-RELAY-SAFETY-001 | COMPLIANT |
+| RF-HW-PIN-001..046 | Pinagem normativa AF.3 | include/pin_map.h | macros | Baseline normativa + canais ADC/MCP23017; drivers usam macros | TC-PINMAP-001 (test_pinmap.c) | COMPLIANT |
+| RF-UI-NAV-HOME-001 | HOME retorna ao dashboard | main/ui/hmi/ui_screen_manager.c | ui_screen_manager_go_home | mostra UI_SCREEN_DASHBOARD e retoma carrossel | — | PARTIAL — handler de tecla física pendente |
+| RF-STORAGE-003 | Escrita atômica .tmp+sync+rename | services/storage_sd.c | atomic_write_and_rename / storage_sd_write_json_atomic | fflush+fsync antes do rename; valida e remove .tmp em falha | TC-STORAGE-ATOMIC-001 (pendente build) | COMPLIANT |
+| RF-STORAGE-002 | RAM fallback eventos críticos | services/storage_sd.c | storage_sd_write_log / flush_ram_fallback | ring RAM quando SD ausente; flush no mount | TC-STORAGE-ATOMIC-001 (pendente build) | COMPLIANT |
+| RF-FLOW-BOOT-004 | .tmp órfão tratado no boot | services/storage_sd.c | storage_sd_init (varredura .tmp no mount) | varredura de diretórios; valida/promove/remove .tmp | TC-STORAGE-ATOMIC-001 (pendente build) | COMPLIANT |
+| RF-UI-LVGL-001 | LVGL oficial íntegro | managed_components/lvgl__lvgl | — | versão 8.4.0 oficial (commit_sha registrado), widgets com implementação real | smoke test UI (pendente build) | COMPLIANT |

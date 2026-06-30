@@ -12,6 +12,8 @@ idf_component_register(
         test_audit_log_no_sd.c
         test_safety_audit_trail.c
         test_thermal_service.c
+        test_pinmap.c
+        test_relay_safety.c
     INCLUDE_DIRS
         "${PROJECT_DIR}"
         "${PROJECT_DIR}/include"

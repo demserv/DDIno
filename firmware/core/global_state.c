@@ -13,7 +13,7 @@
 
 #include "audit_log.h"
 #include "config_manager.h"
-#include "driver_relay.h"
+#include "relay_abstraction.h"
 #include "event_bus.h"
 #include "hardware_config.h"
 
@@ -158,27 +158,34 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
     mutex_lock();
     system_state_t prev = s_gs->system_state;
 
-    if (prev == next_state) {
+    if (prev == next_state && s_gs->safeoff_reason == reason) {
         mutex_unlock();
         return ESP_OK;
     }
 
-    if (prev == SYSTEM_STATE_EMERGENCY && next_state == SYSTEM_STATE_NORMAL) {
-        ESP_LOGW(TAG, "Transicao EMERGENCY->NORMAL bloqueada");
+    /* @requirement RF-GLOBAL-002 EMERGENCY não rebaixa automaticamente. */
+    if (prev == SYSTEM_STATE_EMERGENCY && next_state != SYSTEM_STATE_EMERGENCY) {
+        ESP_LOGW(TAG, "Transicao EMERGENCY->%s bloqueada (saida controlada apenas)",
+                 state_to_str(next_state));
         mutex_unlock();
         return ESP_ERR_INVALID_STATE;
     }
 
-    if (next_state < prev && prev != SYSTEM_STATE_EMERGENCY) {
-        if (next_state < SYSTEM_STATE_SAFE_OFF) {
-            ESP_LOGW(TAG, "Transicao descendente invalida %s->%s",
-                     state_to_str(prev), state_to_str(next_state));
-            mutex_unlock();
-            return ESP_ERR_INVALID_ARG;
-        }
+    /* @requirement RF-GLOBAL-SAFEOFF-EXIT-001 SAFE_OFF não retorna a NORMAL/DEGRADED
+     * automaticamente; apenas escalonamento para EMERGENCY é permitido. */
+    if (prev == SYSTEM_STATE_SAFE_OFF &&
+        next_state != SYSTEM_STATE_SAFE_OFF &&
+        next_state != SYSTEM_STATE_EMERGENCY) {
+        ESP_LOGW(TAG, "Transicao SAFE_OFF->%s bloqueada (exige saida controlada)",
+                 state_to_str(next_state));
+        mutex_unlock();
+        return ESP_ERR_INVALID_STATE;
     }
 
-    if (!check_antiflap(now_ms)) {
+    /* Anti-flap aplica-se apenas a transições de recuperação/rebaixamento
+     * (NORMAL/DEGRADED). Escalonamento de segurança nunca é bloqueado. */
+    if ((next_state == SYSTEM_STATE_NORMAL || next_state == SYSTEM_STATE_DEGRADED) &&
+        !check_antiflap(now_ms)) {
         ESP_LOGW(TAG, "ANTIFLAP bloqueou %s->%s", state_to_str(prev), state_to_str(next_state));
         mutex_unlock();
         return ESP_ERR_INVALID_STATE;
@@ -197,10 +204,10 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
             s_gs->safeoff_source_alm[0] = '\0';
         }
         s_gs->electric_ok = false;
-        relay_all_off();
+        relay_abstraction_all_off();
     } else if (next_state == SYSTEM_STATE_EMERGENCY) {
         s_gs->electric_ok = false;
-        relay_all_off();
+        relay_abstraction_all_off();
     } else if (next_state == SYSTEM_STATE_NORMAL) {
         s_gs->safeoff_reason = SAFEOFF_REASON_NONE;
         s_gs->safeoff_source_alm[0] = '\0';
