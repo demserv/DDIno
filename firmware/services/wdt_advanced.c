@@ -1,4 +1,5 @@
 #include "wdt_advanced.h"
+#include "hardware_config.h"
 #include "task_manager.h"
 #include "esp_task_wdt.h"
 #include "esp_log.h"
@@ -21,7 +22,7 @@ esp_err_t wdt_advanced_init(void)
 {
     memset(s_tasks, 0, sizeof(s_tasks));
     esp_task_wdt_config_t wdt_cfg = {
-        .timeout_ms = 10000,
+        .timeout_ms = HW_WDT_ADV_TIMEOUT_MS,
         .trigger_panic = true,
     };
     esp_task_wdt_init(&wdt_cfg);

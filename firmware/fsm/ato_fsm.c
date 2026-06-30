@@ -5,6 +5,7 @@
 // @requirement RF-ATO-005 Detecção de reservatório vazio ou bloqueio
 // @requirement RF-FSM-ATO-001 Impacto dos estados ATO no estado global
 #include "fsm/ato_fsm.h"
+#include "hardware_config.h"
 #include <string.h>
 
 static void ato_reset_output(ato_output_t *o)
@@ -20,7 +21,7 @@ void ato_fsm_init(ato_fsm_t *fsm, const ato_params_t *cfg)
     memset(fsm, 0, sizeof(*fsm));
     fsm->cfg = *cfg;
     ato_reset_output(&fsm->out);
-    fsm->debounce_required = 3;
+    fsm->debounce_required = HW_ATO_DEBOUNCE_COUNT;
     fsm->debounce_count = 0;
     fsm->last_stable_level = -1;
 }
@@ -85,7 +86,7 @@ void ato_fsm_update(ato_fsm_t *fsm, const ato_input_t *in)
 
     int32_t diff = level - fsm->last_stable_level;
     if (diff < 0) diff = -diff;
-    if (diff < 50) {
+    if (diff < HW_ATO_ADC_HYSTERESIS) {
         fsm->debounce_count++;
     } else {
         fsm->debounce_count = 0;

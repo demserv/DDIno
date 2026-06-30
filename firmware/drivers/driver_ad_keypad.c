@@ -17,15 +17,15 @@ ad_keypad_key_t ad_keypad_read(void)
     esp_err_t err = mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_KEYPAD, &adc);
     if (err != ESP_OK) return KEY_NONE;
 
-    if (adc > 4000) return KEY_NONE;
+    if (adc > HW_AD_KEYPAD_THRESH_NONE) return KEY_NONE;
 
-    if (adc > 3600) return KEY_FEED;
-    if (adc > 3000) return KEY_MENU;
-    if (adc > 2400) return KEY_ESC;
-    if (adc > 1800) return KEY_ENTER;
-    if (adc > 1200) return KEY_RIGHT;
-    if (adc > 600)  return KEY_LEFT;
-    if (adc > 100)  return KEY_DOWN;
+    if (adc > HW_AD_KEYPAD_THRESH_FEED) return KEY_FEED;
+    if (adc > HW_AD_KEYPAD_THRESH_MENU) return KEY_MENU;
+    if (adc > HW_AD_KEYPAD_THRESH_ESC)  return KEY_ESC;
+    if (adc > HW_AD_KEYPAD_THRESH_ENTER)  return KEY_ENTER;
+    if (adc > HW_AD_KEYPAD_THRESH_RIGHT)  return KEY_RIGHT;
+    if (adc > HW_AD_KEYPAD_THRESH_LEFT)   return KEY_LEFT;
+    if (adc > HW_AD_KEYPAD_THRESH_DOWN)   return KEY_DOWN;
     return KEY_UP;
 }
 

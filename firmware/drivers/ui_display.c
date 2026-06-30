@@ -122,8 +122,8 @@ esp_err_t ui_display_init(void)
 
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = 480;
-    disp_drv.ver_res = 320;
+    disp_drv.hor_res = HW_DISP_HOR_RES;
+    disp_drv.ver_res = HW_DISP_VER_RES;
     disp_drv.flush_cb = ui_display_lvgl_flush;
     disp_drv.draw_buf = &disp_buf;
     lv_disp_drv_register(&disp_drv);

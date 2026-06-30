@@ -3,6 +3,7 @@
 // @requirement RF-FSM-RELIG-ELECT-001 FSM de religamento elétrico inteligente
 // @requirement RF-GLOBAL-REARM-001 Blocked plug isolation
 #include "fsm/restart_fsm.h"
+#include "hardware_config.h"
 #include <string.h>
 
 static const uint8_t RELAY_ENERGIZE_ORDER[PLUG_COUNT_TOTAL] = {
@@ -16,9 +17,9 @@ void restart_fsm_init(restart_fsm_t *fsm, const restart_cfg_t *cfg)
     if (cfg) {
         fsm->cfg = *cfg;
     } else {
-        fsm->cfg.wait_time_ms = 30000;
-        fsm->cfg.stagger_interval_ms = 5000;
-        fsm->cfg.monitor_time_ms = 10000;
+        fsm->cfg.wait_time_ms = HW_RESTART_WAIT_MS;
+        fsm->cfg.stagger_interval_ms = HW_RESTART_STAGGER_MS;
+        fsm->cfg.monitor_time_ms = HW_RESTART_MONITOR_MS;
     }
     fsm->state = RESTART_STATE_IDLE;
     fsm->complete = false;
