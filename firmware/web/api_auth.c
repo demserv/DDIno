@@ -4,6 +4,7 @@
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "api_auth.h"
 #include "api_rate_limit.h"
+#include "config_manager.h"
 #include "hardware_config.h"
 #include "esp_log.h"
 #include "esp_random.h"
@@ -17,6 +18,8 @@ static const char *TAG = "api_auth";
 
 #define AUTH_NVS_NS "api_auth"
 #define NVS_KEY_PW_HASH "admin_pw"
+#define NVS_KEY_PW_SALT "admin_salt"
+#define AUTH_SALT_LEN   16
 #define TOKEN_EXPIRY_MS (3600000ULL)
 
 typedef struct {
@@ -27,18 +30,45 @@ typedef struct {
 
 static api_auth_token_t s_tokens[API_AUTH_MAX_TOKENS];
 static uint8_t s_admin_hash[32];
+static uint8_t s_salt[AUTH_SALT_LEN];
+static bool s_has_salt = false;
 static bool s_initialized = false;
 static bool s_has_password = false;
     static fail_tracker_t s_fail_trackers[HW_API_AUTH_FAIL_TRACKERS];
 
+/* @requirement RNF-SECURITY-001 Hash de senha com salt por dispositivo.
+ * O salt é aleatório, persistido em NVS e prefixado à senha antes do SHA-256. */
 static void hash_password(const char *password, uint8_t *out)
 {
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
     mbedtls_sha256_starts(&ctx, 0);
+    if (s_has_salt) {
+        mbedtls_sha256_update(&ctx, s_salt, AUTH_SALT_LEN);
+    }
     mbedtls_sha256_update(&ctx, (const unsigned char*)password, strlen(password));
     mbedtls_sha256_finish(&ctx, out);
     mbedtls_sha256_free(&ctx);
+}
+
+static esp_err_t ensure_salt(nvs_handle_t nvs)
+{
+    if (s_has_salt) return ESP_OK;
+    size_t salt_len = AUTH_SALT_LEN;
+    esp_err_t err = nvs_get_blob(nvs, NVS_KEY_PW_SALT, s_salt, &salt_len);
+    if (err == ESP_OK && salt_len == AUTH_SALT_LEN) {
+        s_has_salt = true;
+        return ESP_OK;
+    }
+    for (int i = 0; i < AUTH_SALT_LEN; i++) {
+        s_salt[i] = (uint8_t)esp_random();
+    }
+    err = nvs_set_blob(nvs, NVS_KEY_PW_SALT, s_salt, AUTH_SALT_LEN);
+    if (err == ESP_OK) {
+        nvs_commit(nvs);
+        s_has_salt = true;
+    }
+    return err;
 }
 
 static void to_hex(const uint8_t *in, size_t in_len, char *out)
@@ -60,6 +90,17 @@ static void generate_token(char *out)
     to_hex(buf, 32, out);
 }
 
+/* @requirement RNF-SECURITY-002 Janela de sessão: timeout por inatividade vindo de
+ * session_timeout_min (config); fallback ao limite absoluto de 1h se não configurado. */
+static uint64_t session_window_ms(void)
+{
+    const security_params_storage_t *sec = config_get_security();
+    if (sec && sec->session_timeout_min > 0) {
+        return (uint64_t)sec->session_timeout_min * 60ULL * 1000ULL;
+    }
+    return TOKEN_EXPIRY_MS;
+}
+
 static int find_token(const char *token)
 {
     if (!token) return -1;
@@ -68,6 +109,9 @@ static int find_token(const char *token)
         if (strlen(s_tokens[i].token) > 0 &&
             strcmp(s_tokens[i].token, token) == 0) {
             if (now_ms < s_tokens[i].expires_ms) {
+                /* @requirement RNF-SECURITY-002 Sliding session: cada uso válido
+                 * renova a expiração por inatividade. */
+                s_tokens[i].expires_ms = now_ms + session_window_ms();
                 return i;
             }
             memset(&s_tokens[i], 0, sizeof(api_auth_token_t));
@@ -112,6 +156,14 @@ static bool check_fail_limit(uint32_t ip)
     int idx = find_fail_entry(ip);
     if (idx < 0) return false;
 
+    /* @requirement RNF-SECURITY-001 Limites vindos da config (com fallback seguro):
+     * max_login_attempts e janela de bloqueio login_block_duration_min. */
+    const security_params_storage_t *sec = config_get_security();
+    uint32_t max_attempts = (sec && sec->max_login_attempts > 0) ? sec->max_login_attempts : 5;
+    uint64_t block_ms = (sec && sec->login_block_duration_min > 0)
+                            ? (uint64_t)sec->login_block_duration_min * 60ULL * 1000ULL
+                            : 60000ULL;
+
     fail_tracker_t *f = &s_fail_trackers[idx];
     if (f->ip != ip) {
         f->ip = ip;
@@ -119,12 +171,12 @@ static bool check_fail_limit(uint32_t ip)
         f->window_start_ms = now_ms;
     }
 
-    if ((now_ms - f->window_start_ms) > 60000ULL) {
+    if ((now_ms - f->window_start_ms) > block_ms) {
         f->attempts = 0;
         f->window_start_ms = now_ms;
     }
 
-    return (f->attempts < 5);
+    return (f->attempts < max_attempts);
 }
 
 static void record_fail(uint32_t ip)
@@ -152,6 +204,11 @@ esp_err_t api_auth_init(void)
         return err;
     }
 
+    size_t salt_len = AUTH_SALT_LEN;
+    if (nvs_get_blob(nvs, NVS_KEY_PW_SALT, s_salt, &salt_len) == ESP_OK && salt_len == AUTH_SALT_LEN) {
+        s_has_salt = true;
+    }
+
     size_t hash_len = 32;
     err = nvs_get_blob(nvs, NVS_KEY_PW_HASH, s_admin_hash, &hash_len);
     if (err != ESP_OK || hash_len != 32) {
@@ -176,12 +233,18 @@ esp_err_t api_auth_set_password(const char *password)
 {
     if (!password || strlen(password) < 4) return ESP_ERR_INVALID_ARG;
 
-    uint8_t hash[32];
-    hash_password(password, hash);
-
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(AUTH_NVS_NS, NVS_READWRITE, &nvs);
     if (err != ESP_OK) return err;
+
+    /* Garante salt por dispositivo antes de derivar o hash. */
+    if (ensure_salt(nvs) != ESP_OK) {
+        nvs_close(nvs);
+        return ESP_FAIL;
+    }
+
+    uint8_t hash[32];
+    hash_password(password, hash);
 
     err = nvs_set_blob(nvs, NVS_KEY_PW_HASH, hash, 32);
     if (err == ESP_OK) {
@@ -198,9 +261,9 @@ bool api_auth_validate(const char *token)
     return (find_token(token) >= 0);
 }
 
-const char* api_auth_login(const char *user, const char *password)
+const char* api_auth_login(const char *user, const char *password, uint32_t client_ip)
 {
-    uint32_t ip = 0;
+    uint32_t ip = client_ip;
     if (!s_initialized) return NULL;
     if (!s_has_password) return NULL;
     if (!user || !password) return NULL;
@@ -222,7 +285,7 @@ const char* api_auth_login(const char *user, const char *password)
     generate_token(t->token);
     strncpy(t->user, user, API_USER_MAX - 1);
     t->created_ms = esp_timer_get_time() / USEC_PER_MSEC;
-    t->expires_ms = t->created_ms + TOKEN_EXPIRY_MS;
+    t->expires_ms = t->created_ms + session_window_ms();
 
     return t->token;
 }

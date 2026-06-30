@@ -13,8 +13,6 @@ static cmd_validation_t denied(const char *err)
 
 cmd_validation_t command_validator_can_toggle_plug(const global_state_t *gs, uint8_t plug_id, bool desired_on)
 {
-    (void)desired_on;
-
     if (!gs) return denied("INTERNAL_ERROR");
 
     if (!gs->wizard_completed) {
@@ -31,7 +29,9 @@ cmd_validation_t command_validator_can_toggle_plug(const global_state_t *gs, uin
 
     cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = false, .error_code = NULL };
 
-    if (plug_id == 1 || plug_id == 2) {
+    /* @requirement RF-PLUG-011 A dupla confirmação é exigida para DESLIGAR manualmente
+     * um plugue crítico (P01/AQUECEDOR, P02/COOLER). Ligar não exige confirmação. */
+    if ((plug_id == 1 || plug_id == 2) && !desired_on) {
         ok.requires_double_confirmation = true;
     }
 
@@ -55,7 +55,8 @@ cmd_validation_t command_validator_can_start_feed(const global_state_t *gs)
     if (gs->monitor_only_mode) return denied("MONITOR_ONLY_ACTIVE");
     if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return denied("SAFE_MODE_ACTIVE");
     if (gs->feed_active) return denied("FEED_ALREADY_ACTIVE");
-    cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = false, .error_code = NULL };
+    /* @requirement RF-FEED-002 Ativação do Feed exige confirmação explícita. */
+    cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = true, .error_code = NULL };
     return ok;
 }
 

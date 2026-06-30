@@ -16,6 +16,7 @@ typedef struct {
 } ds3231_time_t;
 
 esp_err_t ds3231_init(void);
+bool ds3231_is_ok(void);
 esp_err_t ds3231_set_time(const ds3231_time_t *t);
 esp_err_t ds3231_get_time(ds3231_time_t *t);
 bool ds3231_is_running(void);

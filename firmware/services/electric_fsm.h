@@ -41,6 +41,9 @@ typedef struct {
     float   total_energy_wh;
     float   plug_currents_a[10];
     uint8_t plug_count;
+    /* @requirement RF-ENERGY-008 Corrente total medida pelo PZEM (fonte primária da
+     * proteção total). Quando <= 0, a FSM faz fallback para a soma dos ACS712. */
+    float   pzem_total_current_a;
     float   voltage_v;
     float   frequency_hz;
     float   pf;
@@ -60,6 +63,7 @@ typedef struct {
     electric_params_t cfg;
     electric_output_t out;
     uint32_t plug_overcurrent_count[10];
+    uint64_t plug_short_start_ms[10];
     uint64_t overvoltage_start_ms;
     uint64_t undervoltage_start_ms;
     uint64_t total_overcurrent_start_ms;
@@ -69,5 +73,7 @@ typedef struct {
 void electric_fsm_init(electric_fsm_t *fsm, const electric_params_t *cfg);
 void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in);
 const electric_output_t* electric_fsm_get_output(const electric_fsm_t *fsm);
+/* @requirement RF-FSM-ELECTRIC-001 Força SAFE_OFF por causa elétrica total. */
+void electric_fsm_force_safe_off(electric_fsm_t *fsm);
 
 #endif

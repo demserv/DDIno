@@ -22,7 +22,9 @@ float temp_filter_update(float sample_c)
     s_buffer[s_head] = sample_c;
     s_head = (s_head + 1) % s_window;
     if (s_count < s_window) s_count++;
-    if (s_count >= 2) s_valid = true;
+    /* @requirement RF-THERMAL-002 Média válida apenas com a janela completa
+     * (debounce de s_window amostras, padrão 3). */
+    if (s_count >= s_window) s_valid = true;
 
     double sum = 0.0;
     for (uint8_t i = 0; i < s_count; i++) {

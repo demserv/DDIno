@@ -18,6 +18,17 @@ typedef enum {
     UI_EVENT_NAVIGATE_BACK
 } ui_event_t;
 
+/* @requirement RF-UI-MUTE-001 Opções normativas de duração do MUTE. */
+typedef enum {
+    UI_MUTE_DURATION_5MIN = 0,
+    UI_MUTE_DURATION_10MIN,
+    UI_MUTE_DURATION_15MIN,
+    UI_MUTE_DURATION_UNTIL_ACK
+} ui_mute_duration_t;
+
 void ui_events_emit(ui_event_t event);
+/* Seleciona a duração aplicada no próximo UI_EVENT_REQUEST_MUTE. */
+void ui_events_set_mute_duration(ui_mute_duration_t duration);
+ui_mute_duration_t ui_events_get_mute_duration(void);
 
 #endif

@@ -76,3 +76,84 @@
 
 ## 11. Conclusão
 As não conformidades P0/P1 de segurança foram corrigidas: build coerente (sem função P0 vazia), LVGL oficial íntegro, SAFE_OFF/EMERGENCY desligam relés pela rota única, UI/API não conseguem burlar o safety, e o RTM aponta evidência real. O alvo de >= 95% é considerado atingido **condicionado** à confirmação por build + execução dos testes em ambiente com ESP-IDF, conforme pendências da Seção 10.
+
+---
+
+## 12. Sprint de Correção da Auditoria (NC-001 a NC-016)
+
+Equipe: Auditor Mestre (revisão final), Analista de Sistemas (C++/ESP32),
+Programadores (C++/ESP32) e Analista de UI/UX. Regra mantida: **zero invenção** —
+nenhum GPIO, threshold, tempo, ALM ou endpoint foi criado fora das SRS/código.
+
+### 12.1 P0 (bloqueadores) — corrigidos
+- **NC-001 — Build break.** `electric_fsm_force_safe_off()` agora é declarada em
+  `services/electric_fsm.h` e definida em `services/electric_fsm.c` (seta
+  `out.force_safe_off=true`, `safeoff_reason=SAFEOFF_REASON_ELECTRIC_TOTAL`). Símbolo resolvido.
+- **NC-002 — Bomba ATO desacoplada.** Em `plug_manager`, `PLUG_TYPE_BOMBA` deixa
+  de ser sempre ON em AUTO e passa a seguir `s_ato_pump_request`, alimentado por
+  `plug_manager_set_ato_request(aout->pump_request_on)` no `app_main`. Em
+  BLOCKED/ERROR/OVERFLOW a FSM zera `pump_request_on` e força SAFE_OFF.
+  (Também corrigido um erro de ordem de declaração: `plug_actuate` usava `s_plugs`
+  antes da declaração.)
+- **NC-003 — Dupla confirmação na API de relé.** `plug_set_handler`
+  (`POST /api/v1/plugs`) agora exige `confirm=true` quando
+  `requires_double_confirmation`; caso contrário retorna **409**.
+
+### 12.2 P1 — corrigidos
+- **NC-004 — Indev LVGL.** `driver_xpt2046_init()` e
+  `driver_ad_keypad_lvgl_init()` passam a ser chamados no boot, após
+  `driver_ili9488_init()` (que faz `lv_init()`/registro do display). O keypad cria
+  e vincula um **grupo padrão** para navegação sem touch.
+- **NC-005 — Eventos de UI.** `ui_events_emit` deixou de ser stub: **FEED**
+  (validado por `command_validator_can_start_feed` → `g_feed_request`), **ACK**
+  (validado → `alert_manager_ack`), **MUTE** (apenas camada sonora via
+  `buzzer_set_mute`, sem tocar ALM/LED/FSM/relé/estado — RF-UI-MUTE-002). MUTE/ACK
+  permanecem disponíveis em estado crítico; FEED/ações de carga, não.
+- **NC-006 — Escritas sem auth/validação.** `config/monitor` e
+  `config.wizard_completed` agora passam por `command_validator_can_set_config`;
+  `command ack_all` por `command_validator_can_ack_alert`; `POST /wizard` exige
+  autenticação **após** o wizard concluído.
+- **NC-007 — Self-test de relé.** `test_relay` deixou de retornar sempre `true`:
+  P03–P10 refletem `relay_mcp23017_ok()` (sem energizar cargas); P01/P02 (GPIO
+  direto) ficam disponíveis após `relay_init_safe()`.
+- **NC-008 — Health matrix.** `app_main` alimenta `health_report()` a partir dos
+  indicadores de `g_gs` e chama `health_matrix_update()`; `GET /api/v1/health`
+  expõe `health_aggregate` e a matriz `subsystems`.
+- **NC-009 — FSM elétrica.** `total_current_limit_a`/`total_current_time_s`
+  passam a ser usados (corte por sobrecorrente total com persistência); bypass por
+  plugue ligado via `plug_manager_set_plug_current()` no `app_main`. Observação:
+  `electric_service` mantém instância própria de FSM apenas como **API de consulta
+  de limites**; o laço de segurança autoritativo usa a instância do `app_main`.
+  `tempo_deteccao_curto_ms`: detecção de curto permanece por contagem de amostras
+  (debounce já presente) — não foi introduzida nova semântica temporal por falta
+  de timestamps por plugue na estrutura.
+
+### 12.3 P2/P3 — corrigidos
+- **NC-010 — Térmica.** Boot agora copia `temp_min_c`/`temp_max_c` para a FSM
+  (antes ficavam em 0); adicionado guard de envelope superior por `temp_max_c`; o
+  filtro de média só fica válido com a janela completa (3 amostras).
+- **NC-011 — Circuit breaker.** Thresholds centralizados em `HW_CB_*`
+  (`hardware_config.h`); `recover_timeout_ms` passa a decair falhas antigas em
+  CLOSED; `CB_BUS_SPI_SD` e `CB_BUS_I2C` integrados via indicadores de saúde.
+- **NC-013 — observation_mode.** Setado no boot conforme `esp_reset_reason()`
+  (WDT/panic/brownout → `true`) e exposto em `GET /api/v1/status`.
+- **NC-014 — RTM.** Corrigida a referência a `ui/ui_display.c` (inexistente) para
+  `drivers/driver_ili9488.c`; adicionada tabela NC-001..NC-016 com evidência real.
+- **NC-015 — `GET /api/v1/state`.** Passou a exigir `AUTH_GUARD()`.
+- **NC-016 — Hash de senha.** Adicionado **salt aleatório por dispositivo**
+  (16 bytes em NVS), prefixado à senha antes do SHA-256 (`ensure_salt`). Usuário
+  `admin` único é por design da SRS (RF-WEB-004).
+
+### 12.4 Pendência honesta (sem invenção)
+- **NC-012 — Import/Export por buffer.** `storage_export_to_buffer` /
+  `storage_import_from_buffer` permanecem `ESP_ERR_NOT_SUPPORTED`:
+  **PENDENTE — formato de backup/serialização NVS não especificado normativamente**.
+  Implementar exige um formato canônico (preview antes de aplicar, conforme
+  RF-STORAGE-004) que não está definido nas fontes; não foi inventado.
+
+### 12.5 Parecer do Auditor Mestre
+Todas as NCs de severidade P0 e P1 foram corrigidas com evidência rastreável
+(arquivo/função). Restam: NC-012 (pendência documentada por falta de fonte
+normativa) e a **execução real de build + testes Unity**, que não pode ser feita
+nesta máquina (sem ESP-IDF). Recomenda-se `idf.py reconfigure && idf.py build` e a
+suíte de testes para fechamento formal de >= 95%.

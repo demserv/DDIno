@@ -22,11 +22,11 @@ typedef struct {
     bool plug_is_critical_role;
 } relay_apply_request_t;
 
+/* @requirement RF-PLUG-011 Função pura de decisão (testável) para comutação de relé.
+ * A atuação física é responsabilidade EXCLUSIVA de relay_abstraction_set (rota única);
+ * este módulo não escreve no driver para não burlar o safety gate. */
 relay_apply_result_t relay_safety_compute(
     const relay_apply_request_t *req,
     bool *effective_on);
-
-esp_err_t relay_logical_on(uint8_t plug_id, bool critical_confirmed);
-esp_err_t relay_logical_off(uint8_t plug_id, bool critical_confirmed);
 
 #endif

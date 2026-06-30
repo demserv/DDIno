@@ -21,10 +21,28 @@ static uint8_t dec_to_bcd(uint8_t val)
     return ((val / 10) << 4) | (val % 10);
 }
 
+static bool s_ds3231_ok = false;
+
 esp_err_t ds3231_init(void)
 {
-    ESP_LOGI(TAG, "DS3231 RTC initialized");
+    /* @requirement RF-TIME-001 Probe real do RTC no endereço 0x68 antes de declarar OK.
+     * Lê o registrador de segundos; ausência do CI resulta em falha de barramento. */
+    uint8_t reg = DS3231_REG_SEC;
+    uint8_t val = 0;
+    esp_err_t ret = i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1,
+                                                 pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    s_ds3231_ok = (ret == ESP_OK);
+    if (!s_ds3231_ok) {
+        ESP_LOGW(TAG, "DS3231 RTC nao detectado em 0x%02X: %s", DS3231_ADDR, esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "DS3231 RTC detectado e inicializado");
     return ESP_OK;
+}
+
+bool ds3231_is_ok(void)
+{
+    return s_ds3231_ok;
 }
 
 esp_err_t ds3231_set_time(const ds3231_time_t *t)

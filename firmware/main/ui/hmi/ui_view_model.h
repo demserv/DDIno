@@ -15,6 +15,12 @@ typedef struct {
     char datetime_text[24];
     bool feed_mode_active;
     uint32_t feed_remaining_s;
+    bool mute_active;   /* @requirement RF-UI-MUTE-001 Indicação persistente de MUTE */
+    /* @requirement RF-UI-STATUS-001 Status bar: SD, manutenção, self-test e pausa do carrossel. */
+    bool sd_ok;
+    bool maintenance_active;
+    bool selftest_failed;
+    bool carousel_paused;
 } ui_topbar_vm_t;
 
 typedef struct {

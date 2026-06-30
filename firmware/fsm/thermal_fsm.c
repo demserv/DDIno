@@ -48,8 +48,9 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
     if (!in->sample_valid) {
         fsm->out.state = THERMAL_STATE_SENSOR_FAIL;
         fsm->out.sensor_fault = true;
-        fsm->out.force_safe_off = true;
-        fsm->out.safeoff_reason = SAFEOFF_REASON_FSM_INVALID;
+        /* @requirement RF-THERMAL-002 / ALM-013 Falha de sensor → DEGRADED (via
+         * degraded_condition em app_main), não SAFE_OFF. Heater OFF por ausência de
+         * request_heater_on; cooler idem. */
         fsm->out.suggested_alm = ALM_013;
         return;
     }
@@ -110,6 +111,16 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
     }
 
     if (t <= fsm->cfg.temp_min_c) {
+        fsm->out.state = THERMAL_STATE_CRITICAL;
+        fsm->out.force_safe_off = true;
+        fsm->out.safeoff_reason = SAFEOFF_REASON_THERMAL_CRITICAL;
+        fsm->out.suggested_alm = ALM_026;
+        return;
+    }
+
+    /* @requirement RF-THERMAL-003 Envelope operacional superior (temp_max_c):
+     * ultrapassar o limite máximo configurado força SAFE_OFF. */
+    if (fsm->cfg.temp_max_c > 0.0f && t >= fsm->cfg.temp_max_c) {
         fsm->out.state = THERMAL_STATE_CRITICAL;
         fsm->out.force_safe_off = true;
         fsm->out.safeoff_reason = SAFEOFF_REASON_THERMAL_CRITICAL;

@@ -29,6 +29,7 @@ void ui_screen_manager_tick(void);
 void ui_screen_manager_on_user_interaction(void);
 void ui_screen_manager_carousel_pause(void);
 void ui_screen_manager_carousel_resume(void);
+bool ui_screen_manager_carousel_is_paused(void);
 ui_screen_id_t ui_screen_manager_get_current(void);
 
 #endif

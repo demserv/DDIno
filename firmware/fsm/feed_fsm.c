@@ -17,6 +17,7 @@ void feed_fsm_init(feed_fsm_t *fsm, uint32_t duration_s, uint32_t cooldown_s)
     fsm->feed_count_1h = 0;
     fsm->window_start_1h_ms = 0;
     fsm->pumps_off_mask = HW_FEED_PUMP_MASK_DEFAULT;
+    fsm->pre_feed_on_mask = 0;
 }
 
 bool feed_fsm_can_start(const feed_fsm_t *fsm, uint64_t now_ms)
@@ -46,10 +47,19 @@ bool feed_fsm_start(feed_fsm_t *fsm, uint64_t now_ms)
     return true;
 }
 
-void feed_fsm_stop(feed_fsm_t *fsm)
+void feed_fsm_stop(feed_fsm_t *fsm, uint64_t now_ms)
 {
     if (!fsm) return;
     fsm->state = FEED_STATE_COOLDOWN;
+    /* @requirement RF-FEED-001 O cooldown começa no instante do stop; usar now_ms
+     * (antes zerava state_started_ms, fazendo o cooldown expirar imediatamente). */
+    fsm->state_started_ms = now_ms;
+}
+
+void feed_fsm_abort(feed_fsm_t *fsm)
+{
+    if (!fsm) return;
+    fsm->state = FEED_STATE_IDLE;
     fsm->state_started_ms = 0;
 }
 
@@ -62,7 +72,7 @@ void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms)
             if (fsm->state_started_ms > 0) {
                 uint64_t elapsed = now_ms - fsm->state_started_ms;
                 if (elapsed >= (uint64_t)fsm->duration_s * MS_PER_SEC) {
-                    feed_fsm_stop(fsm);
+                    feed_fsm_stop(fsm, now_ms);
                 }
             }
             break;

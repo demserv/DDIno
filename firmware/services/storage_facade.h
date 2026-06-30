@@ -33,5 +33,6 @@ esp_err_t storage_facade_init(void);
 esp_err_t storage_facade_write(storage_chan_t ch, const void *buf, size_t len);
 esp_err_t storage_facade_flush(storage_chan_t ch);
 esp_err_t storage_facade_get_health(storage_health_t *out);
+uint16_t storage_facade_audit_read_recent(char lines[][256], uint16_t max_lines);
 
 #endif

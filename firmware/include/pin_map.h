@@ -23,6 +23,11 @@
 #define PIN_ADC2_CS_GPIO         (42)
 #define PIN_TFT_BL_GPIO          (47)
 
+/* @requirement RF-SENSOR-PH-001 Modulo pH analogico (AliExpress) — GPIO livre
+ * para prototipacao RevA. Saida 0-3,3 V proporcional a pH 0-14. */
+#define PIN_PH_ADC_GPIO          (7)
+#define PIN_PH_ADC_CHANNEL       (6)   /* ADC1 CH6 no ESP32-S3 (GPIO7) */
+
 #define MCP_P03_GPA_BIT          (0)
 #define MCP_P04_GPA_BIT          (1)
 #define MCP_P05_GPA_BIT          (2)

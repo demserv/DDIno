@@ -65,6 +65,7 @@ static esp_err_t ensure_all_dirs(void)
     ensure_dir(SD_MOUNT_POINT "/logs/security");
     ensure_dir(SD_MOUNT_POINT "/config/backup");
     ensure_dir(SD_MOUNT_POINT "/config/profiles");
+    ensure_dir(SD_MOUNT_POINT "/logs/hourly");
     ensure_dir(SD_MOUNT_POINT "/system");
     return ESP_OK;
 }
@@ -138,9 +139,20 @@ esp_err_t storage_sd_init(void)
             snprintf(origpath, sizeof(origpath), "%s/%.*s", known_dirs[d], (int)(nlen - 4), entry->d_name);
             FILE *f = fopen(fullpath, "r");
             if (f) {
-                int c = fgetc(f);
+                /* @requirement RF-FLOW-BOOT-004 / RF-STORAGE-003 Promove .tmp órfão apenas
+                 * se o JSON parecer íntegro: começa com '{' e o último caractere não-branco
+                 * é '}' (detecta escrita truncada antes do rename). */
+                int first = fgetc(f);
+                int last_nonws = -1;
+                int c;
+                while ((c = fgetc(f)) != EOF) {
+                    if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
+                        last_nonws = c;
+                    }
+                }
                 fclose(f);
-                if (c == '{') {
+                bool looks_valid = (first == '{' && last_nonws == '}');
+                if (looks_valid) {
                     if (rename(fullpath, origpath) == 0) {
                         ESP_LOGI(TAG, "Recovered .tmp file -> %s", origpath);
                     } else {
@@ -149,7 +161,7 @@ esp_err_t storage_sd_init(void)
                     }
                 } else {
                     remove(fullpath);
-                    ESP_LOGW(TAG, "Removed invalid .tmp file %s", fullpath);
+                    ESP_LOGW(TAG, "Removed invalid/truncated .tmp file %s", fullpath);
                 }
             } else {
                 remove(fullpath);
@@ -224,14 +236,18 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
     size_t max_kb = 512; /* RF-LOG-001 default via config_manager (conf_ctl removido T-10) */
     rotate_log_if_needed(path, max_kb);
 
-    char tmp_path[100];
-    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path);
-
-    FILE *f = fopen(tmp_path, "a");
+    /* @requirement RF-STORAGE-003.1 Log é APPEND real: abre o próprio arquivo em modo
+     * "a" e adiciona a linha, preservando todo o histórico. O padrão anterior (tmp+rename)
+     * reescrevia o arquivo inteiro a cada linha, destruindo o histórico. A durabilidade é
+     * garantida por fflush+fsync; uma linha incompleta só perde o último registro. */
+    FILE *f = fopen(path, "a");
     if (!f) return ESP_ERR_NOT_FOUND;
 
     fprintf(f, "%s\n", line);
-    return atomic_write_and_rename(path, tmp_path, f);
+    fflush(f);
+    fsync(fileno(f));
+    fclose(f);
+    return ESP_OK;
 }
 
 void storage_sd_flush_ram_fallback(void)
@@ -276,25 +292,9 @@ esp_err_t storage_sd_write_json_atomic(const char *filename, const char *json_co
 
 esp_err_t storage_sd_backup_config(void)
 {
+    /* Backup legado: agendamento diario TXT em storage_sd_tick_schedules(). */
     if (!s_mounted) return ESP_ERR_INVALID_STATE;
-
-    char tmp_path[128];
-    snprintf(tmp_path, sizeof(tmp_path), "%s/config/backup/config_backup.json.tmp", SD_MOUNT_POINT);
-
-    FILE *f = fopen(tmp_path, "w");
-    if (!f) {
-        ESP_LOGE(TAG, "Falha ao criar backup temp");
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    fprintf(f, "{\"type\":\"config_backup\",\"ts\":%llu,\"state\":%d,\"alerts\":%d}\n",
-        (unsigned long long)(esp_timer_get_time() / USEC_PER_MSEC),
-        g_gs.system_state, g_gs.active_alerts_count);
-
-    char final_path[128];
-    snprintf(final_path, sizeof(final_path), "%s/config/backup/config_backup.json", SD_MOUNT_POINT);
-
-    return atomic_write_and_rename(final_path, tmp_path, f);
+    return ESP_OK;
 }
 
 esp_err_t storage_sd_unmount(void)

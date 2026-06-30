@@ -42,4 +42,7 @@ void config_set_monitor_only(bool val);
 uint8_t config_get_wizard_step(void);
 void config_set_wizard_step(uint8_t step);
 
+uint8_t config_get_mute_duration(void);
+esp_err_t config_set_mute_duration(uint8_t duration);
+
 #endif

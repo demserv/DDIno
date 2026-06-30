@@ -1,19 +1,13 @@
 // @requirement RF-PLUG-001 a RF-PLUG-014 Linha de dispositivo com ícone, nome, estado, corrente
 #include "ui_device_row.h"
 #include "../ui_theme.h"
+#include "plug_preset_catalog.h"
 #include <stdio.h>
 #include <string.h>
 
 static const char *get_plug_icon(const ui_plug_vm_t *plug)
 {
-    const char *name = plug->name;
-    if (strstr(name, "Aquecedor")) return "\xe2\x96\xb2";
-    if (strstr(name, "Cooler")) return "\xe2\x9c\x95";
-    if (strstr(name, "Bomba")) return "\xe2\x97\x89";
-    if (strstr(name, "Iluminacao")) return "\xe2\x98\x80";
-    if (strstr(name, "UV") || strstr(name, "Esterilizador")) return "UV";
-    if (strstr(name, "Reserva")) return "\xe2\x96\xa1";
-    return "\xe2\x97\x8f";
+    return plug_preset_icon_for_name(plug->name);
 }
 
 static lv_color_t get_plug_state_color(ui_plug_state_t state)

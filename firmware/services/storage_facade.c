@@ -95,3 +95,21 @@ esp_err_t storage_facade_get_health(storage_health_t *out)
     out->ram_fallback_dropped = s_audit_dropped;
     return ESP_OK;
 }
+
+uint16_t storage_facade_audit_read_recent(char lines[][256], uint16_t max_lines)
+{
+    if (!lines || max_lines == 0) return 0;
+
+    uint16_t copied = 0;
+    uint16_t count = s_audit_count;
+    if (count == 0) return 0;
+
+    uint16_t idx = (s_audit_head + AUDIT_RAM_RING_LINES - 1) % AUDIT_RAM_RING_LINES;
+    for (uint16_t i = 0; i < count && copied < max_lines; i++) {
+        strncpy(lines[copied], s_audit_ring[idx], 255);
+        lines[copied][255] = '\0';
+        copied++;
+        idx = (idx + AUDIT_RAM_RING_LINES - 1) % AUDIT_RAM_RING_LINES;
+    }
+    return copied;
+}

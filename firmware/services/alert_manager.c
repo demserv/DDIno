@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "alm_ids.h"
+#include "alm_catalog.h"
 
 static alert_slot_t s_slots[ALERT_SLOTS_MAX];
 
@@ -48,7 +49,8 @@ bool alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_catego
 {
     int idx = find_slot(alm_id);
     if (idx >= 0) {
-        if (slot_is_silenced(&s_slots[idx], ts)) return false;
+        /* @requirement RF-ALERT-002/005 Silence suprime apenas som/repetição sonora
+         * (camada do buzzer); o alerta continua ativo e atualizado, nunca é descartado. */
         s_slots[idx].last_seen_ts = ts;
         s_slots[idx].value = val;
         return true;
@@ -83,6 +85,16 @@ bool alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_catego
 
 bool alert_manager_raise(int16_t alm_id, bool ack_req, uint64_t ts)
 {
+    /* @requirement RF-ALERT-001/003 A forma curta consulta a tabela canônica de ALMs
+     * para severidade, categoria, ack_req e action_hint, em vez de assumir WARNING/NULL.
+     * O parâmetro ack_req do chamador é honrado apenas quando a tabela não exige ACK. */
+    const alm_meta_t *meta = alm_catalog_get(alm_id);
+    if (meta) {
+        bool effective_ack = ack_req || meta->ack_req;
+        return alert_manager_raise_full(alm_id, meta->severity, meta->category,
+                                        NULL, 0.0f, meta->action_hint, 0,
+                                        effective_ack, false, ts);
+    }
     return alert_manager_raise_full(alm_id, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
                                      NULL, 0.0f, NULL, 0, ack_req, false, ts);
 }
@@ -127,8 +139,11 @@ void alert_manager_check_ack_timeout(uint64_t now_s, uint32_t timeout_s)
         if (slot->active && slot->ack_req && !slot->acked) {
             if ((now_s - slot->first_seen_ts) > timeout_s) {
                 if (slot->severity == ALERT_SEVERITY_CRITICAL || slot->severity == ALERT_SEVERITY_HIGH) {
+                    const alm_meta_t *meta = alm_catalog_get(ALM_046);
+                    const char *hint = (meta && meta->action_hint[0]) ? meta->action_hint
+                                      : "Reconheca o alerta critico pendente";
                     alert_manager_raise_full(ALM_046, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_PROCESS,
-                                             "ACK timeout escalation", 0.0f, NULL,
+                                             "ACK timeout escalation", 0.0f, hint,
                                              0, true, false, now_s);
                 }
             }
@@ -168,9 +183,12 @@ const alert_slot_t* alert_manager_get_slot(int16_t alm_id)
 
 void alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t max)
 {
+    /* @requirement RF-ALERT-002/005 Todos os alertas ativos permanecem visíveis,
+     * inclusive silenciados (a UI pode marcá-los via silenced_until). Crítico nunca
+     * é ocultado. Silence ≠ resolução. */
     uint16_t written = 0;
     for (int i = 0; i < ALERT_SLOTS_MAX && written < max; i++) {
-        if (s_slots[i].active && !slot_is_silenced(&s_slots[i], 0)) {
+        if (s_slots[i].active) {
             out[written] = s_slots[i];
             written++;
         }

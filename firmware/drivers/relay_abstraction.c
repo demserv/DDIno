@@ -76,6 +76,13 @@ esp_err_t relay_abstraction_set(relay_id_t id, bool on)
     }
 
     if (on) {
+        /* @requirement RF-INSTALL-MONITOR-001 Em modo somente-monitor nenhum relé
+         * pode ser energizado (gate único; vale para automação e comando manual). */
+        if (gs.monitor_only_mode) {
+            ESP_LOGW(TAG, "ON negado: monitor_only_mode ativo");
+            return ESP_ERR_INVALID_STATE;
+        }
+
         /* Self-test reprovado nunca permite ligar carga. */
         if (!gs.selftest_passed) {
             ESP_LOGW(TAG, "ON negado: self-test nao aprovado");
@@ -94,12 +101,6 @@ esp_err_t relay_abstraction_set(relay_id_t id, bool on)
         }
         if (id == RELAY_ID_P02 && s_states[RELAY_ID_P01] == RELAY_STATE_ON) {
             ESP_LOGW(TAG, "P02 negado: P01 (Aquecedor) esta ON");
-            return ESP_ERR_INVALID_STATE;
-        }
-
-        /* @requirement RF-PLUG-011 Relé crítico exige confirmação dupla prévia. */
-        if (relay_is_critical(id) && !s_confirm_armed[id]) {
-            ESP_LOGW(TAG, "ON negado: rele critico %d sem dupla confirmacao", (int)id);
             return ESP_ERR_INVALID_STATE;
         }
     }

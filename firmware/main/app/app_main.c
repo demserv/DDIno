@@ -31,12 +31,14 @@
 #include "services/safeoff_alm_map.h"
 #include "services/electric_fsm.h"
 #include "services/storage_sd.h"
+#include "services/safeoff_record.h"
 #include "services/cdn_energy.h"
 #include "services/config_manager.h"
 #include "services/task_manager.h"
 #include "services/wdt_advanced.h"
 #include "fsm/thermal_fsm.h"
 #include "drivers/driver_ds18b20.h"
+#include "drivers/driver_ph_sensor.h"
 #include "drivers/driver_ds3231.h"
 #include "drivers/driver_buzzer_led.h"
 #include "fsm/ato_fsm.h"
@@ -108,6 +110,14 @@ static void init_global_state(void)
     g_gs.system_state = SYSTEM_STATE_NORMAL;
     g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
     g_gs.last_reset_reason = (uint32_t)esp_reset_reason();
+    /* @requirement RF-DADOS-001 observation_mode: ativado após reset anômalo
+     * (WDT/panic/brownout), indicando boot cauteloso pós-reset. */
+    {
+        esp_reset_reason_t rr = esp_reset_reason();
+        g_gs.observation_mode = (rr == ESP_RST_PANIC || rr == ESP_RST_INT_WDT ||
+                                 rr == ESP_RST_TASK_WDT || rr == ESP_RST_WDT ||
+                                 rr == ESP_RST_BROWNOUT);
+    }
     snprintf(g_gs.fw_version, sizeof(g_gs.fw_version), "%s", HW_FW_VERSION_STR);
     snprintf(g_gs.srs_version, sizeof(g_gs.srs_version), "%s", HW_SRS_VERSION_STR);
     snprintf(g_gs.config_schema_version, sizeof(g_gs.config_schema_version), "%s", HW_CONFIG_SCHEMA_VERSION_STR);
@@ -318,15 +328,30 @@ static void read_sensors(float *temp_c, int32_t *ato_level)
 
     bool ato_valid = read_ato_level(ato_level);
     g_gs.ato_ok = ato_valid;
+
+    float ph_val = 0.0f;
+    bool ph_ok = false;
+    (void)ph_sensor_read(&ph_val, &ph_ok);
+    (void)ph_val;
 }
 
 static void update_plug_currents(float *plug_currents)
 {
     if (!circuit_breaker_is_available(CB_BUS_SPI_ADC)) return;
+    uint8_t ok = 0;
     for (uint8_t plug = 1; plug <= HW_RELAY_COUNT_MAX; plug++) {
         float cur = 0;
-        acs712_read_plug(plug, &cur);
+        if (acs712_read_plug(plug, &cur) == ESP_OK) ok++;
         plug_currents[plug - 1] = cur;
+        /* RF-PLUG-004: alimenta detecção de bypass por plugue. */
+        plug_manager_set_plug_current((plug_id_t)plug, cur);
+    }
+    /* @requirement RNF-ELECTRICAL-001 Realimenta o circuit breaker do barramento
+     * SPI/ADC com o resultado real das leituras (antes só consultava, nunca gravava). */
+    if (ok > 0) {
+        circuit_breaker_record_success(CB_BUS_SPI_ADC);
+    } else {
+        circuit_breaker_record_failure(CB_BUS_SPI_ADC);
     }
 }
 
@@ -357,6 +382,23 @@ static void update_energy_accumulators(const float *plug_currents)
 static void update_feed_snapshot(uint64_t now_ms, uint64_t now_s)
 {
     static uint64_t s_last_feed_snap_ms = 0;
+
+    /* @requirement RF-FEED-001 (CA3) / RF-FSM-FEED-001 Feed Mode é abortado por
+     * SAFE_OFF/EMERGENCY: encerra imediatamente, limpa snapshot e pedido pendente. */
+    if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) {
+        if (feed_fsm_get_state(&s_feed_fsm) != FEED_STATE_IDLE) {
+            feed_fsm_abort(&s_feed_fsm);
+            feed_snapshot_clear();
+            s_last_feed_snap_ms = 0;
+            audit_log_event(AUDIT_FEED_MODE, "Feed mode aborted by SAFE_OFF/EMERGENCY");
+        }
+        g_feed_request = false;
+        g_gs.feed_active = false;
+        g_gs.feed_state = FEED_STATE_IDLE;
+        g_gs.feed_remaining_s = 0;
+        return;
+    }
+
     feed_state_t fst = feed_fsm_get_state(&s_feed_fsm);
     if ((fst == FEED_STATE_ACTIVE || fst == FEED_STATE_COOLDOWN) &&
         (now_ms - s_last_feed_snap_ms > HW_FEED_SNAPSHOT_INTERVAL_MS)) {
@@ -369,6 +411,13 @@ static void update_feed_snapshot(uint64_t now_ms, uint64_t now_s)
 
     if (g_feed_request && g_gs.system_state == SYSTEM_STATE_NORMAL) {
         if (feed_fsm_start(&s_feed_fsm, now_ms)) {
+            /* @requirement RF-PLUG-006 Captura o estado real dos plugues e a máscara
+             * de bombas na BORDA de ativação e persiste o snapshot imediatamente
+             * (não apenas no ciclo periódico). */
+            s_feed_fsm.pre_feed_on_mask = plug_manager_get_on_mask();
+            s_feed_fsm.pumps_off_mask = plug_manager_get_pump_mask();
+            feed_snapshot_save(&s_feed_fsm, now_s, g_gs.time_valid);
+            s_last_feed_snap_ms = now_ms;
             audit_log_event(AUDIT_FEED_MODE, "Feed mode started");
         }
         g_feed_request = false;
@@ -442,7 +491,20 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
     sin.safeoff_condition = ((tout && tout->force_safe_off && !thermal_sensor_fault)
                          || (aout && aout->force_safe_off)
                          || (eout && eout->force_safe_off));
-    sin.degraded_condition = false;
+    /* @requirement RF-FSM-THERMAL-001/RF-FSM-ATO-001/RF-ENERGY-007 As zonas de
+     * alerta das FSMs (térmico ALERT, ATO ERROR, elétrico em consumo alto/sobre-sub
+     * tensão) elevam o sistema a DEGRADED — antes da escalada para SAFE_OFF na zona
+     * crítica. Falha de sensor térmico também é DEGRADED (com ACK do usuário). */
+    bool thermal_degraded = (tout && (tout->state == THERMAL_STATE_ALERT
+                                      || tout->state == THERMAL_STATE_SENSOR_FAIL
+                                      || tout->sensor_fault));
+    bool ato_degraded = (aout && (aout->state == ATO_STATE_ERROR
+                                  || aout->state == ATO_STATE_BLOCKED));
+    bool electric_degraded = (eout && (eout->state == ELECTRIC_STATE_HIGH_CONSUMPTION
+                                       || eout->state == ELECTRIC_STATE_OVERVOLTAGE
+                                       || eout->state == ELECTRIC_STATE_UNDERVOLTAGE
+                                       || eout->state == ELECTRIC_STATE_SENSOR_FAIL));
+    sin.degraded_condition = (thermal_degraded || ato_degraded || electric_degraded);
     sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
     sin.emergency_resolved = !sin.emergency_condition;
@@ -463,7 +525,12 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
     else if (tout && tout->force_safe_off && !thermal_sensor_fault) sin.safeoff_source_alm = "ALM-026";
     else if (aout && aout->force_safe_off) sin.safeoff_source_alm = "ALM-037";
     else if (eout && eout->force_safe_off) {
-        sin.safeoff_source_alm = (eout->suggested_alm == ALM_052) ? "ALM-052" : "ALM-055";
+        switch (eout->suggested_alm) {
+            case ALM_050: sin.safeoff_source_alm = "ALM-050"; break;
+            case ALM_051: sin.safeoff_source_alm = "ALM-051"; break;
+            case ALM_052: sin.safeoff_source_alm = "ALM-052"; break;
+            default:      sin.safeoff_source_alm = "ALM-055"; break;
+        }
     }
 
     safety_controller_evaluate(&g_gs, &sin, now_s);
@@ -517,9 +584,19 @@ static void task_safety_core_fn(void *pv)
                 watchdog_status_t st = watchdog_guard_check(i);
                 if (st.alarmed) {
                     if (st.severity == WATCHDOG_SEVERITY_CRITICAL) {
+                        /* @requirement RF-WDT-RECOVERY-001 Travamento de task crítica:
+                         * SAFE_OFF + relés OFF imediatos + observation_mode + ALM-043. */
                         ESP_LOGE(TAG, "Task %d critica sem heartbeat -> SAFE_OFF", i);
                         global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_WDT_RECOVERY,
                                                    "ALM-043", "task_hang", now_s);
+                        plug_manager_apply_safe_off();
+                        g_gs.observation_mode = true;
+                        const char *tn = task_manager_get_name(i);
+                        alert_manager_raise_full(ALM_043, ALERT_SEVERITY_CRITICAL,
+                                                 ALERT_CATEGORY_SYSTEM,
+                                                 "Task critica sem heartbeat", 0.0f,
+                                                 tn ? tn : "unknown",
+                                                 0, true, true, now_s);
                     } else {
                         ESP_LOGW(TAG, "Task %d sem heartbeat -> alerta ALM-043", i);
                         const char *tn = task_manager_get_name(i);
@@ -588,6 +665,7 @@ static void task_safety_core_fn(void *pv)
         ein.total_power_w = g_pzem.power_w;
         ein.total_energy_wh = g_pzem.energy_wh;
         ein.plug_count = HW_RELAY_COUNT_MAX;
+        ein.pzem_total_current_a = g_pzem.current_a;
         ein.voltage_v = g_pzem.voltage_v;
         ein.frequency_hz = g_pzem.frequency_hz;
         ein.pf = g_pzem.pf;
@@ -602,6 +680,19 @@ static void task_safety_core_fn(void *pv)
         update_safety_outputs(plug_currents, tout, aout, eout, now_s, now_ms, &prev_state);
         check_hw_alert(now_s);
 
+        /* @requirement RF-ENERGY-009 ALMs de advertência da FSM elétrica (ex.: PF baixo
+         * ALM-053) que não forçam SAFE_OFF precisam ser publicados como alerta WARNING;
+         * o caminho SAFE_OFF já trata os ALMs críticos via safeoff_reason_to_alm_id. */
+        if (eout && eout->suggested_alm != 0 && !eout->force_safe_off) {
+            alert_manager_raise((int16_t)eout->suggested_alm, true, now_s);
+        }
+
+        /* @requirement RF-PLUG-014 Curto-circuito detectado → isolar e bloquear o
+         * plugue afetado (permanece OFF até reset manual). */
+        if (eout && eout->state == ELECTRIC_STATE_SHORT_CIRCUIT && eout->shorted_plug_id > 0) {
+            plug_manager_set_blocked((plug_id_t)eout->shorted_plug_id, true);
+        }
+
         g_gs.active_alerts_count = alert_manager_active_count();
         g_gs.critical_alerts_count = alert_manager_critical_count();
         g_gs.uptime_s = now_s;
@@ -610,14 +701,69 @@ static void task_safety_core_fn(void *pv)
         feed_fsm_update(&s_feed_fsm, now_ms);
         update_feed_snapshot(now_ms, now_s);
 
-        plug_manager_set_thermal_request(PLUG_ID_P02,
+        plug_manager_set_thermal_request(PLUG_ID_P01,
             tout ? tout->request_heater_on : false,
             tout ? tout->request_cooler_on : false);
+        plug_manager_set_ato_request(aout ? aout->pump_request_on : false);
         plug_manager_tick(now_s, g_gs.system_state, g_gs.feed_active);
+
+        /* @requirement RF-DADOS-001 Publica o estado autoritativo (FSMs do laço)
+         * para os serviços de leitura (UI/API), evitando instâncias divergentes. */
+        {
+            float total_current_a = 0.0f;
+            for (uint8_t i = 0; i < HW_RELAY_COUNT_MAX; i++) {
+                total_current_a += plug_currents[i];
+            }
+            thermal_service_publish(g_gs.temp_filtered_c, g_gs.temp_ok,
+                                    tout ? tout->request_heater_on : false,
+                                    tout ? tout->request_cooler_on : false);
+            ato_service_publish(aout ? aout->pump_request_on : false,
+                                aout ? (aout->state == ATO_STATE_OVERFLOW) : false);
+            electric_service_publish(g_pzem.power_w, total_current_a, g_pzem.voltage_v,
+                                     eout ? (eout->state == ELECTRIC_STATE_OVERLOAD) : false);
+        }
 
         if (now_s % g_gs.health_check_interval_s == 0) {
             g_gs.last_health_check_timestamp = now_s;
             g_gs.sd_ok = storage_sd_is_mounted();
+            /* @requirement RF-HEALTH-MATRIX-001 Alimenta a matriz de saúde a partir
+             * dos indicadores já consolidados em g_gs (sem inventar fontes). */
+            health_report(SUB_SENSOR_TEMP, g_gs.temp_ok ? HEALTH_OK : HEALTH_FAILED, NULL);
+            health_report(SUB_SENSOR_LEVEL, g_gs.ato_ok ? HEALTH_OK : HEALTH_FAILED, NULL);
+            health_report(SUB_SENSOR_CURRENT, g_gs.pzem_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_SENSOR_VOLTAGE, g_gs.pzem_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_SD, g_gs.sd_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_WIFI, g_gs.wifi_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_RTC, g_gs.time_valid ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_RELAY_BOARD, relay_mcp23017_ok() ? HEALTH_OK : HEALTH_FAILED, NULL);
+            /* @requirement RF-HEALTH-MATRIX-001 Cobertura completa dos subsistemas.
+             * Barramentos refletem o circuit breaker; 1-Wire segue o sensor de temp;
+             * NVS é pré-requisito de boot (OK). PH/FLOW: presença física não confirmada
+             * no SRS deste produto → UNKNOWN (não inventar OK/FAILED). */
+            health_report(SUB_BUS_SPI,
+                circuit_breaker_is_available(CB_BUS_SPI_ADC) ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_BUS_I2C,
+                circuit_breaker_is_available(CB_BUS_I2C) ? HEALTH_OK : HEALTH_FAILED, NULL);
+            health_report(SUB_BUS_1WIRE, g_gs.temp_ok ? HEALTH_OK : HEALTH_DEGRADED, NULL);
+            health_report(SUB_NVS, HEALTH_OK, NULL);
+            health_report(SUB_SENSOR_PH,
+                ph_sensor_is_ok() ? HEALTH_OK : HEALTH_DEGRADED,
+                ph_sensor_is_ok() ? NULL : "leitura pH indisponivel");
+            health_report(SUB_SENSOR_FLOW, HEALTH_UNKNOWN, "sensor nao presente neste produto");
+            health_matrix_update();
+
+            /* @requirement RNF-ELECTRICAL-001 Integra os barramentos SD e I2C ao
+             * circuit breaker a partir de indicadores já disponíveis. */
+            if (g_gs.sd_ok) {
+                circuit_breaker_record_success(CB_BUS_SPI_SD);
+            } else {
+                circuit_breaker_record_failure(CB_BUS_SPI_SD);
+            }
+            if (relay_mcp23017_ok()) {
+                circuit_breaker_record_success(CB_BUS_I2C);
+            } else {
+                circuit_breaker_record_failure(CB_BUS_I2C);
+            }
         }
 
         log_energy_if_due(now_s);
@@ -644,7 +790,8 @@ static void task_sensors_fn(void *pv)
         update_plug_currents(plug_currents);
         read_pzem();
 
-        g_gs.temp_filtered_c = temp_c;
+        /* @requirement RF-THERMAL-002 NÃO sobrescrever temp_filtered_c com a leitura
+         * bruta: read_sensors() já atualiza a média móvel (janela 3) via temp_filter. */
 
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SENSORS));
     }
@@ -675,7 +822,7 @@ static void task_storage_fn(void *pv)
         watchdog_guard_heartbeat(TASK_ID_STORAGE);
 
         cdn_energy_log_to_sd();
-        storage_sd_backup_config();
+        storage_sd_tick_schedules();
 
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_STORAGE));
     }
@@ -728,6 +875,7 @@ void app_main(void)
     }
     alert_manager_init();
     self_test_init();
+    ESP_ERROR_CHECK(safeoff_record_init());
 
     ESP_ERROR_CHECK(hal_bus_init_all());
     ESP_ERROR_CHECK(hal_spi_init());
@@ -755,6 +903,9 @@ void app_main(void)
         ESP_LOGW(TAG, "PZEM init falhou: %s", esp_err_to_name(pzem_err));
     }
     ds18b20_init();
+    if (ph_sensor_init() != ESP_OK) {
+        ESP_LOGW(TAG, "Sensor pH (GPIO%d) nao inicializado", PIN_PH_ADC_GPIO);
+    }
     ds3231_init();
     buzzer_led_init();
     cdn_energy_init();
@@ -787,6 +938,8 @@ void app_main(void)
             .temp_normal_c = tp->temp_normal_c,
             .temp_critical_c = tp->temp_critical_c,
             .temp_extreme_c = tp->temp_extreme_c,
+            .temp_min_c = tp->temp_min_c,
+            .temp_max_c = tp->temp_max_c,
             .hysteresis_c = tp->hysteresis_c,
             .extreme_enabled = tp->extreme_enabled
         };
@@ -804,6 +957,7 @@ void app_main(void)
     electric_fsm_init(&s_electric_fsm, &s_ecfg);
     temp_filter_init(HW_TEMP_FILTER_WINDOW);
     plug_manager_init();
+    plug_manager_apply_preset(PLUG_ID_P03, PLUG_PRESET_BOMBA_ATO);
     const feed_params_storage_t *fp = config_get_feed();
     feed_fsm_init(&s_feed_fsm, fp->feed_duration_min * 60, fp->feed_cooldown_min * 60);
     {
@@ -818,6 +972,18 @@ void app_main(void)
     esp_err_t ui_err = driver_ili9488_init();
     if (ui_err != ESP_OK) {
         ESP_LOGW(TAG, "Display LVGL nao disponivel (sistema continua sem UI)");
+    } else {
+        /* @requirement RF-UI-INPUT-001 Registro dos dispositivos de entrada LVGL.
+         * Touch (XPT2046) e keypad analógico só podem ser registrados após
+         * lv_init()/disp register feitos em driver_ili9488_init(). */
+        esp_err_t touch_err = driver_xpt2046_init();
+        if (touch_err != ESP_OK) {
+            ESP_LOGW(TAG, "Touch LVGL nao registrado: %s", esp_err_to_name(touch_err));
+        }
+        esp_err_t keypad_err = driver_ad_keypad_lvgl_init();
+        if (keypad_err != ESP_OK) {
+            ESP_LOGW(TAG, "Keypad LVGL nao registrado: %s", esp_err_to_name(keypad_err));
+        }
     }
     /* @requirement RNF-RESILIENCE-001 LVGL thread-safety */
     ESP_ERROR_CHECK(ui_lvgl_mutex_init());
@@ -851,6 +1017,28 @@ void app_main(void)
     wdt_advanced_init();
     watchdog_guard_init();
 
+    /* @requirement RF-WDT-001..005 Consome o wdt_timeout_ms por task: o guard avalia
+     * heartbeats a cada (HW_HEARTBEAT_CHECK_CYCLE_INTERVAL × período do safety_core),
+     * convertendo o timeout configurado em nº de ciclos perdidos tolerados. */
+    {
+        const uint32_t check_interval_ms =
+            (uint32_t)HW_HEARTBEAT_CHECK_CYCLE_INTERVAL * TASK_PERIOD_MS_SAFETY_CORE;
+        for (int i = 0; i < TASK_ID_COUNT; i++) {
+            const task_definition_t *td = task_manager_get_definition(i);
+            if (td && td->wdt_timeout_ms > 0 && check_interval_ms > 0) {
+                uint32_t thr = td->wdt_timeout_ms / check_interval_ms;
+                if (thr < 1) thr = 1;
+                watchdog_guard_set_threshold(i, thr);
+            }
+        }
+    }
+
+    /* @requirement RF-FLOW-BOOT-001/003 / RF-FLOW-SELFTEST-001 Gate de liberação:
+     * os relés já estão em OFF seguro (relay_init_safe, acima) e NENHUMA task de
+     * controle (safety_core/sensors/plug_control) foi lançada ainda. As construções
+     * thermal/ato/electric_fsm_init apenas carregam parâmetros — não atuam relés.
+     * O self-test roda AQUI, antes do task_manager_launch_all(); falha crítica entra
+     * em SAFE_OFF antes da liberação, mantendo os relés desenergizados. */
     {
         const selftest_params_storage_t *sp = config_get_selftest();
         esp_err_t st = self_test_run_all(sp->selftest_timeout_ms);
@@ -868,6 +1056,8 @@ void app_main(void)
             ESP_LOGE(TAG, "CRITICAL SELF-TEST FALHOU! Hardware critico com problemas -> SAFE_OFF + ALM-063");
             global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_SELFTEST_FAIL, "ALM-063",
                                        "self-test critical fail", now_s);
+            /* Desenergiza imediatamente, sem aguardar o 1º tick do plug_control. */
+            plug_manager_apply_safe_off();
             alert_manager_raise_full(ALM_063, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
                                      "Falha CRITICA de hardware na inicializacao", 0.0f,
                                      "Hardware critico nao detectado. Sistema em SAFE_OFF.",

@@ -31,7 +31,7 @@ TEST_CASE("Feed: stop transiciona para COOLDOWN", "[feed]")
 {
     setUp();
     feed_fsm_start(&fsm, 1000);
-    feed_fsm_stop(&fsm);
+    feed_fsm_stop(&fsm, 2000);
     TEST_ASSERT_EQUAL(FEED_STATE_COOLDOWN, fsm.state);
 }
 

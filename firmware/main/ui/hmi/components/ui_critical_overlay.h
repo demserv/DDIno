@@ -9,6 +9,7 @@ typedef struct {
     lv_obj_t *root;
     lv_obj_t *title_label;
     lv_obj_t *message_label;
+    lv_obj_t *detail_label;
     lv_obj_t *alerts_btn;
     lv_obj_t *diag_btn;
     bool visible;
@@ -17,5 +18,8 @@ typedef struct {
 void ui_critical_overlay_safeoff_create(ui_critical_overlay_t *ov, lv_obj_t *parent);
 void ui_critical_overlay_emergency_create(ui_critical_overlay_t *ov, lv_obj_t *parent);
 void ui_critical_overlay_show(ui_critical_overlay_t *ov, bool show);
+/* @requirement RF-UI-OVERLAY-001 Alimenta o overlay com a causa real (ALM de maior
+ * severidade ativo: ID, severidade, mensagem e ação recomendada). */
+void ui_critical_overlay_update_cause(ui_critical_overlay_t *ov, const ui_root_vm_t *vm);
 
 #endif

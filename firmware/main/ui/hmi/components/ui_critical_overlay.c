@@ -4,6 +4,20 @@
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"
 
+#include <stdio.h>
+
+/* Cria o rótulo de causa (ALM/severidade/ação) comum aos dois overlays. */
+static void create_detail_label(ui_critical_overlay_t *ov)
+{
+    ov->detail_label = lv_label_create(ov->root);
+    lv_label_set_text(ov->detail_label, "");
+    lv_obj_set_style_text_font(ov->detail_label, UI_FONT_NORMAL, 0);
+    lv_obj_set_style_text_color(ov->detail_label, UI_COLOR_WARN, 0);
+    lv_obj_align(ov->detail_label, LV_ALIGN_CENTER, 0, 60);
+    lv_obj_set_size(ov->detail_label, 420, 70);
+    lv_label_set_long_mode(ov->detail_label, LV_LABEL_LONG_WRAP);
+}
+
 static void alerts_btn_cb(lv_event_t *e)
 {
     (void)e;
@@ -66,6 +80,7 @@ void ui_critical_overlay_safeoff_create(ui_critical_overlay_t *ov, lv_obj_t *par
     lv_obj_set_size(ov->message_label, 400, 80);
     lv_label_set_long_mode(ov->message_label, LV_LABEL_LONG_WRAP);
 
+    create_detail_label(ov);
     create_common_buttons(ov);
     ov->visible = false;
 }
@@ -97,8 +112,35 @@ void ui_critical_overlay_emergency_create(ui_critical_overlay_t *ov, lv_obj_t *p
     lv_obj_set_size(ov->message_label, 400, 60);
     lv_label_set_long_mode(ov->message_label, LV_LABEL_LONG_WRAP);
 
+    create_detail_label(ov);
     create_common_buttons(ov);
     ov->visible = false;
+}
+
+void ui_critical_overlay_update_cause(ui_critical_overlay_t *ov, const ui_root_vm_t *vm)
+{
+    if (!ov || !ov->detail_label || !vm) return;
+
+    int best = -1;
+    ui_alert_severity_t best_sev = UI_SEVERITY_INFO;
+    for (uint16_t i = 0; i < vm->alerts.active_count; i++) {
+        if (best < 0 || vm->alerts.active_alerts[i].severity >= best_sev) {
+            best = (int)i;
+            best_sev = vm->alerts.active_alerts[i].severity;
+        }
+    }
+
+    if (best < 0) {
+        lv_label_set_text(ov->detail_label, "Causa: ver Alertas/Diagnostico.");
+        return;
+    }
+
+    const ui_alert_vm_t *a = &vm->alerts.active_alerts[best];
+    char buf[160];
+    snprintf(buf, sizeof(buf), "%s [%s]\n%s\nAcao: %s",
+             a->id, a->severity_text, a->message,
+             a->action_hint[0] ? a->action_hint : "Verifique o sistema");
+    lv_label_set_text(ov->detail_label, buf);
 }
 
 void ui_critical_overlay_show(ui_critical_overlay_t *ov, bool show)

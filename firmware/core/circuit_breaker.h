@@ -36,6 +36,12 @@ typedef struct {
 } circuit_breaker_t;
 
 void circuit_breaker_init(void);
+/* @requirement SRS §11.3.5 / RNF-RESILIENCE-001 Permite que os thresholds e a duração
+ * de OPEN venham da ConfigResilience (NVS); valores 0 mantêm o default HW_CB_*. Quando
+ * enabled=false o circuit breaker passa a reportar sempre disponível (bypass auditável). */
+void circuit_breaker_configure(cb_bus_id_t id, uint32_t failure_threshold,
+                               uint32_t open_duration_ms, bool enabled);
+void circuit_breaker_set_enabled(bool enabled);
 void circuit_breaker_record_success(cb_bus_id_t id);
 void circuit_breaker_record_failure(cb_bus_id_t id);
 bool circuit_breaker_is_available(cb_bus_id_t id);

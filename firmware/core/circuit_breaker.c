@@ -6,11 +6,12 @@
 #include <string.h>
 
 static circuit_breaker_t s_breakers[CB_COUNT];
+static bool s_cb_enabled = true;
 
-static const uint32_t DEFAULT_FAILURE_THRESHOLD = 5;
-static const uint32_t DEFAULT_SUCCESS_THRESHOLD = 3;
-static const uint32_t DEFAULT_HALF_OPEN_TIMEOUT_MS = 30000;
-static const uint32_t DEFAULT_RECOVER_TIMEOUT_MS = 60000;
+static const uint32_t DEFAULT_FAILURE_THRESHOLD = HW_CB_FAILURE_THRESHOLD;
+static const uint32_t DEFAULT_SUCCESS_THRESHOLD = HW_CB_SUCCESS_THRESHOLD;
+static const uint32_t DEFAULT_HALF_OPEN_TIMEOUT_MS = HW_CB_HALF_OPEN_TIMEOUT_MS;
+static const uint32_t DEFAULT_RECOVER_TIMEOUT_MS = HW_CB_RECOVER_TIMEOUT_MS;
 
 void circuit_breaker_init(void)
 {
@@ -23,6 +24,21 @@ void circuit_breaker_init(void)
         s_breakers[i].half_open_timeout_ms = DEFAULT_HALF_OPEN_TIMEOUT_MS;
         s_breakers[i].recover_timeout_ms = DEFAULT_RECOVER_TIMEOUT_MS;
     }
+}
+
+void circuit_breaker_configure(cb_bus_id_t id, uint32_t failure_threshold,
+                               uint32_t open_duration_ms, bool enabled)
+{
+    if (id >= CB_COUNT) return;
+    circuit_breaker_t *cb = &s_breakers[id];
+    if (failure_threshold > 0) cb->failure_threshold = failure_threshold;
+    if (open_duration_ms > 0)  cb->half_open_timeout_ms = open_duration_ms;
+    s_cb_enabled = enabled;
+}
+
+void circuit_breaker_set_enabled(bool enabled)
+{
+    s_cb_enabled = enabled;
 }
 
 void circuit_breaker_record_success(cb_bus_id_t id)
@@ -55,6 +71,7 @@ void circuit_breaker_record_failure(cb_bus_id_t id)
 bool circuit_breaker_is_available(cb_bus_id_t id)
 {
     if (id >= CB_COUNT) return false;
+    if (!s_cb_enabled) return true; /* bypass: proteção desabilitada por config */
     circuit_breaker_t *cb = &s_breakers[id];
     if (cb->state == CB_STATE_CLOSED) return true;
     if (cb->state == CB_STATE_HALF_OPEN) return true;
@@ -86,6 +103,12 @@ void circuit_breaker_update(void)
             if ((now_ms - cb->opened_at_ms) >= cb->half_open_timeout_ms) {
                 cb->state = CB_STATE_HALF_OPEN;
                 cb->success_count = 0;
+            }
+        } else if (cb->state == CB_STATE_CLOSED && cb->failure_count > 0) {
+            /* Decaimento de falhas antigas: sem novas falhas por recover_timeout_ms,
+             * zera a contagem para não acumular falhas esporádicas (RNF-ELECTRICAL-001). */
+            if ((now_ms - cb->last_failure_ms) >= cb->recover_timeout_ms) {
+                cb->failure_count = 0;
             }
         }
     }

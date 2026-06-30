@@ -11,6 +11,8 @@
 #define DISP_BUF_SIZE       (480 * 10)
 
 esp_err_t driver_ili9488_init(void);
+/* @requirement RF-FLOW-BOOT-003 Status real de inicialização do display p/ self-test. */
+bool driver_ili9488_is_ok(void);
 void ui_display_set_brightness(uint8_t percent);
 uint8_t ui_display_get_brightness(void);
 void ui_display_dim_on_inactivity(bool enable, uint32_t timeout_s);

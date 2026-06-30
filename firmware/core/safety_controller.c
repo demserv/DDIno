@@ -16,6 +16,7 @@
 #include "relay_abstraction.h"
 #include "event_log.h"
 #include "hardware_config.h"
+#include "services/safeoff_record.h"
 
 static const char *TAG = "safety_controller";
 
@@ -51,6 +52,8 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
     }
     gs->electric_ok = false;
     relay_abstraction_all_off();
+
+    safeoff_record_append(reason, source_alm, now_s);
 
     ESP_LOGE("safety", "SAFE_OFF entered from %d reason=%d alm=%s module=%s",
              (int)prev, (int)reason, source_alm ? source_alm : "?", source_module ? source_module : "?");
@@ -136,7 +139,12 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     /* EMERGENCY não rebaixa automaticamente. */
     if (prev == SYSTEM_STATE_EMERGENCY && next != SYSTEM_STATE_EMERGENCY) return;
 
-    if (!check_antiflap(next, now_s * MS_PER_SEC)) {
+    /* @requirement RNF-GLOBAL-ANTIFLAP-001 / RF-GLOBAL-002 O anti-flap só pode
+     * atrasar recuperação/rebaixamento (entrada em NORMAL/DEGRADED). O escalonamento
+     * para SAFE_OFF/EMERGENCY é SEMPRE imediato — nunca pode ser bloqueado, sob risco
+     * de segurança. */
+    bool is_recovery = (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED);
+    if (is_recovery && !check_antiflap(next, now_s * MS_PER_SEC)) {
         ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
                  system_state_to_str(prev), system_state_to_str(next),
                  HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);

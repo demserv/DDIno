@@ -10,8 +10,12 @@
 #include "driver_mcp3208.h"
 #include "driver_acs712.h"
 #include "driver_pzem.h"
+#include "driver_relay.h"
 #include "storage_sd.h"
 #include "driver_ds18b20.h"
+#include "driver_ili9488.h"
+#include "driver_xpt2046.h"
+#include "esp_heap_caps.h"
 #include <stdio.h>
 
 static const char *TAG = "self_test";
@@ -70,6 +74,7 @@ esp_err_t self_test_init(void)
         s_results[i].id = (selftest_id_t)i;
         s_results[i].name = s_names[i];
         s_results[i].passed = false;
+        s_results[i].status = SELFTEST_STATUS_NOT_RUN;
         s_results[i].critical = s_critical[i];
         s_results[i].fail_count = 0;
         s_results[i].detail[0] = '\0';
@@ -105,7 +110,14 @@ static void test_spi_mcp3208(selftest_result_t *r)
 
 static void test_spi_display(selftest_result_t *r)
 {
-    r->passed = true;
+    /* @requirement RF-FLOW-BOOT-003 Reflete o status real de init do display
+     * (ILI9488 é write-only neste hardware; sem readback de registrador). */
+    if (driver_ili9488_is_ok()) {
+        r->passed = true;
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "display init nao concluida");
+    }
 }
 
 static void test_spi_sd(selftest_result_t *r)
@@ -118,9 +130,26 @@ static void test_spi_sd(selftest_result_t *r)
     }
 }
 
-static void test_relay(selftest_result_t *r)
+/* @requirement RF-FLOW-BOOT-003 Self-test do caminho de controle de relés.
+ * Não energiza cargas: verifica a disponibilidade do caminho de atuação.
+ * P03..P10 dependem do módulo MCP23017; P01/P02 são GPIO direto. */
+static void test_relay(selftest_result_t *r, selftest_id_t id)
 {
-    r->passed = true;
+    if (id >= SELFTEST_ID_RELAY_P03 && id <= SELFTEST_ID_RELAY_P10) {
+        if (relay_mcp23017_ok()) {
+            r->passed = true;
+        } else {
+            r->fail_count++;
+            snprintf(r->detail, sizeof(r->detail), "MCP23017 relay module not detected");
+        }
+    } else {
+        /* @requirement RF-FLOW-SELFTEST-001 P01/P02 via GPIO direto: não há readback
+         * possível sem energizar carga; o caminho fica disponível após relay_init_safe().
+         * Marca-se SKIPPED (não PASS) para refletir a ausência de verificação física. */
+        r->passed = true;
+        r->status = SELFTEST_STATUS_SKIPPED;
+        snprintf(r->detail, sizeof(r->detail), "GPIO direto: sem readback (SKIPPED)");
+    }
 }
 
 static void test_acs712(selftest_result_t *r)
@@ -186,7 +215,13 @@ static void test_pzem(selftest_result_t *r)
 
 static void test_touch(selftest_result_t *r)
 {
-    r->passed = true;
+    /* @requirement RF-DISP-TOUCH-001 Reflete o status real de init/probe do touch. */
+    if (driver_xpt2046_is_ok()) {
+        r->passed = true;
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "touch init/probe falhou");
+    }
 }
 
 esp_err_t self_test_run_one(selftest_id_t id)
@@ -195,6 +230,7 @@ esp_err_t self_test_run_one(selftest_id_t id)
 
     selftest_result_t *r = &s_results[id];
     r->passed = false;
+    r->status = SELFTEST_STATUS_NOT_RUN;
     r->fail_count = 0;
     r->detail[0] = '\0';
 
@@ -212,7 +248,7 @@ esp_err_t self_test_run_one(selftest_id_t id)
     case SELFTEST_ID_RELAY_P07:
     case SELFTEST_ID_RELAY_P08:
     case SELFTEST_ID_RELAY_P09:
-    case SELFTEST_ID_RELAY_P10:    test_relay(r);         break;
+    case SELFTEST_ID_RELAY_P10:    test_relay(r, id);     break;
     case SELFTEST_ID_ACS712:       test_acs712(r);        break;
     case SELFTEST_ID_DS18B20:      test_ds18b20(r);       break;
     case SELFTEST_ID_ATO_SENSOR:   test_ato_sensor(r);    break;
@@ -222,8 +258,24 @@ esp_err_t self_test_run_one(selftest_id_t id)
     default: break;
     }
 
-    ESP_LOGI(TAG, "%s: %s", r->name, r->passed ? "PASS" : "FAIL");
+    /* Deriva o status final; testes que não puderam ser verificados já marcaram SKIPPED. */
+    if (r->status != SELFTEST_STATUS_SKIPPED) {
+        r->status = r->passed ? SELFTEST_STATUS_PASS : SELFTEST_STATUS_FAIL;
+    }
+
+    ESP_LOGI(TAG, "%s: %s", r->name, self_test_status_str(r->status));
     return ESP_OK;
+}
+
+const char *self_test_status_str(selftest_status_t s)
+{
+    switch (s) {
+        case SELFTEST_STATUS_PASS:    return "PASS";
+        case SELFTEST_STATUS_FAIL:    return "FAIL";
+        case SELFTEST_STATUS_SKIPPED: return "SKIPPED";
+        case SELFTEST_STATUS_NOT_RUN:
+        default:                      return "NOT_RUN";
+    }
 }
 
 esp_err_t self_test_run_all(uint32_t timeout_ms)
@@ -279,7 +331,8 @@ void self_test_log_results(void)
     ESP_LOGI(TAG, "===== SELF-TEST RESULTS =====");
     for (int i = 0; i < SELFTEST_ID_COUNT; i++) {
         const selftest_result_t *r = &s_results[i];
-        ESP_LOGI(TAG, "[%s] %s: %s", r->critical ? "CRIT" : "INFO", r->name, r->passed ? "PASS" : "FAIL");
+        ESP_LOGI(TAG, "[%s] %s: %s", r->critical ? "CRIT" : "INFO", r->name,
+                 self_test_status_str(r->status));
         if (!r->passed && r->detail[0]) {
             ESP_LOGI(TAG, "       %s", r->detail);
         }

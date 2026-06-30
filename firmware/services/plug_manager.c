@@ -13,55 +13,85 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "driver_acs712.h"
 #include "driver_relay.h"
 #include "relay_abstraction.h"
 #include "global_state.h"
+#include "hardware_config.h"
 #include "services/alert_manager.h"
 #include "services/audit_log.h"
 #include "services/config_manager.h"
+#include "services/plug_preset_catalog.h"
+#include "safety_controller.h"
+#include "alm_ids.h"
 
 extern global_state_t g_gs;
 
 static const char *TAG = "plug_manager";
 
+static plug_model_t s_plugs[PLUG_COUNT_TOTAL];
+static bool s_thermal_heater = false;
+static bool s_thermal_cooler = false;
+/* @requirement RF-ATO-002 Pedido de bomba ATO vem exclusivamente da ato_fsm. */
+static bool s_ato_pump_request = false;
+static uint64_t s_last_toggle_ms[PLUG_COUNT_TOTAL] = {0};
+static uint8_t s_bypass_sample_count[PLUG_COUNT_TOTAL] = {0};
+/* @requirement RF-FEED-001 Estado congelado dos plugues não-BOMBA no instante da
+ * entrada em Feed Mode (os demais mantêm exatamente o estado de então). */
+static bool s_feed_hold_active = false;
+static bool s_feed_hold_state[PLUG_COUNT_TOTAL] = {0};
+
 /* @requirement RF-PLUG-001 Rota única de acionamento: o plug_manager é o serviço
  * autorizado de atuação (a jusante do command_validator). Toda comutação passa
  * pela camada de abstração; para relés críticos a confirmação é armada aqui pois
  * o comando já foi validado upstream. */
-static esp_err_t plug_actuate(plug_id_t id, bool on)
+static esp_err_t plug_actuate(plug_id_t id, bool on, bool is_manual)
 {
     if (id < 1 || id > PLUG_COUNT_TOTAL) return ESP_ERR_INVALID_ARG;
+    /* @requirement decisao normativa 2026-06-30: P01/P02 aguardam 5 s no boot. */
+    if (on && plug_startup_delay_active(id)) {
+        return ESP_ERR_INVALID_STATE;
+    }
     relay_id_t rid = (relay_id_t)(id - 1);
-    if (on && s_plugs[id - 1].is_critical) {
+    /* @requirement RF-PLUG-011 Dupla confirmação só em desligamento MANUAL de crítico;
+     * automação (tick/FSM) pode desligar sem confirm. Validator/API já validaram
+     * confirm=true antes de chegar aqui via toggle_ex. */
+    if (is_manual && !on && s_plugs[id - 1].is_critical) {
         relay_abstraction_arm_critical_confirm(rid);
     }
     return relay_abstraction_set(rid, on);
 }
 
-static plug_model_t s_plugs[PLUG_COUNT_TOTAL];
-static bool s_thermal_heater = false;
-static bool s_thermal_cooler = false;
-static uint64_t s_last_toggle_ms[PLUG_COUNT_TOTAL] = {0};
-static uint8_t s_bypass_sample_count[PLUG_COUNT_TOTAL] = {0};
-
+/* @requirement RF-PLUG-002 / SRS v3.11 §5.10 e AF.3: P01=AQUECEDOR (GPIO direto),
+ * P02=COOLER (GPIO direto), P03..P10 gerais via MCP23017. A bomba de ATO é um
+ * plugue geral (default em P03). Mapa alinhado a relay_abstraction e command_validator. */
 static const char *s_default_names[PLUG_COUNT_TOTAL] = {
-    "Bomba ATO", "Aquecedor", "Cooler", "Filtro",
+    "Aquecedor", "Cooler", "Bomba ATO", "Filtro",
     "Aireador", "Luz", "P07", "P08", "P09", "P10"
 };
 
 static plug_type_t s_default_types[PLUG_COUNT_TOTAL] = {
-    PLUG_TYPE_BOMBA, PLUG_TYPE_AQUECEDOR, PLUG_TYPE_COOLER, PLUG_TYPE_FILTRO,
+    PLUG_TYPE_AQUECEDOR, PLUG_TYPE_COOLER, PLUG_TYPE_BOMBA, PLUG_TYPE_FILTRO,
     PLUG_TYPE_AIREADOR, PLUG_TYPE_LUZ, PLUG_TYPE_OUTRO, PLUG_TYPE_OUTRO,
     PLUG_TYPE_OUTRO, PLUG_TYPE_OUTRO
 };
 
 static bool s_in_safe_off = false;
 static uint16_t s_restart_energized_mask = 0;
+static uint64_t s_boot_ms = 0;
+
+static bool plug_startup_delay_active(plug_id_t id)
+{
+    if (id != PLUG_ID_P01 && id != PLUG_ID_P02) return false;
+    uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+    return (now_ms - s_boot_ms) < (uint64_t)HW_RELAY_P01_P02_STARTUP_DELAY_MS;
+}
 
 void plug_manager_init(void)
 {
+    s_boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
     memset(s_plugs, 0, sizeof(s_plugs));
     for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         plug_model_t *p = &s_plugs[i];
@@ -98,11 +128,29 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
 {
     s_in_safe_off = (sys_state >= SYSTEM_STATE_SAFE_OFF);
 
+    /* @requirement RF-FEED-001 Captura do estado instantâneo dos plugues não-BOMBA
+     * na borda de entrada do Feed Mode; o snapshot congela os demais plugues. */
+    if (feed_active && !s_feed_hold_active && !s_in_safe_off) {
+        for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
+            s_feed_hold_state[i] = relay_get(s_plugs[i].id);
+        }
+        s_feed_hold_active = true;
+    } else if (!feed_active && s_feed_hold_active) {
+        s_feed_hold_active = false;
+    }
+
     for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         plug_model_t *p = &s_plugs[i];
         bool target_on = false;
 
-        if (s_in_safe_off) {
+        if (g_gs.monitor_only_mode) {
+            /* @requirement RF-INSTALL-MONITOR-001 Em modo somente-monitor os relés
+             * permanecem OFF: nenhuma automação local pode energizar cargas. */
+            target_on = false;
+            p->monitor_only_blocked = true;
+            p->blocked_by_safe_state = false;
+        } else if (s_in_safe_off) {
+            p->monitor_only_blocked = false;
             if (s_restart_energized_mask & (1U << i)) {
                 target_on = true;
                 p->blocked_by_safe_state = false;
@@ -110,9 +158,22 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
                 target_on = false;
                 p->blocked_by_safe_state = true;
             }
-        } else if (feed_active && i < 4) {
-            target_on = false;
+        } else if (feed_active) {
+            /* @requirement RF-FEED-001 Só os plugues BOMBA desligam; AQUECEDOR/COOLER
+             * não participam; os demais mantêm o estado do instante de ativação. */
+            p->monitor_only_blocked = false;
+            p->blocked_by_safe_state = false;
+            if (p->type == PLUG_TYPE_BOMBA) {
+                target_on = false;
+            } else if (p->type == PLUG_TYPE_AQUECEDOR) {
+                target_on = s_thermal_heater;
+            } else if (p->type == PLUG_TYPE_COOLER) {
+                target_on = s_thermal_cooler;
+            } else {
+                target_on = s_feed_hold_state[i];
+            }
         } else {
+            p->monitor_only_blocked = false;
             p->blocked_by_safe_state = false;
 
             switch (p->mode) {
@@ -121,7 +182,10 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
                         target_on = s_thermal_heater;
                     } else if (p->type == PLUG_TYPE_COOLER) {
                         target_on = s_thermal_cooler;
-                    } else if (p->type == PLUG_TYPE_FILTRO || p->type == PLUG_TYPE_BOMBA
+                    } else if (p->type == PLUG_TYPE_BOMBA) {
+                        /* RF-ATO-002: bomba ATO segue exclusivamente a ato_fsm. */
+                        target_on = s_ato_pump_request;
+                    } else if (p->type == PLUG_TYPE_FILTRO
                                || p->type == PLUG_TYPE_AIREADOR) {
                         target_on = true;
                     } else {
@@ -159,13 +223,44 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
             }
         }
 
-        bool current = relay_get(p->id);
-        if (target_on != current) {
-            plug_actuate(p->id, target_on);
-            s_last_toggle_ms[i] = now_s * MS_PER_SEC;
+        /* @requirement RF-PLUG-014/RB-PLUG-008 Plugue bloqueado (curto/sobrecorrente
+         * persistente) permanece desenergizado até reset manual, independente do modo. */
+        if (p->blocked) {
+            target_on = false;
         }
 
-        p->effective_state = target_on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
+        bool startup_wait = (plug_startup_delay_active(p->id) &&
+                             (p->type == PLUG_TYPE_AQUECEDOR || p->type == PLUG_TYPE_COOLER) &&
+                             (s_thermal_heater || s_thermal_cooler));
+
+        if (target_on && plug_startup_delay_active(p->id)) {
+            target_on = false;
+        }
+
+        bool current = relay_get(p->id);
+        uint64_t now_ms = now_s * MS_PER_SEC;
+
+        if (target_on != current) {
+            uint64_t elapsed = now_ms - s_last_toggle_ms[i];
+            if (target_on) {
+                if (elapsed < (uint64_t)p->min_off_time_s * MS_PER_SEC) {
+                    target_on = current;
+                }
+            } else if (elapsed < (uint64_t)p->min_on_time_s * MS_PER_SEC) {
+                target_on = current;
+            }
+        }
+
+        if (target_on != current) {
+            plug_actuate(p->id, target_on, false);
+            s_last_toggle_ms[i] = now_ms;
+        }
+
+        if (startup_wait) {
+            p->effective_state = PLUG_EFFECTIVE_STATE_WAITING;
+        } else {
+            p->effective_state = target_on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
+        }
         p->command_allowed = !s_in_safe_off;
 
         // RF-PLUG-004: Bypass detection
@@ -202,10 +297,60 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
     }
 }
 
+uint32_t plug_manager_get_pump_mask(void)
+{
+    uint32_t mask = 0;
+    for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
+        if (s_plugs[i].type == PLUG_TYPE_BOMBA) {
+            mask |= (1U << i);
+        }
+    }
+    return mask;
+}
+
+uint32_t plug_manager_get_on_mask(void)
+{
+    uint32_t mask = 0;
+    for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
+        if (relay_get(s_plugs[i].id)) {
+            mask |= (1U << i);
+        }
+    }
+    return mask;
+}
+
+void plug_manager_set_blocked(plug_id_t id, bool blocked)
+{
+    plug_model_t *p = plug_manager_get(id);
+    if (!p) return;
+    if (p->blocked != blocked) {
+        ESP_LOGW(TAG, "Plug %d blocked=%d (RF-PLUG-014)", (int)id, (int)blocked);
+    }
+    p->blocked = blocked;
+    if (blocked) {
+        plug_actuate(id, false, false);
+    }
+}
+
 void plug_manager_set_thermal_request(plug_id_t id, bool heater_on, bool cooler_on)
 {
+    (void)id;
+    /* @requirement RF-THERMAL-009 Exclusão mútua: em nenhuma hipótese a camada de
+     * atuação recebe aquecedor e cooler simultaneamente ligados. Conflito → ambos
+     * OFF (a thermal_fsm já força SAFE_OFF/ALM-060 na origem). */
+    if (heater_on && cooler_on) {
+        ESP_LOGE(TAG, "RF-THERMAL-009: heater+cooler simultaneos negados; ambos OFF");
+        s_thermal_heater = false;
+        s_thermal_cooler = false;
+        return;
+    }
     s_thermal_heater = heater_on;
     s_thermal_cooler = cooler_on;
+}
+
+void plug_manager_set_ato_request(bool pump_on)
+{
+    s_ato_pump_request = pump_on;
 }
 
 plug_mode_t plug_manager_get_mode(plug_id_t id)
@@ -230,7 +375,10 @@ bool plug_manager_get_effective_state(plug_id_t id)
 
 esp_err_t plug_manager_toggle(plug_id_t id, bool on)
 {
-    return plug_manager_toggle_ex(id, on, 0);
+    /* @requirement RF-PLUG-008 Caminho manual/API usa o tempo real para que o
+     * mínimo ON/OFF seja efetivamente aplicado (antes era now_ms=0 = desabilitado). */
+    uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
+    return plug_manager_toggle_ex(id, on, now_ms);
 }
 
 esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms)
@@ -253,12 +401,25 @@ esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms)
         }
     }
 
-    esp_err_t act = plug_actuate(id, on);
+    esp_err_t act = plug_actuate(id, on, true);
     if (act != ESP_OK) return act;
     if (now_ms > 0) {
         s_last_toggle_ms[id - 1] = now_ms;
     }
     p->effective_state = on ? PLUG_EFFECTIVE_STATE_ON : PLUG_EFFECTIVE_STATE_OFF;
+
+    /* @requirement RF-PLUG-011 Desligamento manual confirmado de plugue crítico
+     * (P01/P02) → ALM-065 + DEGRADED (mesma política de api_rest plug_set_handler). */
+    if (p->is_critical && !on) {
+        uint64_t now_s = now_ms > 0 ? (now_ms / MS_PER_SEC) : (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        alert_manager_raise_full(ALM_065, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+            "Desligamento manual de plugue critico", (float)id,
+            "Reative o plugue critico ou confirme realocacao", (uint16_t)id,
+            true, true, now_s);
+        global_state_enter_degraded(&g_gs, "plug_manager_critical_off");
+        audit_log_event(AUDIT_COMMAND, "Desligamento manual de plugue critico (P01/P02)");
+    }
+
     return ESP_OK;
 }
 
@@ -327,6 +488,29 @@ bool plug_manager_is_relocated(plug_id_t id)
 {
     if (id < 1 || id > PLUG_COUNT_TOTAL) return false;
     return s_plugs[id - 1].role_override_source != 0;
+}
+
+esp_err_t plug_manager_set_custom_name(plug_id_t id, const char *name)
+{
+    if (id < PLUG_ID_P03 || id > PLUG_ID_P10) return ESP_ERR_INVALID_ARG;
+    if (!name || !name[0]) return ESP_ERR_INVALID_ARG;
+    plug_model_t *p = &s_plugs[id - 1];
+    strncpy(p->name, name, sizeof(p->name) - 1);
+    p->name[sizeof(p->name) - 1] = '\0';
+    return ESP_OK;
+}
+
+esp_err_t plug_manager_apply_preset(plug_id_t id, plug_preset_id_t preset_id)
+{
+    if (id < PLUG_ID_P03 || id > PLUG_ID_P10) return ESP_ERR_INVALID_ARG;
+    const plug_preset_t *preset = plug_preset_find_by_id(preset_id);
+    if (!preset) return ESP_ERR_NOT_FOUND;
+    plug_model_t *p = &s_plugs[id - 1];
+    strncpy(p->name, preset->name, sizeof(p->name) - 1);
+    p->name[sizeof(p->name) - 1] = '\0';
+    p->type = preset->type;
+    p->is_critical = (preset->type == PLUG_TYPE_AQUECEDOR || preset->type == PLUG_TYPE_COOLER);
+    return ESP_OK;
 }
 
 // RF-PLUG-004: Set plug current from ACS712 reading

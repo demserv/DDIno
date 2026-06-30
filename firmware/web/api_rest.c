@@ -15,6 +15,10 @@
 
 #include "api_auth.h"
 #include "api_rate_limit.h"
+#include "circuit_breaker.h"
+#include "wifi_ctl.h"
+#include "services/self_test.h"
+#include "services/storage_sd.h"
 #include "driver_acs712.h"
 #include "driver_ds18b20.h"
 #include "driver_ds3231.h"
@@ -24,12 +28,16 @@
 #include "fsm/feed_fsm.h"
 #include "fsm/restart_fsm.h"
 #include "global_state.h"
+#include "safety_controller.h"
+#include "health_matrix.h"
 #include "pin_map.h"
 #include "services/alert_manager.h"
 #include "services/audit_log.h"
 #include "services/command_validator.h"
 #include "services/config_manager.h"
+#include "services/config_export.h"
 #include "services/plug_manager.h"
+#include "services/storage_facade.h"
 #include "services/relay_safety_service.h"
 #include "services/reset_handler.h"
 #include "system_types.h"
@@ -108,7 +116,7 @@ static bool auth_middleware(httpd_req_t *req)
     return valid;
 }
 
-static bool rate_limit_middleware(httpd_req_t *req)
+static uint32_t client_ip_of(httpd_req_t *req)
 {
     char ip_str[16] = {0};
     if (httpd_req_get_hdr_value_str(req, "X-Forwarded-For", ip_str, sizeof(ip_str)) != ESP_OK) {
@@ -119,7 +127,12 @@ static bool rate_limit_middleware(httpd_req_t *req)
     if (sscanf(ip_str, "%d.%d.%d.%d", &parts[0], &parts[1], &parts[2], &parts[3]) == 4) {
         ip = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
     }
-    return rate_limit_check(ip);
+    return ip;
+}
+
+static bool rate_limit_middleware(httpd_req_t *req)
+{
+    return rate_limit_check(client_ip_of(req));
 }
 
 static bool is_auth_path(const char *uri)
@@ -153,6 +166,7 @@ static esp_err_t status_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "system_state", g_gs.system_state);
     cJSON_AddBoolToObject(json, "monitor_only_mode", g_gs.monitor_only_mode);
     cJSON_AddBoolToObject(json, "maintenance_mode", g_gs.maintenance_mode);
+    cJSON_AddBoolToObject(json, "observation_mode", g_gs.observation_mode);
     cJSON_AddNumberToObject(json, "active_alerts", g_gs.active_alerts_count);
     cJSON_AddNumberToObject(json, "critical_alerts", g_gs.critical_alerts_count);
     cJSON_AddNumberToObject(json, "uptime_s", (double)g_gs.uptime_s);
@@ -181,9 +195,20 @@ static esp_err_t status_handler(httpd_req_t *req)
 }
 
 /* @requirement RF-WEB-002 GET /api/v1/state (TC-WEB-001) */
+static const char *time_source_str(time_source_t s)
+{
+    switch ((int)s) {
+        case TIME_SOURCE_NONE: return "NONE";
+        case TIME_SOURCE_RTC:  return "RTC";
+        case TIME_SOURCE_NTP:  return "NTP";
+        default:               return "USER";
+    }
+}
+
+/* @requirement RF-WEB-002 / RF-DADOS-001 Schema canônico completo do GlobalState. */
 static esp_err_t state_handler(httpd_req_t *req)
 {
-    char buf[768];
+    AUTH_GUARD();
     const char *st = "UNKNOWN";
     switch (g_gs.system_state) {
         case SYSTEM_STATE_NORMAL:    st = "NORMAL";    break;
@@ -202,34 +227,41 @@ static esp_err_t state_handler(httpd_req_t *req)
         case SAFEOFF_REASON_MANUAL_CRITICAL:  reason = "MANUAL";         break;
         default:                              reason = "OTHER";          break;
     }
-    snprintf(buf, sizeof(buf),
-        "{"
-          "\"system_state\":\"%s\","
-          "\"safeoff_reason\":\"%s\","
-          "\"safeoff_source_alm\":\"%s\","
-          "\"safeoff_entered_at\":\"%s\","
-          "\"restart_in_progress\":%s,"
-          "\"wizard_completed\":%s,"
-          "\"wizard_step\":%u,"
-          "\"monitor_only\":%s,"
-          "\"alerts_active\":%u,"
-          "\"uptime_s\":%llu,"
-          "\"firmware_version\":\"3.11\","
-          "\"selftest_passed\":%s"
-        "}",
-        st, reason,
-        g_gs.safeoff_source_alm,
-        g_gs.safeoff_entered_at,
-        g_gs.restart_in_progress ? "true" : "false",
-        g_gs.wizard_completed ? "true" : "false",
-        (unsigned)g_gs.wizard_step,
-        g_gs.monitor_only_mode ? "true" : "false",
-        (unsigned)alert_manager_active_count(),
-        (unsigned long long)(esp_timer_get_time() / 1000000ULL),
-        g_gs.selftest_passed ? "true" : "false");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
-    return httpd_resp_sendstr(req, buf);
+
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddStringToObject(json, "system_state", st);
+    cJSON_AddStringToObject(json, "safeoff_reason", reason);
+    cJSON_AddStringToObject(json, "safeoff_source_alm", g_gs.safeoff_source_alm);
+    cJSON_AddStringToObject(json, "safeoff_entered_at", g_gs.safeoff_entered_at);
+    cJSON_AddBoolToObject(json, "restart_in_progress", g_gs.restart_in_progress);
+    cJSON_AddBoolToObject(json, "wizard_completed", g_gs.wizard_completed);
+    cJSON_AddNumberToObject(json, "wizard_step", (double)g_gs.wizard_step);
+    cJSON_AddBoolToObject(json, "monitor_only_mode", g_gs.monitor_only_mode);
+    cJSON_AddBoolToObject(json, "maintenance_mode", g_gs.maintenance_mode);
+    cJSON_AddBoolToObject(json, "observation_mode", g_gs.observation_mode);
+    cJSON_AddBoolToObject(json, "selftest_passed", g_gs.selftest_passed);
+    cJSON_AddBoolToObject(json, "temp_ok", g_gs.temp_ok);
+    cJSON_AddBoolToObject(json, "ato_ok", g_gs.ato_ok);
+    cJSON_AddBoolToObject(json, "pzem_ok", g_gs.pzem_ok);
+    cJSON_AddBoolToObject(json, "electric_ok", g_gs.electric_ok);
+    cJSON_AddBoolToObject(json, "sd_ok", g_gs.sd_ok);
+    cJSON_AddBoolToObject(json, "wifi_ok", g_gs.wifi_ok);
+    cJSON_AddBoolToObject(json, "ui_ok", g_gs.ui_ok);
+    cJSON_AddBoolToObject(json, "hw_ok", g_gs.hw_ok);
+    cJSON_AddNumberToObject(json, "active_alm_categories", (double)g_gs.active_alm_categories);
+    cJSON_AddNumberToObject(json, "alerts_active", (double)alert_manager_active_count());
+    cJSON_AddNumberToObject(json, "critical_alerts_count", (double)g_gs.critical_alerts_count);
+    cJSON_AddNumberToObject(json, "last_reset_reason", (double)g_gs.last_reset_reason);
+    cJSON_AddNumberToObject(json, "uptime_s", (double)g_gs.uptime_s);
+    cJSON_AddNumberToObject(json, "temp_filtered_c", (double)g_gs.temp_filtered_c);
+    cJSON_AddBoolToObject(json, "feed_active", g_gs.feed_active);
+    cJSON_AddNumberToObject(json, "feed_remaining_s", (double)g_gs.feed_remaining_s);
+    cJSON_AddBoolToObject(json, "time_valid", g_gs.time_valid);
+    cJSON_AddStringToObject(json, "time_source", time_source_str(g_gs.time_source));
+    cJSON_AddStringToObject(json, "config_schema_version", g_gs.config_schema_version);
+    cJSON_AddStringToObject(json, "firmware_version", g_gs.fw_version);
+    cJSON_AddStringToObject(json, "srs_version", g_gs.srs_version);
+    return send_json_resp(req, json, "200 OK");
 }
 
 static esp_err_t health_handler(httpd_req_t *req)
@@ -250,6 +282,54 @@ static esp_err_t health_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "heap_free_kb", (double)(esp_get_free_heap_size() / 1024));
     cJSON_AddNumberToObject(json, "wdt_resets_24h", 0);
     cJSON_AddNumberToObject(json, "last_health_check_timestamp", (double)g_gs.last_health_check_timestamp);
+
+    /* @requirement RF-WEB-005 Campos adicionais de saúde. */
+    cJSON_AddBoolToObject(json, "monitor_only_mode", g_gs.monitor_only_mode);
+    cJSON_AddBoolToObject(json, "time_valid", g_gs.time_valid);
+    cJSON_AddStringToObject(json, "time_source", time_source_str(g_gs.time_source));
+    cJSON_AddBoolToObject(json, "sd_mounted", storage_sd_is_mounted());
+    cJSON_AddNumberToObject(json, "wifi_rssi_dbm", (double)wifi_ctl_sta_get_rssi());
+
+    /* @requirement RNF-RESILIENCE-001 Estados dos circuit breakers por barramento. */
+    static const char *cb_names[CB_COUNT] = {
+        "I2C", "SPI_ADC", "SPI_DISPLAY", "SPI_SD", "UART_PZEM", "DS18B20"
+    };
+    static const char *cb_state_names[] = { "CLOSED", "OPEN", "HALF_OPEN" };
+    cJSON *cb = cJSON_CreateObject();
+    for (int i = 0; i < CB_COUNT; i++) {
+        cb_state_t s = circuit_breaker_get_state((cb_bus_id_t)i);
+        cJSON_AddStringToObject(cb, cb_names[i],
+            (s <= CB_STATE_HALF_OPEN) ? cb_state_names[s] : "UNKNOWN");
+    }
+    cJSON_AddItemToObject(json, "circuit_breaker_states", cb);
+
+    /* @requirement RF-FLOW-SELFTEST-002/003 Resultados por subsistema (PASS/FAIL/
+     * NOT_RUN/SKIPPED) observáveis via API. */
+    cJSON *stj = cJSON_CreateObject();
+    for (int i = 0; i < SELFTEST_ID_COUNT; i++) {
+        const selftest_result_t *r = self_test_get_result((selftest_id_t)i);
+        if (r) {
+            cJSON_AddStringToObject(stj, r->name, self_test_status_str(r->status));
+        }
+    }
+    cJSON_AddItemToObject(json, "selftest", stj);
+
+    /* @requirement RF-HEALTH-MATRIX-001 / RF-WEB-005 Expõe a matriz de saúde. */
+    static const char *sub_names[SUB_COUNT] = {
+        "TEMP", "PH", "LEVEL", "FLOW", "CURRENT", "VOLTAGE",
+        "BUS_SPI", "BUS_I2C", "BUS_1WIRE", "NVS", "SD", "WIFI", "RTC", "RELAY_BOARD"
+    };
+    static const char *health_status_names[] = {
+        "OK", "DEGRADED", "FAILED", "OPEN", "HALF_OPEN", "CLOSED", "UNKNOWN"
+    };
+    cJSON_AddStringToObject(json, "health_aggregate", health_status_names[health_aggregate()]);
+    cJSON *matrix = cJSON_CreateObject();
+    for (int i = 0; i < SUB_COUNT; i++) {
+        const health_entry_t *e = health_get_entry((subsystem_id_t)i);
+        cJSON_AddStringToObject(matrix, sub_names[i],
+            e ? health_status_names[e->status] : "UNKNOWN");
+    }
+    cJSON_AddItemToObject(json, "subsystems", matrix);
     return send_json_resp(req, json, "200 OK");
 }
 
@@ -291,12 +371,14 @@ static esp_err_t plug_set_handler(httpd_req_t *req)
 
     cJSON *id_item = cJSON_GetObjectItem(json, "id");
     cJSON *state_item = cJSON_GetObjectItem(json, "state");
+    cJSON *confirm_item = cJSON_GetObjectItem(json, "confirm");
     if (!cJSON_IsNumber(id_item) || !cJSON_IsBool(state_item)) {
         cJSON_Delete(json);
         return send_error(req, "missing_fields", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
     }
     int plug_id = id_item->valueint;
     bool target_state = cJSON_IsTrue(state_item);
+    bool confirmed = cJSON_IsTrue(confirm_item);
     cJSON_Delete(json);
 
     if (plug_id < 1 || plug_id > 10) {
@@ -309,10 +391,18 @@ static esp_err_t plug_set_handler(httpd_req_t *req)
                           ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
 
+    /* @requirement RF-PLUG-011 Dupla confirmação obrigatória para relé crítico. */
+    if (cv.requires_double_confirmation && !confirmed) {
+        return send_error(req, "double_confirmation_required",
+                          ERR_VALIDATION_ERROR, 409, "409 Conflict");
+    }
+
     esp_err_t err = plug_manager_toggle((plug_id_t)plug_id, target_state);
     if (err != ESP_OK) {
         return send_error(req, "plug_denied", ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
+
+    /* ALM-065 + DEGRADED em desligamento crítico: tratado em plug_manager_toggle_ex. */
 
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddNumberToObject(resp, "id", plug_id);
@@ -516,16 +606,19 @@ static esp_err_t command_handler(httpd_req_t *req)
             status_msg = "restart_initiated";
         }
     } else if (strcmp(cmd, "ack_all") == 0) {
-        res.allowed = true;
-        uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
-        int acked = 0;
-        for (int16_t id = 1; id <= 65; id++) {
-            if (alert_manager_is_active(id)) {
-                if (alert_manager_ack(id, now)) acked++;
+        /* @requirement RF-WEB-006 ACK em massa também passa pelo validador. */
+        res = command_validator_can_ack_alert(&g_gs, 0);
+        if (res.allowed) {
+            uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
+            int acked = 0;
+            for (int16_t id = 1; id <= 65; id++) {
+                if (alert_manager_is_active(id)) {
+                    if (alert_manager_ack(id, now)) acked++;
+                }
             }
+            status_msg = "alerts_acked";
+            cJSON_AddNumberToObject(json, "acked", acked);
         }
-        status_msg = "alerts_acked";
-        cJSON_AddNumberToObject(json, "acked", acked);
     }
 
     cJSON_Delete(json);
@@ -565,11 +658,25 @@ static esp_err_t config_set_handler(httpd_req_t *req)
             cJSON_Delete(json);
             return send_error(req, cv.error_code, ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
         }
-        g_gs.monitor_only_mode = cJSON_IsTrue(mo);
+        bool v = cJSON_IsTrue(mo);
+        /* @requirement RF-STORAGE-001 Persistir em NVS (não só em RAM). */
+        config_set_monitor_only(v);
+        g_gs.monitor_only_mode = v;
+        audit_log_event(AUDIT_CONFIG_CHANGE,
+                        v ? "monitor_only_mode=on via API" : "monitor_only_mode=off via API");
     }
     cJSON *wiz = cJSON_GetObjectItem(json, "wizard_completed");
     if (cJSON_IsBool(wiz)) {
-        g_gs.wizard_completed = cJSON_IsTrue(wiz);
+        cmd_validation_t cvw = command_validator_can_set_config(&g_gs, "wizard_completed");
+        if (!cvw.allowed) {
+            cJSON_Delete(json);
+            return send_error(req, cvw.error_code ? cvw.error_code : "forbidden",
+                              ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+        }
+        bool v = cJSON_IsTrue(wiz);
+        config_set_wizard_completed(v);
+        g_gs.wizard_completed = v;
+        audit_log_event(AUDIT_CONFIG_CHANGE, "wizard_completed updated via API");
     }
     cJSON_Delete(json);
     cJSON *resp = cJSON_CreateObject();
@@ -581,15 +688,106 @@ static esp_err_t log_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
     cJSON *arr = cJSON_CreateArray();
-    for (int i = 0; i < 10; i++) {
+
+    char ram_lines[32][256];
+    uint16_t n = storage_facade_audit_read_recent(ram_lines, 32);
+    for (uint16_t i = 0; i < n; i++) {
         cJSON *e = cJSON_CreateObject();
-        cJSON_AddNumberToObject(e, "ts", (double)(esp_timer_get_time() / USEC_PER_SEC) - i * 60);
-        cJSON_AddStringToObject(e, "msg", "system_running");
-        cJSON_AddStringToObject(e, "level", "info");
+        cJSON_AddStringToObject(e, "msg", ram_lines[i]);
+        cJSON_AddStringToObject(e, "level", "audit");
+        cJSON_AddNumberToObject(e, "ts", (double)(esp_timer_get_time() / USEC_PER_SEC));
         cJSON_AddItemToArray(arr, e);
     }
+
+    if (storage_sd_is_mounted()) {
+        FILE *f = fopen("/sdcard/logs/security/log.txt", "r");
+        if (f) {
+            char buf[256];
+            char tail[10][256];
+            int tcount = 0;
+            while (fgets(buf, sizeof(buf), f)) {
+                size_t len = strlen(buf);
+                while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) {
+                    buf[--len] = '\0';
+                }
+                if (len == 0) continue;
+                if (tcount < 10) {
+                    strncpy(tail[tcount], buf, 255);
+                    tail[tcount][255] = '\0';
+                    tcount++;
+                } else {
+                    memmove(tail[0], tail[1], 9 * sizeof(tail[0]));
+                    strncpy(tail[9], buf, 255);
+                    tail[9][255] = '\0';
+                }
+            }
+            fclose(f);
+            for (int i = 0; i < tcount; i++) {
+                cJSON *e = cJSON_CreateObject();
+                cJSON_AddStringToObject(e, "msg", tail[i]);
+                cJSON_AddStringToObject(e, "level", "audit");
+                cJSON_AddStringToObject(e, "source", "sd");
+                cJSON_AddItemToArray(arr, e);
+            }
+        }
+    }
+
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddItemToObject(resp, "entries", arr);
+    return send_json_resp(req, resp, "200 OK");
+}
+
+static esp_err_t config_export_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    cJSON *json = NULL;
+    if (config_export_to_json(&json) != ESP_OK || !json) {
+        return send_error(req, "export_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+    }
+    esp_err_t err = send_json_resp(req, json, "200 OK");
+    cJSON_Delete(json);
+    return err;
+}
+
+static esp_err_t config_import_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cmd_validation_t cv = command_validator_can_set_config(&g_gs, "import");
+    if (!cv.allowed) {
+        cJSON_Delete(json);
+        return send_error(req, cv.error_code ? cv.error_code : "forbidden",
+                          ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
+
+    bool dry_run = false;
+    cJSON *dr = cJSON_GetObjectItem(json, "dry_run");
+    if (cJSON_IsTrue(dr)) dry_run = true;
+
+    bool valid = false;
+    uint32_t crc = 0;
+    esp_err_t imp = config_import_from_json(json, dry_run, &valid, &crc);
+    cJSON_Delete(json);
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddBoolToObject(resp, "valid", valid);
+    cJSON_AddNumberToObject(resp, "crc32", (double)crc);
+    cJSON_AddBoolToObject(resp, "dry_run", dry_run);
+    if (imp != ESP_OK) {
+        cJSON_AddStringToObject(resp, "status", "rejected");
+        send_json_resp(req, resp, "422 Unprocessable Entity");
+        cJSON_Delete(resp);
+        return ESP_OK;
+    }
+    cJSON_AddStringToObject(resp, "status", dry_run ? "preview_ok" : "imported");
+    if (!dry_run) {
+        audit_log_event(AUDIT_CONFIG_CHANGE, "config imported via API");
+    }
     return send_json_resp(req, resp, "200 OK");
 }
 
@@ -606,9 +804,23 @@ static esp_err_t login_handler(httpd_req_t *req)
         cJSON_Delete(json);
         return send_error(req, "missing_fields", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
     }
-    const char *token = api_auth_login(user->valuestring, pass->valuestring);
+    /* @requirement RNF-SECURITY-001 Rate limit por IP também na rota de login. */
+    uint32_t ip = client_ip_of(req);
+    if (!rate_limit_check(ip)) {
+        cJSON_Delete(json);
+        audit_log_event(AUDIT_LOGIN, "login rate-limited");
+        return send_error(req, "rate_limited", ERR_RATE_LIMITED, 429, "429 Too Many Requests");
+    }
+    const char *token = api_auth_login(user->valuestring, pass->valuestring, ip);
     cJSON_Delete(json);
-    if (!token) return send_error(req, "invalid_credentials", ERR_AUTH_REQUIRED, 401, "401 Unauthorized");
+    if (!token) {
+        /* @requirement RNF-SECURITY-003 Auditar falha de login. */
+        audit_log_event(AUDIT_LOGIN, "login failed (invalid credentials)");
+        return send_error(req, "invalid_credentials", ERR_AUTH_REQUIRED, 401, "401 Unauthorized");
+    }
+    /* @requirement RNF-SECURITY-001 Sucesso zera o contador de rate limit do IP. */
+    rate_limit_reset(ip);
+    audit_log_event(AUDIT_LOGIN, "login success (admin)");
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "token", token);
     cJSON_AddNumberToObject(resp, "expires_in_s", (60 * 60));
@@ -715,7 +927,24 @@ static esp_err_t feed_handler(httpd_req_t *req)
     if (!cv.allowed) {
         return send_error(req, cv.error_code, ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
     }
+
+    /* @requirement RF-FEED-002 Ativação do Feed exige confirmação explícita ("confirm":true). */
+    bool confirmed = false;
+    char *body = read_body(req);
+    if (body) {
+        cJSON *json = cJSON_Parse(body);
+        free(body);
+        if (json) {
+            confirmed = cJSON_IsTrue(cJSON_GetObjectItem(json, "confirm"));
+            cJSON_Delete(json);
+        }
+    }
+    if (cv.requires_double_confirmation && !confirmed) {
+        return send_error(req, "confirmation_required", ERR_VALIDATION_ERROR, 409, "409 Conflict");
+    }
+
     g_feed_request = true;
+    audit_log_event(AUDIT_FEED_MODE, "Feed mode requested via API");
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "status", "feed_started");
     return send_json_resp(req, resp, "200 OK");
@@ -773,6 +1002,12 @@ static esp_err_t wizard_handler(httpd_req_t *req)
         return send_json_resp(req, json, "200 OK");
     }
 
+    /* @requirement RF-WEB-006 O wizard só é aberto no setup inicial. Após concluído,
+     * qualquer escrita de configuração via /wizard exige autenticação. */
+    if (g_gs.wizard_completed) {
+        AUTH_GUARD();
+    }
+
     char *body = read_body(req);
     if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
     cJSON *json = cJSON_Parse(body);
@@ -803,7 +1038,16 @@ static esp_err_t wizard_handler(httpd_req_t *req)
         v = cJSON_GetObjectItem(t, "temp_normal_c"); if (cJSON_IsNumber(v)) tp.temp_normal_c = (float)(v->valuedouble);
         v = cJSON_GetObjectItem(t, "temp_critical_c"); if (cJSON_IsNumber(v)) tp.temp_critical_c = (float)(v->valuedouble);
         v = cJSON_GetObjectItem(t, "hysteresis_c"); if (cJSON_IsNumber(v)) tp.hysteresis_c = (float)(v->valuedouble);
+        /* @requirement RF-WEB-003 Validação de consistência (sem inventar limites):
+         * normal < crítico; histerese não-negativa e abaixo da banda normal→crítico. */
+        if (!(tp.temp_normal_c < tp.temp_critical_c) ||
+            tp.hysteresis_c < 0.0f ||
+            tp.hysteresis_c >= (tp.temp_critical_c - tp.temp_normal_c)) {
+            cJSON_Delete(json);
+            return send_error(req, "invalid_thermal_params", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+        }
         config_set_thermal(&tp);
+        audit_log_event(AUDIT_CONFIG_CHANGE, "wizard: thermal params updated");
     }
 
     cJSON *a = cJSON_GetObjectItem(json, "ato");
@@ -814,7 +1058,15 @@ static esp_err_t wizard_handler(httpd_req_t *req)
         v = cJSON_GetObjectItem(a, "high_level_adc"); if (cJSON_IsNumber(v)) ap.high_level_adc = v->valueint;
         v = cJSON_GetObjectItem(a, "overflow_margin_adc"); if (cJSON_IsNumber(v)) ap.overflow_margin_adc = v->valueint;
         v = cJSON_GetObjectItem(a, "refill_timeout_s"); if (cJSON_IsNumber(v)) ap.refill_timeout_s = (uint32_t)(v->valueint);
+        /* @requirement RF-WEB-003 ADC 12 bits (0..4095); low < high; timeout > 0. */
+        if (ap.low_level_adc < 0 || ap.high_level_adc > 4095 ||
+            !(ap.low_level_adc < ap.high_level_adc) ||
+            ap.overflow_margin_adc < 0 || ap.refill_timeout_s == 0) {
+            cJSON_Delete(json);
+            return send_error(req, "invalid_ato_params", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+        }
         config_set_ato(&ap);
+        audit_log_event(AUDIT_CONFIG_CHANGE, "wizard: ato params updated");
     }
 
     cJSON *e = cJSON_GetObjectItem(json, "electric");
@@ -825,7 +1077,18 @@ static esp_err_t wizard_handler(httpd_req_t *req)
         v = cJSON_GetObjectItem(e, "overvoltage_limit_v"); if (cJSON_IsNumber(v)) ep.overvoltage_limit_v = (float)(v->valuedouble);
         v = cJSON_GetObjectItem(e, "undervoltage_limit_v"); if (cJSON_IsNumber(v)) ep.undervoltage_limit_v = (float)(v->valuedouble);
         v = cJSON_GetObjectItem(e, "per_plug_current_limit_a"); if (cJSON_IsNumber(v)) ep.per_plug_current_limit_a = (float)(v->valuedouble);
+        /* @requirement RF-WEB-003 Limites positivos; subtensão < sobretensão. */
+        if (ep.total_power_limit_w <= 0.0f || ep.per_plug_current_limit_a <= 0.0f ||
+            !(ep.undervoltage_limit_v < ep.overvoltage_limit_v)) {
+            cJSON_Delete(json);
+            return send_error(req, "invalid_electric_params", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+        }
         config_set_electric(&ep);
+        audit_log_event(AUDIT_CONFIG_CHANGE, "wizard: electric params updated");
+    }
+
+    if (cJSON_IsBool(wiz) && cJSON_IsTrue(wiz)) {
+        audit_log_event(AUDIT_CONFIG_CHANGE, "wizard completed");
     }
 
     cJSON_Delete(json);
@@ -914,6 +1177,13 @@ static esp_err_t config_monitor_handler(httpd_req_t *req)
         cJSON_Delete(json);
         return send_error(req, "missing_monitor_only", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
     }
+    /* @requirement RF-WEB-006 Escrita de configuração exige validação. */
+    cmd_validation_t cv = command_validator_can_set_config(&g_gs, "monitor_only_mode");
+    if (!cv.allowed) {
+        cJSON_Delete(json);
+        return send_error(req, cv.error_code ? cv.error_code : "forbidden",
+                          ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
     bool val = cJSON_IsTrue(mo);
     g_gs.monitor_only_mode = val;
     config_set_monitor_only(val);
@@ -946,6 +1216,8 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/alerts",        .method = HTTP_POST, .handler = alert_ack_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/config",        .method = HTTP_GET,  .handler = config_get_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/config",        .method = HTTP_POST, .handler = config_set_handler,         .user_ctx = NULL },
+    { .uri = "/api/v1/config/export", .method = HTTP_GET,  .handler = config_export_handler,    .user_ctx = NULL },
+    { .uri = "/api/v1/config/import", .method = HTTP_POST, .handler = config_import_handler,    .user_ctx = NULL },
     { .uri = "/api/v1/config/monitor", .method = HTTP_POST, .handler = config_monitor_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/command",       .method = HTTP_POST, .handler = command_handler,       .user_ctx = NULL },
     { .uri = "/api/v1/calibrate",     .method = HTTP_GET,  .handler = calibrate_handler,     .user_ctx = NULL },

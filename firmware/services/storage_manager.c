@@ -1,10 +1,13 @@
 ﻿// @requirement RF-STORAGE-001..010, RB-STOR-001..017, RF-PERSIST-001, RF-PERSIST-ATOMIC-001, RF-PERSIST-EXPORT-001
 #include "storage_manager.h"
 
+#include <stdlib.h>
 #include <string.h>
 
+#include "cJSON.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "services/config_export.h"
 
 #include "nvs.h"
 
@@ -179,16 +182,40 @@ esp_err_t storage_migrate_if_needed(storage_namespace_t ns)
 
 esp_err_t storage_export_to_buffer(storage_namespace_t ns, uint8_t *buf, size_t *len)
 {
+    (void)ns;
     if (!buf || !len) return ESP_ERR_INVALID_ARG;
-    ESP_LOGI(TAG, "Export %s to buffer", NS_NAMES[ns]);
-    return ESP_ERR_NOT_SUPPORTED;
+    cJSON *json = NULL;
+    if (config_export_to_json(&json) != ESP_OK || !json) return ESP_ERR_NOT_SUPPORTED;
+    char *printed = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!printed) return ESP_ERR_NO_MEM;
+    size_t slen = strlen(printed) + 1;
+    if (slen > *len) {
+        free(printed);
+        *len = slen;
+        return ESP_ERR_NO_MEM;
+    }
+    memcpy(buf, printed, slen);
+    *len = slen;
+    free(printed);
+    return ESP_OK;
 }
 
 esp_err_t storage_import_from_buffer(storage_namespace_t ns, const uint8_t *buf, size_t len)
 {
+    (void)ns;
     if (!buf || len == 0) return ESP_ERR_INVALID_ARG;
-    ESP_LOGI(TAG, "Import %s from buffer", NS_NAMES[ns]);
-    return ESP_ERR_NOT_SUPPORTED;
+    char *tmp = malloc(len + 1);
+    if (!tmp) return ESP_ERR_NO_MEM;
+    memcpy(tmp, buf, len);
+    tmp[len] = '\0';
+    cJSON *json = cJSON_Parse(tmp);
+    free(tmp);
+    if (!json) return ESP_ERR_INVALID_ARG;
+    bool valid = false;
+    esp_err_t err = config_import_from_json(json, false, &valid, NULL);
+    cJSON_Delete(json);
+    return err;
 }
 
 esp_err_t storage_erase_namespace(storage_namespace_t ns)

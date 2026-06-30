@@ -1,14 +1,17 @@
 ﻿#include "command_dispatcher.h"
 
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "alert_manager.h"
 #include "command_validator.h"
-#include "feed_snapshot.h"
 #include "plug_manager.h"
 #include "safety_gate.h"
 
 static const char *TAG = "cmd_dispatch";
+
+/* Ponte de pedido de Feed consumida por app_main (rota única de ativação). */
+extern bool g_feed_request;
 
 esp_err_t command_dispatch_execute(const command_entry_t *entry, const global_state_t *gs)
 {
@@ -37,7 +40,7 @@ esp_err_t command_dispatch_toggle_plug(const global_state_t *gs, uint8_t plug_id
         return ESP_ERR_INVALID_STATE;
     }
 
-    return plug_manager_set(plug_id, desired_on);
+    return plug_manager_toggle((plug_id_t)plug_id, desired_on);
 }
 
 esp_err_t command_dispatch_ack_alert(const global_state_t *gs, uint16_t alert_id)
@@ -50,7 +53,8 @@ esp_err_t command_dispatch_ack_alert(const global_state_t *gs, uint16_t alert_id
         return ESP_ERR_INVALID_STATE;
     }
 
-    return alert_manager_ack(alert_id);
+    uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+    return alert_manager_ack((int16_t)alert_id, now_s) ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t command_dispatch_start_feed(const global_state_t *gs)
@@ -63,10 +67,13 @@ esp_err_t command_dispatch_start_feed(const global_state_t *gs)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return feed_snapshot_start();
+    /* Ativação real do Feed é feita por app_main ao consumir g_feed_request
+     * (mesma rota usada por api_rest e ui_events). */
+    g_feed_request = true;
+    return ESP_OK;
 }
 
-esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id)
+esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id, plug_mode_t mode)
 {
     if (!gs) return ESP_ERR_INVALID_ARG;
 
@@ -76,6 +83,6 @@ esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return plug_manager_set_mode(plug_id);
+    return plug_manager_set_mode((plug_id_t)plug_id, mode);
 }
 

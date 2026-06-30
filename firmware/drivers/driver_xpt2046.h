@@ -7,6 +7,8 @@
 #include "lvgl.h"
 
 esp_err_t driver_xpt2046_init(void);
+/* @requirement RF-FLOW-BOOT-003 Status real de inicialização do touch p/ self-test. */
+bool driver_xpt2046_is_ok(void);
 bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
 
 #endif

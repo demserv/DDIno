@@ -33,11 +33,14 @@ static bool s_carousel_paused = false;
 static uint64_t s_last_carousel_ms = 0;
 static uint64_t s_last_interaction_ms = 0;
 
+/* @requirement RF-UI-CAROUSEL-001 Ordem canônica do carrossel incluindo ATO e Alarmes. */
 static const ui_screen_id_t s_carousel_screens[] = {
     UI_SCREEN_DASHBOARD,
     UI_SCREEN_DEVICES_1,
     UI_SCREEN_DEVICES_2,
     UI_SCREEN_ENERGY,
+    UI_SCREEN_ATO,
+    UI_SCREEN_ALERTS,
     UI_SCREEN_DIAGNOSTICS
 };
 #define CAROUSEL_SCREEN_COUNT (sizeof(s_carousel_screens) / sizeof(s_carousel_screens[0]))
@@ -92,6 +95,30 @@ static void register_screens(void)
     g_update_fns[UI_SCREEN_ATO] = ui_screen_ato_update;
 }
 
+/* @requirement RF-UI-INPUT-001/002 Navegação por keypad sem touch: após montar a
+ * tela, repovoa o grupo de foco padrão com todos os objetos clicáveis (botões,
+ * tiles, linhas). Centralizado aqui para que TODAS as telas fiquem navegáveis sem
+ * precisar de lv_group_add_obj espalhado em cada tela. */
+static void focus_group_add_recursive(lv_group_t *g, lv_obj_t *obj)
+{
+    uint32_t n = lv_obj_get_child_cnt(obj);
+    for (uint32_t i = 0; i < n; i++) {
+        lv_obj_t *child = lv_obj_get_child(obj, i);
+        if (lv_obj_has_flag(child, LV_OBJ_FLAG_CLICKABLE)) {
+            lv_group_add_obj(g, child);
+        }
+        focus_group_add_recursive(g, child);
+    }
+}
+
+static void rebuild_focus_group(void)
+{
+    lv_group_t *g = lv_group_get_default();
+    if (!g || !g_content_root) return;
+    lv_group_remove_all_objs(g);
+    focus_group_add_recursive(g, g_content_root);
+}
+
 static bool carousel_blocked(void)
 {
     if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF ||
@@ -101,6 +128,11 @@ static bool carousel_blocked(void)
     if (!g_gs.wizard_completed) {
         return true;
     }
+    /* @requirement RF-UI-CAROUSEL-001 Pausa o carrossel enquanto houver alerta CRÍTICO
+     * ativo (antes usava hw_alert_pending, que não reflete a contagem de críticos). */
+    if (g_gs.critical_alerts_count > 0) {
+        return true;
+    }
     if (g_gs.hw_alert_pending) {
         return true;
     }
@@ -108,6 +140,13 @@ static bool carousel_blocked(void)
         return true;
     }
     return false;
+}
+
+/* @requirement RF-UI-CAROUSEL-001 Indica se o carrossel está pausado (para indicador
+ * visual no topbar/footer). */
+bool ui_screen_manager_carousel_is_paused(void)
+{
+    return s_carousel_paused || carousel_blocked();
 }
 
 static void carousel_advance(void)
@@ -142,7 +181,14 @@ void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm)
     s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
     s_last_interaction_ms = s_last_carousel_ms;
 
-    ui_screen_manager_show(UI_SCREEN_DASHBOARD);
+    /* @requirement RF-UI-WIZARD-001 No primeiro boot (wizard não concluído) a UI abre
+     * automaticamente o assistente; caso contrário, o dashboard. O carrossel já é
+     * bloqueado enquanto o wizard não está concluído (carousel_blocked). */
+    if (!g_gs.wizard_completed) {
+        ui_screen_manager_show(UI_SCREEN_WIZARD);
+    } else {
+        ui_screen_manager_show(UI_SCREEN_DASHBOARD);
+    }
 }
 
 void ui_screen_manager_show(ui_screen_id_t screen_id)
@@ -163,6 +209,9 @@ void ui_screen_manager_show(ui_screen_id_t screen_id)
     g_current_screen = screen_id;
 
     g_create_fns[screen_id](g_content_root, g_vm);
+
+    /* @requirement RF-UI-INPUT-002 Torna a tela recém-montada navegável por keypad. */
+    rebuild_focus_group();
 
     if (g_vm) {
         for (uint8_t i = 0; i < CAROUSEL_SCREEN_COUNT; i++) {

@@ -30,14 +30,25 @@ typedef enum {
     SELFTEST_ID_COUNT
 } selftest_id_t;
 
+/* @requirement RF-FLOW-SELFTEST-002/003 Estado por teste (não apenas booleano). */
+typedef enum {
+    SELFTEST_STATUS_NOT_RUN = 0,
+    SELFTEST_STATUS_PASS,
+    SELFTEST_STATUS_FAIL,
+    SELFTEST_STATUS_SKIPPED
+} selftest_status_t;
+
 typedef struct {
     selftest_id_t id;
     const char *name;
     bool passed;
+    selftest_status_t status;
     bool critical;
     uint32_t fail_count;
     char detail[64];
 } selftest_result_t;
+
+const char *self_test_status_str(selftest_status_t s);
 
 esp_err_t self_test_init(void);
 esp_err_t self_test_run_all(uint32_t timeout_ms);

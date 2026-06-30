@@ -14,6 +14,7 @@ set(MAIN_SRCS
     "../drivers/driver_mcp23017.c"
     "../drivers/driver_mcp3208.c"
     "../drivers/driver_pzem.c"
+    "../drivers/driver_ph_sensor.c"
     "../drivers/driver_relay.c"
     "../drivers/relay_abstraction.c"
 
@@ -32,12 +33,14 @@ set(MAIN_SRCS
 
     # Services
     "../services/alert_manager.c"
+    "../services/alm_catalog.c"
     "../services/ato_service.c"
     "../services/audit_log.c"
     "../services/cdn_energy.c"
     "../services/command_dispatcher.c"
     "../services/command_validator.c"
     "../services/config_manager.c"
+    "../services/config_export.c"
     "../services/config_root.c"
     "../services/config_staging.c"
     "../services/disp_ctl.c"
@@ -49,6 +52,7 @@ set(MAIN_SRCS
     "../services/log_manager.c"
     "../services/pending_actions.c"
     "../services/plug_manager.c"
+    "../services/plug_preset_catalog.c"
     "../services/relay_safety_service.c"
     "../services/reset_handler.c"
     "../services/safeoff_alm_map.c"
@@ -60,6 +64,7 @@ set(MAIN_SRCS
     "../services/storage_facade.c"
     "../services/storage_manager.c"
     "../services/storage_sd.c"
+    "../services/storage_sd_schedule.c"
     "../services/task_manager.c"
     "../services/temp_filter.c"
     "../services/thermal_service.c"
@@ -149,6 +154,7 @@ set(MAIN_INCLUDE_DIRS
 idf_component_register(
     SRCS ${MAIN_SRCS}
     INCLUDE_DIRS ${MAIN_INCLUDE_DIRS}
+    REQUIRES esp_adc
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

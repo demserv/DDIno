@@ -22,6 +22,7 @@ bool     storage_sd_is_mounted(void);
 esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line);
 esp_err_t storage_sd_write_json_atomic(const char *filename, const char *json_content);
 esp_err_t storage_sd_backup_config(void);
+void     storage_sd_tick_schedules(void);
 esp_err_t storage_sd_unmount(void);
 void     storage_sd_flush_ram_fallback(void);
 uint32_t storage_sd_ram_fallback_count(void);

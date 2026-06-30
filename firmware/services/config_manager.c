@@ -27,6 +27,7 @@ static const char *TAG = "config_mgr";
 #define NVS_NS_SELFTEST  "cfg_stest"
 #define NVS_NS_SYSTEM    "cfg_sys"
 #define NVS_NS_CALIB     "cfg_calib"
+#define NVS_KEY_MUTE_DUR "mute_dur"
 
 #define NVS_KEY_BLOB     "blob"
 #define NVS_KEY_VERSION  "version"
@@ -44,8 +45,11 @@ static antiflap_params_storage_t s_antiflap;
 static selftest_params_storage_t s_selftest;
 static system_params_storage_t   s_system;
 static calibration_params_storage_t s_calibration;
+static uint8_t s_mute_duration = 0;
 
 static config_root_t s_root;
+
+static void load_mute_duration(void);
 
 static void root_to_indiv(void)
 {
@@ -209,6 +213,7 @@ esp_err_t config_manager_init(void)
         root_to_indiv();
         ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08X, wizard=%d)",
                  s_root.crc32, s_system.wizard_completed);
+        load_mute_duration();
         return ESP_OK;
     }
 
@@ -228,7 +233,19 @@ esp_err_t config_manager_init(void)
     indiv_to_root();
     config_root_save(&s_root);
     ESP_LOGI(TAG, "Config manager init OK (wizard=%d)", s_system.wizard_completed);
+    load_mute_duration();
     return ESP_OK;
+}
+
+static void load_mute_duration(void)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS_SYSTEM, NVS_READONLY, &h) != ESP_OK) return;
+    uint8_t v = 0;
+    if (nvs_get_u8(h, NVS_KEY_MUTE_DUR, &v) == ESP_OK && v <= 3U) {
+        s_mute_duration = v;
+    }
+    nvs_close(h);
 }
 
 const thermal_params_storage_t* config_get_thermal(void) { return &s_thermal; }
@@ -452,5 +469,23 @@ void config_set_wizard_step(uint8_t step)
     indiv_to_root();
     config_root_save(&s_root);
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+}
+
+uint8_t config_get_mute_duration(void)
+{
+    return s_mute_duration;
+}
+
+esp_err_t config_set_mute_duration(uint8_t duration)
+{
+    if (duration > 3U) return ESP_ERR_INVALID_ARG;
+    s_mute_duration = duration;
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS_SYSTEM, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_set_u8(h, NVS_KEY_MUTE_DUR, duration);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    return err;
 }
 

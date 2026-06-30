@@ -20,4 +20,10 @@ void led_all_off(void);
 void buzzer_led_alert(void);
 void buzzer_led_clear(void);
 
+/* @requirement RF-UI-MUTE-001 MUTE/Quiet Mode: silencia apenas a camada sonora
+ * permitida por duração temporária. Não altera LED, ALM, FSM, relé ou estado. */
+void buzzer_set_mute(uint32_t duration_ms);
+void buzzer_clear_mute(void);
+bool buzzer_is_muted(void);
+
 #endif

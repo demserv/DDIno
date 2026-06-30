@@ -1,6 +1,7 @@
 // @requirement RF-GLOBAL-005 ViewModel centralizado — UI consome dados reais do sistema
 #include "ui_view_model.h"
 
+#include "ui_screen_manager.h"
 #include "global_state.h"
 #include "alert_manager.h"
 #include "config_manager.h"
@@ -11,6 +12,7 @@
 #include "plug_model.h"
 #include "alert_model.h"
 #include "ato_service.h"
+#include "driver_buzzer_led.h"
 #include "esp_err.h"
 #include <time.h>
 #include <string.h>
@@ -107,6 +109,12 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->topbar.wifi_ok = g_gs.wifi_ok;
     vm->topbar.feed_mode_active = g_gs.feed_active;
     vm->topbar.feed_remaining_s = g_gs.feed_remaining_s;
+    vm->topbar.mute_active = buzzer_is_muted();
+    /* @requirement RF-UI-STATUS-001 Demais indicadores da status bar. */
+    vm->topbar.sd_ok = g_gs.sd_ok;
+    vm->topbar.maintenance_active = g_gs.maintenance_mode;
+    vm->topbar.selftest_failed = !g_gs.selftest_passed;
+    vm->topbar.carousel_paused = ui_screen_manager_carousel_is_paused();
 
     if (g_gs.time_valid) {
         time_t ts = 0;

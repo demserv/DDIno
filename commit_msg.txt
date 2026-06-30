@@ -1,5 +1,12 @@
-T-17: CONST CORRECTNESS - adicionar const em ponteiros read-only
+sprint/compliance-95-percent: correcoes finais
 
-- API ja const-correct: parametros char* de entrada ja sao const char*
-- ui_screen_main_menu.c: targets[] -> const targets[]
-- ui_screen_system.c: actions[] -> const actions[]
+- safety_controller: safe_exit_stable_s ushort overflow correction
+- global_state: validacao campos booleano vs uint16
+- relay_abstraction: remocao relay_foreach_plug, logica movida para plug_manager
+- ui_screen_manager: state machine + carrossel assincrono
+- storage_sd/lib/facade: unificacao caminhos IO
+- api_rest: endpoint PUT /api/v1/config
+- RTM.md atualizado, CORRECAO_COMPLIANCE_SRS_FINAL.md adicionado
+- projeto_concatenado movido para firmware/
+- test_pinmap, test_relay_safety adicionados
+- pin_map.h: remocao defines duplicados relay_abstraction

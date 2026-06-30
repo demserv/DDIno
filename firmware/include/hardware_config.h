@@ -49,6 +49,24 @@
 #define HW_ATO_SIGNAL_MODE_DIGITAL_ON_OFF_ADC (1U)
 #define HW_ATO_SENSOR_SUPPLY_MV          (5000U)
 
+// --- pH sensor (GPIO livre — decisao normativa 2026-06-30) ---
+#define HW_PH_SENSOR_SPAN                (14.0f)
+
+// --- Relé prioritario boot delay P01/P02 (decisao normativa 2026-06-30) ---
+#define HW_RELAY_P01_P02_STARTUP_DELAY_MS (5000U)
+
+// --- Lockout pós-OFF manual (RF-PLUG-008) ---
+#define HW_RELAY_LOCKOUT_MS               (3000U)
+
+// --- SD backup / log horario (decisao normativa 2026-06-30) ---
+#define HW_SD_BACKUP_HOUR                (1U)
+#define HW_SD_BACKUP_MINUTE              (0U)
+#define HW_SD_BACKUP_RETAIN_COUNT        (5U)
+
+// --- Keypad gestos (decisao normativa 2026-06-30) ---
+#define HW_KEYPAD_MUTE_HOLD_MS           (5000U)
+#define HW_KEYPAD_HOME_DOUBLE_MS         (500U)
+
 // --- Keypad ---
 #define HW_AD_KEYPAD_SUPPLY_MV           (5000U)
 #define HW_AD_KEYPAD_ADC_CONDITIONED     (1U)
@@ -92,6 +110,12 @@
 
 // --- NVS ---
 #define HW_NVS_ERASE_IF_CORRUPT          (1U)
+
+// --- Circuit breaker (RNF-ELECTRICAL-001) ---
+#define HW_CB_FAILURE_THRESHOLD          (5U)
+#define HW_CB_SUCCESS_THRESHOLD          (3U)
+#define HW_CB_HALF_OPEN_TIMEOUT_MS       (30000U)
+#define HW_CB_RECOVER_TIMEOUT_MS         (60000U)
 
 // --- WDT ---
 #define HW_WDT_TIMEOUT_MS                (2000U)

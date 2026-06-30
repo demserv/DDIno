@@ -14,13 +14,29 @@
 #include "hal_spi.h"
 #include "hardware_config.h"
 #include "pin_map.h"
+#include "circuit_breaker.h"
 
 static const char *TAG = "driver_ili9488";
 
 static uint8_t s_brightness_percent = HW_UI_BRIGHTNESS_DEFAULT;
 static uint8_t s_configured_brightness = HW_UI_BRIGHTNESS_DEFAULT;
+static bool s_display_init_ok = false;
 static bool s_dim_enabled = false;
 static uint32_t s_dim_timeout_s = 0;
+
+static esp_err_t ili9488_spi_tx(spi_transaction_t *t)
+{
+    if (!circuit_breaker_is_available(CB_BUS_SPI_DISPLAY)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, t);
+    if (err == ESP_OK) {
+        circuit_breaker_record_success(CB_BUS_SPI_DISPLAY);
+    } else {
+        circuit_breaker_record_failure(CB_BUS_SPI_DISPLAY);
+    }
+    return err;
+}
 
 static void ili9488_send_cmd(uint8_t cmd)
 {
@@ -29,7 +45,7 @@ static void ili9488_send_cmd(uint8_t cmd)
         .tx_buffer = &cmd,
     };
     gpio_set_level(PIN_TFT_DC_GPIO, 0);
-    hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
+    (void)ili9488_spi_tx(&t);
 }
 
 static void ili9488_send_data(const uint8_t *data, int len)
@@ -39,7 +55,7 @@ static void ili9488_send_data(const uint8_t *data, int len)
         .tx_buffer = data,
     };
     gpio_set_level(PIN_TFT_DC_GPIO, 1);
-    hal_spi_transaction_polling(HAL_SPI_DEVICE_TFT, &t);
+    (void)ili9488_spi_tx(&t);
 }
 
 static void ili9488_send_cmd_data(uint8_t cmd, uint8_t data)
@@ -141,8 +157,15 @@ esp_err_t driver_ili9488_init(void)
     ESP_ERROR_CHECK(esp_timer_create(&tick_timer_args, &tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, LVGL_TICK_PERIOD_MS * USEC_PER_MSEC));
 
+    s_display_init_ok = true;
+    circuit_breaker_record_success(CB_BUS_SPI_DISPLAY);
     ESP_LOGI(TAG, "ILI9488 display initialized");
     return ESP_OK;
+}
+
+bool driver_ili9488_is_ok(void)
+{
+    return s_display_init_ok;
 }
 
 void ui_display_set_brightness(uint8_t percent)

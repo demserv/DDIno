@@ -17,6 +17,9 @@ typedef struct {
     uint32_t duration_s;
     uint32_t cooldown_s;
     uint32_t pumps_off_mask;
+    /* @requirement RF-PLUG-006 Estado real dos plugues energizados no instante de
+     * ativação do Feed Mode (bit i = plug index i), para restauração pós-queda. */
+    uint32_t pre_feed_on_mask;
     uint8_t  feed_count_1h;
     uint64_t state_started_rtc_s;
     uint64_t window_start_1h_rtc_s;

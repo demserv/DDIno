@@ -13,6 +13,7 @@
 #define TOUCH_ADC_RANGE  4096
 
 static const char *TAG = "driver_xpt2046";
+static bool s_touch_init_ok = false;
 
 static uint16_t xpt2046_read_raw(uint8_t cmd)
 {
@@ -98,6 +99,16 @@ esp_err_t driver_xpt2046_init(void)
     indev_drv.read_cb = ui_touch_read;
     lv_indev_drv_register(&indev_drv);
 
-    ESP_LOGI(TAG, "Touch initialized");
+    /* @requirement RF-DISP-TOUCH-001 Probe do barramento: uma leitura SPI do XPT2046
+     * com IRQ não-pressionado deve produzir um código ADC plausível (<= 12 bits). */
+    uint16_t probe = xpt2046_read_raw(0x90);
+    s_touch_init_ok = (probe <= TOUCH_ADC_MAX);
+
+    ESP_LOGI(TAG, "Touch initialized (probe=%u)", (unsigned)probe);
     return ESP_OK;
+}
+
+bool driver_xpt2046_is_ok(void)
+{
+    return s_touch_init_ok;
 }
