@@ -3,9 +3,11 @@
 #include "pin_map.h"
 #include "hal_spi.h"
 #include "hardware_config.h"
+#include "core/circuit_breaker.h"
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "lvgl.h"
 #include "ui_screen_manager.h"
@@ -18,6 +20,9 @@ static bool s_touch_init_ok = false;
 
 static uint16_t xpt2046_read_raw(uint8_t cmd)
 {
+    if (!circuit_breaker_is_available(CB_BUS_SPI_DISPLAY)) {
+        return 0;
+    }
     uint8_t tx_buf[3] = {cmd, 0, 0};
     uint8_t rx_buf[3] = {0};
     spi_transaction_t t = {
@@ -25,7 +30,11 @@ static uint16_t xpt2046_read_raw(uint8_t cmd)
         .tx_buffer = tx_buf,
         .rx_buffer = rx_buf,
     };
-    hal_spi_transaction_polling(HAL_SPI_DEVICE_TOUCH, &t);
+    if (hal_spi_transaction_polling(HAL_SPI_DEVICE_TOUCH, &t) != ESP_OK) {
+        circuit_breaker_record_failure(CB_BUS_SPI_DISPLAY);
+        return 0;
+    }
+    circuit_breaker_record_success(CB_BUS_SPI_DISPLAY);
     return (((uint16_t)rx_buf[1] << 8) | rx_buf[2]) >> 4;
 }
 

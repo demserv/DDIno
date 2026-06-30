@@ -88,6 +88,13 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
 esp_err_t global_state_set_health_flag(global_state_health_field_t field, bool ok);
 global_state_t *global_state_get_write_ptr(void);
 
+/* @requirement RNF-GLOBAL-ANTIFLAP-001 Anti-flap compartilhado (NVS via config_get_antiflap). */
+bool global_state_antiflap_allow(uint64_t now_ms);
+void global_state_antiflap_commit(uint64_t now_ms);
+
+/* @requirement RF-WEB-008 Sincroniza RAM runtime após import/persistência de system/calib. */
+void global_state_sync_from_config(global_state_t *gs);
+
 #ifdef __cplusplus
 }
 #endif

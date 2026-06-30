@@ -2,6 +2,7 @@
 // @requirement RF-ENERGY-006 Frequência da rede via PZEM
 #include "driver_pzem.h"
 #include "hardware_config.h"
+#include "core/circuit_breaker.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -65,6 +66,9 @@ esp_err_t pzem_init(void)
 esp_err_t pzem_read_all(pzem_data_t *data)
 {
     if (!data) return ESP_ERR_INVALID_ARG;
+    if (!circuit_breaker_is_available(CB_BUS_UART_PZEM)) {
+        return ESP_ERR_INVALID_STATE;
+    }
     memset(data, 0, sizeof(*data));
 
     uint8_t cmd[8];
@@ -72,12 +76,16 @@ esp_err_t pzem_read_all(pzem_data_t *data)
     append_crc(cmd, 8);
 
     int written = uart_write_bytes(PZEM_UART, cmd, 8);
-    if (written < 0) return ESP_ERR_INVALID_RESPONSE;
+    if (written < 0) {
+        circuit_breaker_record_failure(CB_BUS_UART_PZEM);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
 
     uint8_t resp[25];
     int len = uart_read_bytes(PZEM_UART, resp, 25, PZEM_RX_TIMEOUT);
     if (len < 25) {
         data->valid = false;
+        circuit_breaker_record_failure(CB_BUS_UART_PZEM);
         return ESP_ERR_TIMEOUT;
     }
 
@@ -86,6 +94,7 @@ esp_err_t pzem_read_all(pzem_data_t *data)
     if (crc_calc != crc_expected)
     {
         data->valid = false;
+        circuit_breaker_record_failure(CB_BUS_UART_PZEM);
         return ESP_ERR_INVALID_CRC;
     }
 
@@ -98,6 +107,7 @@ esp_err_t pzem_read_all(pzem_data_t *data)
     data->valid = true;
     data->last_read_ms = (uint64_t)(esp_timer_get_time() / USEC_PER_MSEC);
 
+    circuit_breaker_record_success(CB_BUS_UART_PZEM);
     return ESP_OK;
 }
 

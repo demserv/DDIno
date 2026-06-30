@@ -1,4 +1,5 @@
-// @requirement RNF-SECURITY-001 Rate limiting (5 tentativas/min/IP com bloqueio)
+// @requirement RNF-SECURITY-001 Rate limiting geral da API REST (req/min por IP).
+// Login usa max_login_attempts em api_auth.c (separado deste módulo).
 #include "api_rate_limit.h"
 #include "hardware_config.h"
 #include <string.h>

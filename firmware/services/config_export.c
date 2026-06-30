@@ -3,6 +3,7 @@
 #include "services/config_manager.h"
 #include "config_root.h"
 #include "param_catalog.h"
+#include "global_state.h"
 
 #include "cJSON.h"
 #include "esp_log.h"
@@ -113,6 +114,12 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON *cal = cJSON_CreateObject();
     cJSON_AddNumberToObject(cal, "ato_zero_offset_adc", (double)root->calibration.ato_zero_offset_adc);
     cJSON_AddNumberToObject(cal, "temp_offset_c", (double)root->calibration.temp_offset_c);
+    cJSON *acs712_arr = cJSON_CreateArray();
+    for (int i = 0; i < 10; i++) {
+        cJSON_AddItemToArray(acs712_arr,
+                             cJSON_CreateNumber((double)root->calibration.acs712_zero_offset_mv[i]));
+    }
+    cJSON_AddItemToObject(cal, "acs712_zero_offset_mv", acs712_arr);
     cJSON_AddItemToObject(o, "calibration", cal);
     return o;
 }
@@ -277,6 +284,22 @@ static bool json_to_root(cJSON *json, config_root_t *root, const config_root_t *
         cJSON *v = cJSON_GetObjectItem(cal, "ato_zero_offset_adc");
         if (cJSON_IsNumber(v)) root->calibration.ato_zero_offset_adc = (int32_t)v->valuedouble;
         parse_number_f(cal, "temp_offset_c", &root->calibration.temp_offset_c);
+        cJSON *arr = cJSON_GetObjectItem(cal, "acs712_zero_offset_mv");
+        if (cJSON_IsArray(arr)) {
+            int n = cJSON_GetArraySize(arr);
+            if (n != 10) {
+                ESP_LOGW(TAG, "Import rejected: acs712_zero_offset_mv deve ter 10 elementos");
+                return false;
+            }
+            for (int i = 0; i < 10; i++) {
+                cJSON *el = cJSON_GetArrayItem(arr, i);
+                if (!cJSON_IsNumber(el)) {
+                    ESP_LOGW(TAG, "Import rejected: acs712_zero_offset_mv[%d] invalido", i);
+                    return false;
+                }
+                root->calibration.acs712_zero_offset_mv[i] = (float)el->valuedouble;
+            }
+        }
     }
 
     config_root_compute_crc(root);
@@ -322,6 +345,12 @@ esp_err_t config_import_from_json(cJSON *json, bool dry_run, bool *valid_out, ui
     err = config_set_system(&incoming.system); if (err) goto rollback;
     err = config_save_all();
     if (err) goto rollback;
+    {
+        global_state_t *gs = global_state_get_write_ptr();
+        if (gs) {
+            global_state_sync_from_config(gs);
+        }
+    }
     ESP_LOGI(TAG, "Import committed crc=0x%08lX", (unsigned long)incoming.crc32);
     return ESP_OK;
 

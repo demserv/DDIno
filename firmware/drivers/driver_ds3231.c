@@ -3,6 +3,7 @@
 #include "driver_ds3231.h"
 #include "hardware_config.h"
 #include "hal/hal_bus.h"
+#include "core/circuit_breaker.h"
 #include "esp_log.h"
 
 static const char *TAG = "ds3231";
@@ -31,6 +32,11 @@ esp_err_t ds3231_init(void)
     uint8_t val = 0;
     esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1,
                                                      pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    if (ret == ESP_OK) {
+        circuit_breaker_record_success(CB_BUS_I2C);
+    } else {
+        circuit_breaker_record_failure(CB_BUS_I2C);
+    }
     s_ds3231_ok = (ret == ESP_OK);
     if (!s_ds3231_ok) {
         ESP_LOGW(TAG, "DS3231 RTC nao detectado em 0x%02X: %s", DS3231_ADDR, esp_err_to_name(ret));
@@ -61,15 +67,28 @@ esp_err_t ds3231_set_time(const ds3231_time_t *t)
         month_reg,
         dec_to_bcd(t->year % 100)
     };
-    return hal_i2c_master_write_to_device(I2C_NUM_0, DS3231_ADDR, buf, 8, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t err = hal_i2c_master_write_to_device(I2C_NUM_0, DS3231_ADDR, buf, 8, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    if (err == ESP_OK) {
+        circuit_breaker_record_success(CB_BUS_I2C);
+    } else {
+        circuit_breaker_record_failure(CB_BUS_I2C);
+    }
+    return err;
 }
 
 esp_err_t ds3231_get_time(ds3231_time_t *t)
 {
+    if (!circuit_breaker_is_available(CB_BUS_I2C)) {
+        return ESP_ERR_INVALID_STATE;
+    }
     uint8_t reg = DS3231_REG_SEC;
     uint8_t buf[7];
     esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, buf, 7, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK) {
+        circuit_breaker_record_failure(CB_BUS_I2C);
+        return ret;
+    }
+    circuit_breaker_record_success(CB_BUS_I2C);
 
     t->second = bcd_to_dec(buf[0] & 0x7F);
     t->minute = bcd_to_dec(buf[1]);

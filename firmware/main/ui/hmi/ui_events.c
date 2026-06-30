@@ -13,6 +13,7 @@
 #include "services/safe_state_ack.h"
 #include "services/audit_log.h"
 #include "driver_buzzer_led.h"
+#include "ui_app.h"
 
 extern global_state_t g_gs;
 extern bool g_feed_request;
@@ -44,6 +45,19 @@ ui_mute_duration_t ui_events_get_mute_duration(void)
     return s_mute_duration;
 }
 
+void ui_events_ack_alert(int16_t alm_id)
+{
+    if (alm_id <= 0) return;
+    cmd_validation_t cv = command_validator_can_ack_alert(&g_gs, (uint16_t)alm_id);
+    if (!cv.allowed) return;
+    if (!alert_manager_is_active(alm_id)) return;
+    uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+    alert_manager_ack_with_policy(alm_id, now_s);
+    safe_state_ack_on_alert_ack(alm_id, now_s);
+    audit_log_event(AUDIT_COMMAND, "ACK alert via UI (single)");
+    ui_app_refresh_now();
+}
+
 void ui_events_emit(ui_event_t event)
 {
     /* EMERGENCY/SAFE_OFF: bloqueia ações que não sejam ACK (RF-UI-OVERLAY-001).
@@ -73,6 +87,7 @@ void ui_events_emit(ui_event_t event)
                 safe_state_ack_on_alert_ack(id, now_s);
             }
             audit_log_event(AUDIT_COMMAND, "ACK alerts via UI (criticos exigem 2o ACK)");
+            ui_app_refresh_now();
             break;
         }
 

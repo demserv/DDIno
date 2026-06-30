@@ -89,6 +89,20 @@ static bool plug_startup_delay_active(plug_id_t id)
     return (now_ms - s_boot_ms) < (uint64_t)HW_RELAY_P01_P02_STARTUP_DELAY_MS;
 }
 
+void plug_manager_reload_limits(void)
+{
+    const plug_limits_storage_t *pl = config_get_plug_limits();
+    if (!pl) {
+        return;
+    }
+    for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
+        s_plugs[i].min_on_time_s = pl->min_on_time_s;
+        s_plugs[i].min_off_time_s = pl->min_off_time_s;
+    }
+    ESP_LOGI(TAG, "Plug limits NVS: min_on=%lus min_off=%lus",
+             (unsigned long)pl->min_on_time_s, (unsigned long)pl->min_off_time_s);
+}
+
 void plug_manager_init(void)
 {
     s_boot_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
@@ -107,8 +121,6 @@ void plug_manager_init(void)
         p->visual_state = PLUG_VISUAL_STATE_OFF_NORMAL;
         p->is_critical = (p->type == PLUG_TYPE_AQUECEDOR || p->type == PLUG_TYPE_COOLER);
         p->current_limit_a = 10.0f;
-        p->min_on_time_s = 60;
-        p->min_off_time_s = 30;
         p->timer_on_s = 0;
         p->timer_off_s = 0;
         p->delay_seconds = 0;
@@ -119,6 +131,7 @@ void plug_manager_init(void)
         p->fator_curto = 3.0f;
         p->tempo_deteccao_curto_ms = 500;
     }
+    plug_manager_reload_limits();
     memset(s_bypass_sample_count, 0, sizeof(s_bypass_sample_count));
     s_in_safe_off = false;
     ESP_LOGI(TAG, "Plug manager initialized, %d plugs", PLUG_COUNT_TOTAL);

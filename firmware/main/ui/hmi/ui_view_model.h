@@ -87,6 +87,7 @@ typedef struct {
     float value;
     uint16_t related_plug_id;
     alert_category_t category;
+    int16_t alm_id;
 } ui_alert_vm_t;
 
 typedef struct {

@@ -1,7 +1,18 @@
 // @requirement RF-ALERT-001 a RF-ALERT-006 Componente de linha de alerta na UI
 #include "ui_alert_row.h"
+#include "../ui_events.h"
 #include "../ui_theme.h"
+#include <stdio.h>
 #include <string.h>
+
+static void row_ack_click_cb(lv_event_t *e)
+{
+    ui_alert_row_t *row = (ui_alert_row_t *)lv_event_get_user_data(e);
+    if (!row || !row->ack_click_enabled || row->bound_alm_id <= 0) {
+        return;
+    }
+    ui_events_ack_alert(row->bound_alm_id);
+}
 
 static lv_color_t severity_color(ui_alert_severity_t sev)
 {
@@ -81,6 +92,18 @@ void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y)
     lv_obj_set_style_text_font(row->meta_label, UI_FONT_SMALL, 0);
     lv_obj_set_style_text_color(row->meta_label, UI_COLOR_TEXT_DIM, 0);
     lv_obj_set_pos(row->meta_label, 12, 34);
+
+    row->bound_alm_id = 0;
+    row->ack_click_enabled = false;
+    lv_obj_add_flag(row->root, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(row->root, row_ack_click_cb, LV_EVENT_CLICKED, row);
+}
+
+void ui_alert_row_set_ack_enabled(ui_alert_row_t *row, bool enabled, int16_t alm_id)
+{
+    if (!row) return;
+    row->ack_click_enabled = enabled;
+    row->bound_alm_id = enabled ? alm_id : 0;
 }
 
 void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert)

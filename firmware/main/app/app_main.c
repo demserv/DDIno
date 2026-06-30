@@ -238,13 +238,13 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
         if (degraded) {
             global_state_enter_degraded(&g_gs, "restart_complete");
         } else {
-            g_gs.system_state = SYSTEM_STATE_NORMAL;
+            global_state_enter_normal(&g_gs, "restart_complete");
         }
-        g_gs.safeoff_reason = SAFEOFF_REASON_NONE;
         g_gs.restart_in_progress = false;
-        g_gs.safeoff_source_alm[0] = '\0';
         plug_manager_set_restart_mask(0);
-        audit_log_event(AUDIT_SAFE_OFF, "Restart sequence complete -> NORMAL");
+        audit_log_event(AUDIT_SAFE_OFF,
+                         degraded ? "Restart sequence complete -> DEGRADED"
+                                  : "Restart sequence complete -> NORMAL");
         restart_fsm_abort(&g_restart_fsm);
         return;
     }
@@ -1130,6 +1130,8 @@ void app_main(void)
             audit_log_event(AUDIT_SELF_TEST, "Self-test CRITICAL falhou -> SAFE_OFF (ALM-063)");
         } else {
             ESP_LOGE(TAG, "SELF-TEST FALHOU (nao critico)! Hardware com problemas -> DEGRADED + alerta");
+            /* @requirement ALM-063 / self_test.c: falhas CRITICAS -> SAFE_OFF (bloco acima);
+             * falhas INFO (display/touch/etc.) -> DEGRADED operacional com ALM-063 HIGH. */
             global_state_enter_degraded(&g_gs, "selftest_fail");
             g_gs.hw_alert_pending = true;
             g_gs.hw_alert_alm_id = ALM_063;

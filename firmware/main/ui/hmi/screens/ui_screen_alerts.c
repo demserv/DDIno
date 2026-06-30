@@ -126,16 +126,19 @@ void ui_screen_alerts_update(ui_root_vm_t *vm)
             continue;
         }
         ui_alert_row_update(&active_rows[disp], &vm->alerts.active_alerts[i]);
+        ui_alert_row_set_ack_enabled(&active_rows[disp], true, vm->alerts.active_alerts[i].alm_id);
         lv_obj_clear_flag(active_rows[disp].root, LV_OBJ_FLAG_HIDDEN);
         disp++;
     }
     for (int i = disp; i < UI_MAX_ALERTS; i++) {
+        ui_alert_row_set_ack_enabled(&active_rows[i], false, 0);
         lv_obj_add_flag(active_rows[i].root, LV_OBJ_FLAG_HIDDEN);
     }
 
     for (int i = 0; i < UI_MAX_ALERTS; i++) {
         if (i < vm->alerts.history_count) {
             ui_alert_row_update(&history_rows[i], &vm->alerts.history_alerts[i]);
+            ui_alert_row_set_ack_enabled(&history_rows[i], false, 0);
             lv_obj_clear_flag(history_rows[i].root, LV_OBJ_FLAG_HIDDEN);
         } else {
             lv_obj_add_flag(history_rows[i].root, LV_OBJ_FLAG_HIDDEN);

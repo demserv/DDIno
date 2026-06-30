@@ -62,6 +62,14 @@ void ui_app_init(void)
     ui_topbar_update(&g_topbar, &g_vm.topbar);
 }
 
+void ui_app_refresh_now(void)
+{
+    ui_view_model_update_from_system(&g_vm);
+    ui_topbar_update(&g_topbar, &g_vm.topbar);
+    ui_footer_update(&g_footer, &g_vm.footer);
+    ui_screen_manager_refresh();
+}
+
 void ui_app_tick(void)
 {
     driver_ad_keypad_gesture_poll();

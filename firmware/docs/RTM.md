@@ -103,10 +103,25 @@ Linhas abaixo refletem somente código realmente presente após a correção.
 | NC-F12 | thermal_service sem hardcode | services/thermal_service.c | setpoint NVS, force_safe_off real | COMPLIANT |
 | NC-U08 | Histórico + filtro alertas | alert_manager.c, ui_screen_alerts.c | history ring + roller categoria | COMPLIANT |
 | NC-PRESET-UI | Presets P03-P10 | ui_preset_picker.c, ui_device_row.c | picker UI + API /plugs/preset | COMPLIANT |
-| NC-U13 | Telas órfãs | main/CMakeLists.txt | screen_calibration/submenu removidas | COMPLIANT |
+| NC-U13 | Telas órfãs | main/CMakeLists.txt | screen_submenu removida; calibração via API | COMPLIANT |
 | NC-I01 | Self-test relés | services/self_test.c | GPIO readback P01/P02, MCP read P03-P10 | COMPLIANT |
 
-## Sprint Fase I (compliance >= 95% rigoroso) — 2026-06-30
+## Sprint Fase L (compliance ≥95% código, build BYPASS) — 2026-06-30
+
+| NC | Requisito | Arquivo | Evidência | Status |
+|---|---|---|---|---|
+| NC-S09b | RF-GLOBAL-002 | main/app/app_main.c | restart → global_state_enter_normal | COMPLIANT |
+| NC-S09/NC-S09c | RNF-GLOBAL-ANTIFLAP-001 | core/global_state.c, safety_controller.c | global_state_antiflap_allow (NVS) | COMPLIANT |
+| NC-A07/A07b | RF-WEB-008 | config_export.c, global_state.c | ACS712 JSON + sync g_gs pós-import | COMPLIANT |
+| NC-FEED-01 | RF-FEED-001 | config_manager.c | feed_cooldown_min=0 explícito | COMPLIANT |
+| NC-A10b | RNF-SECURITY-001 | api_rate_limit.c, api_auth.c | login vs API geral documentados | COMPLIANT |
+| NC-I02 | RNF-ELECTRICAL-001 | drivers/*.c, core/circuit_breaker.c | CB_BUS_* record_success/failure; thresholds HW_CB_* documentados (sem param NVS resilience nesta versão) | COMPLIANT |
+| NC-S08b | RF-PLUG-008 | services/plug_manager.c | plug_manager_reload_limits() ← config_get_plug_limits NVS | COMPLIANT |
+| NC-U13 | Telas órfãs | — | screen_submenu/calibration removidas; calibração via API | COMPLIANT |
+| NC-S09-API | RF-GLOBAL-002 | safety_controller.c | evaluate → global_state_transition() | COMPLIANT |
+| NC-U14 | RF-ALERT-004 | ui_events.c, ui_app.c | ACK individual + ui_app_refresh_now() | COMPLIANT |
+
+## Sprint Fase M (pós-reauditoria 90,2% → ≥95%) — 2026-06-30
 
 | Gap | Requisito | Arquivo | Evidência | Status |
 |---|---|---|---|---|

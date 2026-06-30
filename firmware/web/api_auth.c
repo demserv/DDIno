@@ -3,7 +3,6 @@
 // @requirement RNF-SECURITY-002 Expiração e renovação de sessão
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "api_auth.h"
-#include "api_rate_limit.h"
 #include "config_manager.h"
 #include "hardware_config.h"
 #include "esp_log.h"

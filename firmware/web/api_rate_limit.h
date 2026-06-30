@@ -1,4 +1,5 @@
-// @requirement RNF-SECURITY-001 Rate limiting por IP
+// @requirement RNF-SECURITY-001 Rate limiting geral da API REST por IP (janela RATE_LIMIT_WINDOW_S).
+// Tentativas de login: ver api_auth.c + security.max_login_attempts na config.
 #ifndef FIRMWARE_WEB_API_RATE_LIMIT_H
 #define FIRMWARE_WEB_API_RATE_LIMIT_H
 

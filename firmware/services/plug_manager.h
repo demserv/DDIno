@@ -9,6 +9,7 @@
 #include "services/plug_preset_catalog.h"
 
 void plug_manager_init(void);
+void plug_manager_reload_limits(void);
 void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_active);
 plug_mode_t plug_manager_get_mode(plug_id_t id);
 esp_err_t plug_manager_set_mode(plug_id_t id, plug_mode_t mode);

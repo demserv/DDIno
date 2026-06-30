@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "alert_manager.h"
+#include "core/circuit_breaker.h"
 
 static const char *TAG = "ds18b20";
 
@@ -112,12 +113,17 @@ esp_err_t ds18b20_init(void)
 
 bool ds18b20_read(float *temp_c)
 {
+    if (!circuit_breaker_is_available(CB_BUS_DS18B20)) {
+        return false;
+    }
+
     uint8_t scratchpad[9];
     uint64_t start = esp_timer_get_time() / USEC_PER_MSEC;
 
     if (!ow_reset()) {
         ESP_LOGW(TAG, "DS18B20 sem resposta (ow_reset falhou)");
         alert_manager_raise(ALM_013, true, start / USEC_PER_MSEC);
+        circuit_breaker_record_failure(CB_BUS_DS18B20);
         return false;
     }
     ow_write_byte(0xCC);
@@ -131,6 +137,7 @@ bool ds18b20_read(float *temp_c)
     if (!ow_reset()) {
         ESP_LOGW(TAG, "DS18B20 sem resposta apos conversao");
         alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
+        circuit_breaker_record_failure(CB_BUS_DS18B20);
         return false;
     }
     ow_write_byte(0xCC);
@@ -141,6 +148,7 @@ bool ds18b20_read(float *temp_c)
     if (crc8_dallas(scratchpad, 8) != scratchpad[8]) {
         ESP_LOGW(TAG, "CRC mismatch on scratchpad");
         alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
+        circuit_breaker_record_failure(CB_BUS_DS18B20);
         return false;
     }
     int16_t raw = (int16_t)((scratchpad[1] << 8) | scratchpad[0]);
@@ -148,8 +156,10 @@ bool ds18b20_read(float *temp_c)
     if (*temp_c > 84.9f && *temp_c < 85.1f) {
         ESP_LOGW(TAG, "Rejeitando leitura 85C (power-on reset)");
         alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
+        circuit_breaker_record_failure(CB_BUS_DS18B20);
         return false;
     }
+    circuit_breaker_record_success(CB_BUS_DS18B20);
     return true;
 }
 

@@ -16,7 +16,10 @@
 #include "relay_abstraction.h"
 #include "event_bus.h"
 #include "hardware_config.h"
+#include "config_root.h"
+#include "driver_acs712.h"
 #include "safety_controller.h"
+#include "services/plug_manager.h"
 
 static const char *TAG = "global_state";
 
@@ -63,7 +66,7 @@ static event_id_t state_to_event(system_state_t s)
     }
 }
 
-static bool check_antiflap(uint64_t now_ms)
+bool global_state_antiflap_allow(uint64_t now_ms)
 {
     const antiflap_params_storage_t *cfg = config_get_antiflap();
     uint32_t cooldown_ms = cfg->cooldown_reentrada_s * MS_PER_SEC;
@@ -80,6 +83,31 @@ static bool check_antiflap(uint64_t now_ms)
     }
     s_transition_count_in_window++;
     return s_transition_count_in_window <= max_trans;
+}
+
+void global_state_antiflap_commit(uint64_t now_ms)
+{
+    s_last_transition_ms = now_ms;
+}
+
+void global_state_sync_from_config(global_state_t *gs)
+{
+    if (!gs) {
+        return;
+    }
+    const system_params_storage_t *sys = config_get_system();
+    gs->wizard_completed = sys->wizard_completed;
+    gs->monitor_only_mode = sys->monitor_only_mode;
+    gs->maintenance_mode = sys->maintenance_mode;
+    gs->wizard_step = (wizard_step_t)config_get_wizard_step();
+    snprintf(gs->config_schema_version, sizeof(gs->config_schema_version),
+             "%s", CONFIG_ROOT_SCHEMA_VERSION);
+
+    const calibration_params_storage_t *cal = config_get_calibration();
+    for (int p = 1; p <= 10; p++) {
+        acs712_set_zero_offset((uint8_t)p, cal->acs712_zero_offset_mv[p - 1]);
+    }
+    plug_manager_reload_limits();
 }
 
 esp_err_t global_state_init(void)
@@ -151,7 +179,9 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
                                    uint64_t now_s)
 {
     /* @requirement RF-GLOBAL-002 Autoridade única: delega às funções enter_* que
-     * compartilham audit, relay OFF e safeoff_record com safety_controller. */
+     * compartilham audit, relay OFF e safeoff_record com safety_controller.
+     * Runtime loop usa safety_controller_evaluate → enter_* diretamente;
+     * esta API é equivalente para callers explícitos (testes/futuro). */
     if (!s_gs) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -164,7 +194,6 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
         case SYSTEM_STATE_DEGRADED:
             return global_state_enter_degraded(s_gs, source_module);
         case SYSTEM_STATE_NORMAL: {
-            uint64_t now_ms = now_s * MS_PER_SEC;
             mutex_lock();
             if (s_gs->system_state == SYSTEM_STATE_EMERGENCY) {
                 mutex_unlock();
@@ -174,22 +203,10 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
                 mutex_unlock();
                 return ESP_ERR_INVALID_STATE;
             }
-            if (!check_antiflap(now_ms)) {
-                mutex_unlock();
-                return ESP_ERR_INVALID_STATE;
-            }
-            system_state_t prev = s_gs->system_state;
-            s_gs->system_state = SYSTEM_STATE_NORMAL;
-            s_gs->safeoff_reason = SAFEOFF_REASON_NONE;
-            s_gs->safeoff_source_alm[0] = '\0';
-            s_gs->safeoff_entered_at[0] = '\0';
-            s_gs->electric_ok = true;
-            s_last_transition_ms = now_ms;
             mutex_unlock();
-            audit_log_state_change(state_to_str(prev), "NORMAL",
-                                   source_module ? source_module : "global_state_transition");
-            event_bus_publish(EVENT_ID_NORMAL, NULL);
-            return ESP_OK;
+            /* Anti-flap: responsabilidade do caller (safety_controller_evaluate). */
+            return global_state_enter_normal(s_gs,
+                source_module ? source_module : "global_state_transition");
         }
         default:
             return ESP_ERR_INVALID_ARG;

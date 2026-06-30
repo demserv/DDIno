@@ -17,7 +17,11 @@ typedef struct {
     lv_obj_t *silence_label;
     lv_obj_t *action_label;
     lv_obj_t *meta_label;
+    int16_t bound_alm_id;
+    bool ack_click_enabled;
 } ui_alert_row_t;
+
+void ui_alert_row_set_ack_enabled(ui_alert_row_t *row, bool enabled, int16_t alm_id);
 
 void ui_alert_row_create(ui_alert_row_t *row, lv_obj_t *parent, int x, int y);
 void ui_alert_row_update(ui_alert_row_t *row, const ui_alert_vm_t *alert);

@@ -13,8 +13,11 @@
 #include "esp_log.h"
 
 #include "audit_log.h"
+#include "config_manager.h"
 #include "relay_abstraction.h"
 #include "event_log.h"
+#include "event_bus.h"
+#include "global_state.h"
 #include "hardware_config.h"
 #include "services/safeoff_record.h"
 #include "services/safe_state_ack.h"
@@ -104,27 +107,8 @@ esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_modul
     ESP_LOGI("safety", "NORMAL entered from %s module=%s",
              system_state_to_str(prev), source_module ? source_module : "?");
     audit_log_state_change(system_state_to_str(prev), "NORMAL", source_module ? source_module : "enter_normal");
+    event_bus_publish(EVENT_ID_NORMAL, NULL);
     return ESP_OK;
-}
-
-static bool check_antiflap(system_state_t next, uint64_t now_ms)
-{
-    (void)next;
-    if (s_ctx.last_transition_ms == 0) return true;
-    uint64_t elapsed = now_ms - s_ctx.last_transition_ms;
-    if (elapsed < HW_ANTIFLAP_COOLDOWN_MS) return false;
-
-    if (s_ctx.flap_window_start_ms == 0) {
-        s_ctx.flap_window_start_ms = now_ms;
-        s_ctx.transition_count_in_window = 0;
-    }
-    if ((now_ms - s_ctx.flap_window_start_ms) > HW_ANTIFLAP_WINDOW_MS) {
-        s_ctx.flap_window_start_ms = now_ms;
-        s_ctx.transition_count_in_window = 0;
-    }
-    s_ctx.transition_count_in_window++;
-    if (s_ctx.transition_count_in_window > HW_ANTIFLAP_MAX_TRANSITIONS) return false;
-    return true;
 }
 
 void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, uint64_t now_s)
@@ -159,26 +143,29 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
     if (prev == SYSTEM_STATE_EMERGENCY && next != SYSTEM_STATE_EMERGENCY) return;
 
     bool is_recovery = (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED);
-    if (is_recovery && !check_antiflap(next, now_s * MS_PER_SEC)) {
-        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
+    uint64_t now_ms = now_s * MS_PER_SEC;
+    if (is_recovery && !global_state_antiflap_allow(now_ms)) {
+        const antiflap_params_storage_t *cfg = config_get_antiflap();
+        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %lu em %lus)",
                  system_state_to_str(prev), system_state_to_str(next),
-                 HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
+                 (unsigned long)cfg->max_transicoes_flap, (unsigned long)cfg->janela_flap_s);
         return;
     }
 
     const char *cause = in->transition_cause ? in->transition_cause : "safety_controller";
 
-    if (next == SYSTEM_STATE_EMERGENCY) {
-        global_state_enter_emergency(gs, cause, now_s);
-    } else if (next == SYSTEM_STATE_SAFE_OFF) {
-        global_state_enter_safeoff(gs, in->safeoff_reason_if_any, in->safeoff_source_alm, cause, now_s);
-    } else if (next == SYSTEM_STATE_DEGRADED) {
-        global_state_enter_degraded(gs, cause);
-    } else if (next == SYSTEM_STATE_NORMAL) {
-        global_state_enter_normal(gs, cause);
+    safeoff_reason_t so_reason = in->safeoff_reason_if_any;
+    if (next == SYSTEM_STATE_SAFE_OFF && so_reason == SAFEOFF_REASON_NONE) {
+        ESP_LOGW(TAG, "SAFE_OFF bloqueado: safeoff_reason_if_any ausente");
+        return;
     }
 
-    s_ctx.last_transition_ms = now_s * MS_PER_SEC;
+    esp_err_t tr = global_state_transition(next, so_reason, in->safeoff_source_alm, cause, now_s);
+    if (tr != ESP_OK) {
+        return;
+    }
+
+    global_state_antiflap_commit(now_ms);
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
              system_state_to_str(prev), system_state_to_str(next), cause);

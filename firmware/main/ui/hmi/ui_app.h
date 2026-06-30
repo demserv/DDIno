@@ -4,5 +4,6 @@
 
 void ui_app_init(void);
 void ui_app_tick(void);
+void ui_app_refresh_now(void);
 
 #endif

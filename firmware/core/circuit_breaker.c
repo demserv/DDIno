@@ -15,6 +15,8 @@ static const uint32_t DEFAULT_RECOVER_TIMEOUT_MS = HW_CB_RECOVER_TIMEOUT_MS;
 
 void circuit_breaker_init(void)
 {
+    /* Thresholds: HW_CB_* em hardware_config.h (engineering defaults).
+     * Catálogo NVS resilience não define falhas_max_* nesta versão — ver RTM Fase M. */
     memset(s_breakers, 0, sizeof(s_breakers));
     for (int i = 0; i < CB_COUNT; i++) {
         s_breakers[i].id = (cb_bus_id_t)i;

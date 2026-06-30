@@ -27,6 +27,7 @@ typedef enum {
 } ui_mute_duration_t;
 
 void ui_events_emit(ui_event_t event);
+void ui_events_ack_alert(int16_t alm_id);
 /* Seleciona a duração aplicada no próximo UI_EVENT_REQUEST_MUTE. */
 void ui_events_set_mute_duration(ui_mute_duration_t duration);
 ui_mute_duration_t ui_events_get_mute_duration(void);

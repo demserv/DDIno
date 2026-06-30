@@ -122,6 +122,7 @@ static void sort_alerts_by_priority(alert_slot_t *arr, uint16_t count)
 
 static void fill_alert_vm(ui_alert_vm_t *av, const alert_slot_t *slot)
 {
+    av->alm_id = slot->alm_id;
     snprintf(av->id, sizeof(av->id), "ALM-%03d", (int)slot->alm_id);
     av->severity = map_alert_severity(slot->severity);
     av->category = slot->category;

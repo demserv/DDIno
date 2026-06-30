@@ -120,6 +120,8 @@ static void set_defaults(void)
     s_restart.tempo_monitoramento_pos_relig_s = PARAM_RESTART_DEFAULT_MONITOR_S;
 
     s_feed.feed_duration_min          = PARAM_FEED_DEFAULT_DURATION_MIN;
+    /* @requirement RF-FEED-001 cooldown opcional: 0 = desabilitado (feed_fsm.c). SRS não define valor default. */
+    s_feed.feed_cooldown_min          = 0;
 
     s_security.session_timeout_min    = PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT;
     s_security.max_login_attempts     = PARAM_SECURITY_DEFAULT_MAX_LOGIN;

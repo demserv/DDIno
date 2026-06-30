@@ -3,6 +3,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
+#include "core/circuit_breaker.h"
 #include "hal_spi.h"
 #include "pin_map.h"
 
@@ -20,6 +21,9 @@ esp_err_t mcp3208_read_channel(int cs_gpio, uint8_t channel, uint16_t *adc_value
     if (channel > 7 || adc_value == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    if (!circuit_breaker_is_available(CB_BUS_SPI_ADC)) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
     uint8_t tx_buf[3] = { 0x06, (uint8_t)(channel << 6), 0x00 };
     uint8_t rx_buf[3] = { 0 };
@@ -31,9 +35,13 @@ esp_err_t mcp3208_read_channel(int cs_gpio, uint8_t channel, uint16_t *adc_value
     };
 
     esp_err_t err = hal_spi_transaction_with_cs(HAL_SPI_DEVICE_MCP3208, cs_gpio, &t);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        circuit_breaker_record_failure(CB_BUS_SPI_ADC);
+        return err;
+    }
 
     *adc_value = ((uint16_t)(rx_buf[1] & 0x0F) << 8) | rx_buf[2];
+    circuit_breaker_record_success(CB_BUS_SPI_ADC);
     return ESP_OK;
 }
 

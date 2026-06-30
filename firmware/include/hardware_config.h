@@ -122,6 +122,8 @@
 // --- WDT ---
 #define HW_WDT_TIMEOUT_MS                (2000U)
 #define HW_WDT_ADV_TIMEOUT_MS            (10000U)
+/* Limite de engenharia para health degrade (app_main/self_test); observabilidade via wdt_resets_24h na SRS.
+ * Não normativo como param operacional — sem entrada dedicada no catálogo NVS. */
 #define HW_WDT_RESET_MAX_24H             (3U)
 
 // --- SD card ---
