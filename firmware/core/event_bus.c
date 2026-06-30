@@ -6,9 +6,6 @@
 
 static const char *TAG = "event_bus";
 
-#define MAX_SUBSCRIBERS_PER_EVENT 8
-#define MAX_PENDING_EVENTS 16
-
 typedef struct {
     event_id_t evt;
     event_callback_t cb;
@@ -21,10 +18,10 @@ typedef struct {
     void *data;
 } pending_event_t;
 
-static subscriber_t s_subs[MAX_SUBSCRIBERS_PER_EVENT];
+static subscriber_t s_subs[EVENT_BUS_MAX_SUBSCRIBERS];
 static int s_sub_count;
 
-static pending_event_t s_pending[MAX_PENDING_EVENTS];
+static pending_event_t s_pending[EVENT_BUS_MAX_PENDING];
 static int s_pending_head;
 static int s_pending_tail;
 
@@ -40,7 +37,7 @@ esp_err_t event_bus_init(void)
 
 esp_err_t event_bus_subscribe(event_id_t evt, event_callback_t cb, void *user_ctx)
 {
-    if (s_sub_count >= MAX_SUBSCRIBERS_PER_EVENT) return ESP_ERR_NO_MEM;
+    if (s_sub_count >= EVENT_BUS_MAX_SUBSCRIBERS) return ESP_ERR_NO_MEM;
     s_subs[s_sub_count].evt = evt;
     s_subs[s_sub_count].cb = cb;
     s_subs[s_sub_count].user_ctx = user_ctx;
@@ -72,7 +69,7 @@ esp_err_t event_bus_publish(event_id_t evt, void *data)
 
 esp_err_t event_bus_publish_isr(event_id_t evt, void *data)
 {
-    int next = (s_pending_head + 1) % MAX_PENDING_EVENTS;
+    int next = (s_pending_head + 1) % EVENT_BUS_MAX_PENDING;
     if (next == s_pending_tail) return ESP_ERR_NO_MEM;
     s_pending[s_pending_head].evt = evt;
     s_pending[s_pending_head].data = data;
@@ -84,6 +81,6 @@ void event_bus_process_pending(void)
 {
     while (s_pending_tail != s_pending_head) {
         event_bus_publish(s_pending[s_pending_tail].evt, s_pending[s_pending_tail].data);
-        s_pending_tail = (s_pending_tail + 1) % MAX_PENDING_EVENTS;
+        s_pending_tail = (s_pending_tail + 1) % EVENT_BUS_MAX_PENDING;
     }
 }
