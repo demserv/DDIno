@@ -13,11 +13,11 @@ static const conf_ctl_config_t s_defaults = {
     .network = { "", "", true, "0.0.0.0", "0.0.0.0", "0.0.0.0" },
     .sensor  = { 18.0f, 30.0f, 35.0f },
     .actuator = { 100, 100, true },
-    .alert   = { true, 300, 1000 },
+    .alert   = { true, 300 /* 300s ack timeout */, 1000 /* 1000ms spam cooldown */ },
     .display = { 80, true, 300 },
-    .log     = { LOG_LEVEL_INFO, true, 512 },
-    .ota     = { false, "", 24 },
-    .datetime = { "America/Sao_Paulo", -3, true, "pool.ntp.org" },
+    .log     = { LOG_LEVEL_INFO, true, 512 /* 512KB max log file */ },
+    .ota     = { false, "", 24 /* 24h check interval */ },
+    .datetime = { "America/Sao_Paulo", -3 /* UTC-3 */, true, "pool.ntp.org" },
     .locale  = { "pt-BR", 'C' }
 };
 

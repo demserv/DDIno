@@ -1,0 +1,5 @@
+T-17: CONST CORRECTNESS - adicionar const em ponteiros read-only
+
+- API ja const-correct: parametros char* de entrada ja sao const char*
+- ui_screen_main_menu.c: targets[] -> const targets[]
+- ui_screen_system.c: actions[] -> const actions[]

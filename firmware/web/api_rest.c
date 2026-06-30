@@ -534,7 +534,7 @@ static esp_err_t login_handler(httpd_req_t *req)
     if (!token) return send_error(req, "invalid_credentials", ERR_AUTH_REQUIRED, 401, "401 Unauthorized");
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "token", token);
-    cJSON_AddNumberToObject(resp, "expires_in_s", 3600);
+    cJSON_AddNumberToObject(resp, "expires_in_s", (60 * 60));
     return send_json_resp(req, resp, "200 OK");
 }
 

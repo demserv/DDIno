@@ -193,9 +193,23 @@
 #define HW_TOUCH_DEBOUNCE_COUNT         (2U)
 #define HW_TOUCH_SPI_BUF_SIZE           (3U)
 
+// --- Feed FSM ---
+#define HW_FEED_PUMP_MASK_DEFAULT        (0x0FU)
+
+// --- Default display config ---
+#define HW_DISP_BRIGHTNESS_DEFAULT       (80U)
+#define HW_DISP_CONTRAST_DEFAULT         (50U)
+
 // --- Logging ---
 #define HW_SD_LOG_INTERVAL_S             (300U)
 #define HW_SD_PATH_BUF_SIZE             (320U)
 #define HW_SD_CMD_BUF_SIZE              (64U)
+
+// --- Web API ---
+#define HW_API_TOKEN_EXPIRY_S            (3600U)
+#define HW_API_AUTH_FAIL_TRACKERS        (8U)
+
+// --- UI ---
+#define HW_UI_SCREEN_TIMEOUT_S           (60U)
 
 #endif
