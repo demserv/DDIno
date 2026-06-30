@@ -26,7 +26,7 @@ void ui_screen_main_menu_create(lv_obj_t *parent, ui_root_vm_t *vm)
     static const char *icons[] = {"\xe2\x99\xa8", "\xe2\x99\xa8", "\xe2\x9a\xa1", "\xe2\x96\x88", "\xe2\x9a\xa0", "\xe2\x9a\x99", "\xf0\x9f\x93\xa1", "\xe2\x9a\x99", "\xf0\x9f\x94\x8d"};
     static const char *texts[] = {"Temperatura", "ATO", "Energia", "Dispositivos", "Alertas", "Configuracao", "Rede/WiFi", "Sistema", "Logs"};
 
-    static ui_screen_id_t targets[] = {
+    static const ui_screen_id_t targets[] = {
         UI_SCREEN_CONFIG_TEMPERATURE,
         UI_SCREEN_ATO,
         UI_SCREEN_ENERGY,
