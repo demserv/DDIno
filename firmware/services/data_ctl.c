@@ -1,8 +1,10 @@
-// @requirement DATA — Gerenciamento centralizado de dados
+﻿// @requirement DATA — Gerenciamento centralizado de dados
 #include "data_ctl.h"
-#include "esp_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "data_ctl";
 
@@ -41,3 +43,4 @@ esp_err_t data_ctl_purge_older_than(uint32_t age_hours)
     ESP_LOGI(TAG, "Purged data older than %u hours", (unsigned)age_hours);
     return ESP_OK;
 }
+

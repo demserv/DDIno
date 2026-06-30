@@ -1,5 +1,6 @@
-// @requirement BOM Audit — verificação de hardware presente vs. esperado
+﻿// @requirement BOM Audit — verificação de hardware presente vs. esperado
 #include "bom_ctl.h"
+
 #include "esp_log.h"
 
 static const char *TAG = "bom_ctl";
@@ -43,3 +44,4 @@ esp_err_t bom_ctl_scan(void)
 
 bool bom_ctl_all_present(void) { return true; }
 bool bom_ctl_any_critical_missing(void) { return false; }
+

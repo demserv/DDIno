@@ -1,8 +1,11 @@
-#include "safeoff_record.h"
+﻿#include "safeoff_record.h"
+
+#include <stdio.h>
+
+#include "esp_log.h"
+
 #include "storage_manager.h"
 #include "string.h"
-#include <stdio.h>
-#include "esp_log.h"
 
 static const char *TAG = "safeoff_rec";
 static safeoff_record_t s_rec;
@@ -75,3 +78,4 @@ esp_err_t safeoff_record_load(void)
     }
     return err;
 }
+

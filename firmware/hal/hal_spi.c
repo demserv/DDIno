@@ -1,12 +1,15 @@
-#include "hal_spi.h"
-#include "pin_map.h"
-#include "hardware_config.h"
+﻿#include "hal_spi.h"
+
+#include <string.h>
+
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "esp_log.h"
-#include <string.h>
+
+#include "hardware_config.h"
+#include "pin_map.h"
 
 static const char *TAG = "hal_spi";
 
@@ -159,3 +162,4 @@ spi_device_handle_t hal_spi_get_handle(hal_spi_device_t device)
     if (device >= HAL_SPI_DEVICE_COUNT) return NULL;
     return s_devices[device];
 }
+

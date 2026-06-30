@@ -1,7 +1,8 @@
-// @requirement RF-SENSOR-001 a RF-SENSOR-003 Medição coordenada de sensores
+﻿// @requirement RF-SENSOR-001 a RF-SENSOR-003 Medição coordenada de sensores
 #include "sensor_ctl.h"
-#include "driver_ds18b20.h"
+
 #include "driver_acs712.h"
+#include "driver_ds18b20.h"
 #include "driver_pzem.h"
 
 static const char *s_names[SENSOR_TYPE_COUNT] = {
@@ -69,3 +70,4 @@ void sensor_ctl_reset_error_count(sensor_ctl_type_t type)
     if ((int)type < 0 || type >= SENSOR_TYPE_COUNT) return;
     s_errors[type] = 0;
 }
+

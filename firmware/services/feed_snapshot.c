@@ -1,9 +1,11 @@
-// @requirement RF-PLUG-006 Snapshot operacional do Feed Mode
+﻿// @requirement RF-PLUG-006 Snapshot operacional do Feed Mode
 // @requirement RF-PLUG-006.1 Pós-queda de energia durante Feed Mode
 #include "services/feed_snapshot.h"
+
+#include <string.h>
+
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include <string.h>
 
 static const char *TAG = "feed_snap";
 
@@ -172,3 +174,4 @@ bool feed_snapshot_exists(void)
     nvs_close(h);
     return (err == ESP_OK && stored > 0);
 }
+

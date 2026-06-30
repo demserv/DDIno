@@ -1,7 +1,9 @@
-#include "log_manager.h"
-#include <string.h>
-#include <stdio.h>
+﻿#include "log_manager.h"
+
 #include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "esp_log.h"
 
 static const char *TAG = "log_mgr";
@@ -122,3 +124,4 @@ esp_err_t log_manager_clear(void)
 {
     return storage_atomic_flush();
 }
+

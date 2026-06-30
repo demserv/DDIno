@@ -1,8 +1,10 @@
-// @requirement RF-THERMAL-001..010 Gerenciamento térmico
+﻿// @requirement RF-THERMAL-001..010 Gerenciamento térmico
 #include "thermal_service.h"
-#include "thermal_fsm.h"
-#include "temp_filter.h"
+
 #include "esp_log.h"
+
+#include "temp_filter.h"
+#include "thermal_fsm.h"
 
 static const char *TAG = "thermal_svc";
 static thermal_fsm_t s_fsm;
@@ -58,3 +60,4 @@ esp_err_t thermal_service_force_safe_off(const char *reason)
     ESP_LOGW(TAG, "Force SAFE_OFF: %s", reason ? reason : "unspecified");
     return ESP_OK;
 }
+

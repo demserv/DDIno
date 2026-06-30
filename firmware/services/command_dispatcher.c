@@ -1,10 +1,12 @@
-#include "command_dispatcher.h"
-#include "command_validator.h"
-#include "safety_gate.h"
-#include "plug_manager.h"
-#include "alert_manager.h"
-#include "feed_snapshot.h"
+﻿#include "command_dispatcher.h"
+
 #include "esp_log.h"
+
+#include "alert_manager.h"
+#include "command_validator.h"
+#include "feed_snapshot.h"
+#include "plug_manager.h"
+#include "safety_gate.h"
 
 static const char *TAG = "cmd_dispatch";
 
@@ -76,3 +78,4 @@ esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id)
 
     return plug_manager_set_mode(plug_id);
 }
+

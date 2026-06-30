@@ -1,4 +1,4 @@
-// @requirement RF-GLOBAL-001 Definição de estados globais
+﻿// @requirement RF-GLOBAL-001 Definição de estados globais
 // @requirement RF-GLOBAL-002 Transições de estado global com anti-flap
 // @requirement RF-GLOBAL-003 Sinais sonoros/visuais em estado crítico
 // @requirement RF-GLOBAL-004 Rastreamento de causa de SAFE_OFF
@@ -6,13 +6,16 @@
 // @requirement RF-GLOBAL-EMERG-EXIT-001 Saída controlada de EMERGENCY
 // @requirement RNF-GLOBAL-ANTIFLAP-001 Estabilização de retorno
 #include "safety_controller.h"
-#include "hardware_config.h"
-#include "driver_relay.h"
-#include "audit_log.h"
-#include "event_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
 #include "esp_log.h"
+
+#include "audit_log.h"
+#include "driver_relay.h"
+#include "event_log.h"
+#include "hardware_config.h"
 
 static const char *TAG = "safety_controller";
 
@@ -218,3 +221,4 @@ bool safety_controller_can_exit_emergency(const global_state_t *gs, const safety
 
     return true;
 }
+

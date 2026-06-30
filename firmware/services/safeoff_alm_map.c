@@ -1,5 +1,6 @@
-// @requirement RF-GLOBAL-004 Mapeamento de causas de SAFE_OFF para ALMs
+﻿// @requirement RF-GLOBAL-004 Mapeamento de causas de SAFE_OFF para ALMs
 #include "safeoff_alm_map.h"
+
 #include "alm_ids.h"
 
 int16_t safeoff_reason_to_alm_id(safeoff_reason_t reason)
@@ -22,3 +23,4 @@ int16_t safeoff_reason_to_alm_id(safeoff_reason_t reason)
         default:                              return -1;
     }
 }
+

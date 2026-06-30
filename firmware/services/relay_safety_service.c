@@ -1,8 +1,10 @@
-// @requirement RF-PLUG-011 Desligamento manual de plugs críticos com dupla confirmação
+﻿// @requirement RF-PLUG-011 Desligamento manual de plugs críticos com dupla confirmação
 #include "relay_safety_service.h"
+
+#include <stddef.h>
+
 #include "driver_relay.h"
 #include "global_state.h"
-#include <stddef.h>
 
 static bool is_p01_p02(uint8_t plug_id)
 {
@@ -76,3 +78,4 @@ esp_err_t relay_logical_off(uint8_t plug_id, bool critical_confirmed)
     if (r != RELAY_APPLY_OK) return ESP_ERR_INVALID_STATE;
     return relay_set(plug_id, false);
 }
+

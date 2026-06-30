@@ -1,8 +1,10 @@
-// @requirement RF-WEB-001 a RF-WEB-008 Gerenciamento web estendido
+﻿// @requirement RF-WEB-001 a RF-WEB-008 Gerenciamento web estendido
 #include "web_ctl.h"
-#include "esp_log.h"
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
 
 static const char *TAG = "web_ctl";
 static bool s_sd_available = true;
@@ -48,3 +50,4 @@ esp_err_t web_ctl_handle_sd_full(void)
     ESP_LOGW(TAG, "SD full — web features limited");
     return ESP_OK;
 }
+

@@ -1,9 +1,12 @@
-// @requirement RF-STORAGE-001..010, RB-STOR-001..017, RF-PERSIST-001, RF-PERSIST-ATOMIC-001, RF-PERSIST-EXPORT-001
+﻿// @requirement RF-STORAGE-001..010, RB-STOR-001..017, RF-PERSIST-001, RF-PERSIST-ATOMIC-001, RF-PERSIST-EXPORT-001
 #include "storage_manager.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include "esp_log.h"
+
 #include <string.h>
+
+#include "esp_log.h"
+#include "nvs_flash.h"
+
+#include "nvs.h"
 
 static const char *TAG = "storage_mgr";
 
@@ -302,3 +305,4 @@ esp_err_t storage_manager_restore_from_sd(void)
 }
 
 bool storage_manager_is_available(void) { return s_initialized; }
+

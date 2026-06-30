@@ -1,8 +1,10 @@
-// @requirement RNF-SEC-001..003, RB-SEC-001..013 Políticas de segurança
+﻿// @requirement RNF-SEC-001..003, RB-SEC-001..013 Políticas de segurança
 #include "sec_policy.h"
+
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_random.h"
-#include <string.h>
 
 #define PASSWORD_MIN_LEN 8
 #define PASSWORD_MAX_LEN 64
@@ -56,3 +58,4 @@ void sec_policy_enforce_session_timeout(void)
 {
     ESP_LOGD(TAG, "Session timeout enforced");
 }
+

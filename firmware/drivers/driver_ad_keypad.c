@@ -1,9 +1,11 @@
-// @requirement RF-GLOBAL-003 Entrada por keypad como fallback local
+﻿// @requirement RF-GLOBAL-003 Entrada por keypad como fallback local
 // @requirement RNF-HARDWARE-001 AD Keypad 5V com condicionamento via MCP3208 CH3
 #include "driver_ad_keypad.h"
+
+#include "esp_log.h"
+
 #include "driver_mcp3208.h"
 #include "pin_map.h"
-#include "esp_log.h"
 
 static const char *TAG = "ad_keypad";
 
@@ -40,3 +42,4 @@ void ad_keypad_set_callback(ad_keypad_callback_t callback)
 {
     s_callback = callback;
 }
+

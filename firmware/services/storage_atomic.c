@@ -1,5 +1,7 @@
-#include "storage_atomic.h"
+﻿#include "storage_atomic.h"
+
 #include <string.h>
+
 #include "esp_log.h"
 
 static const char *TAG = "stor_atomic";
@@ -90,3 +92,4 @@ esp_err_t storage_atomic_flush(void)
     s_ring.tail = 0;
     return ESP_OK;
 }
+

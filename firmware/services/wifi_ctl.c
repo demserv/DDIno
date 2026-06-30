@@ -1,9 +1,11 @@
-// @requirement RF-WIFI-001 a RF-WIFI-015 Gerenciamento WiFi
+﻿// @requirement RF-WIFI-001 a RF-WIFI-015 Gerenciamento WiFi
 #include "wifi_ctl.h"
-#include "esp_log.h"
-#include "esp_wifi.h"
-#include "esp_netif.h"
+
 #include <string.h>
+
+#include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_wifi.h"
 
 static const char *TAG = "wifi_ctl";
 static bool s_initialized = false;
@@ -142,3 +144,4 @@ void wifi_ctl_scan_free(void) { esp_wifi_scan_stop(); }
 esp_err_t wifi_ctl_save_creds(const char *ssid, const char *password) { return ESP_OK; }
 esp_err_t wifi_ctl_load_creds(char *ssid, size_t ssid_len, char *password, size_t pass_len) { return ESP_ERR_NOT_FOUND; }
 esp_err_t wifi_ctl_clear_creds(void) { return ESP_OK; }
+

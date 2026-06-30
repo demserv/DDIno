@@ -1,10 +1,13 @@
-// @requirement RF-PLUG-001 Abstração de relés — rota única de comutação via driver_relay
+﻿// @requirement RF-PLUG-001 Abstração de relés — rota única de comutação via driver_relay
 // @requirement RF-PLUG-009 Religamento sequencial coordenado
 // @requirement RF-PLUG-011 Dupla confirmação integrada
 #include "relay_abstraction.h"
-#include "driver_relay.h"
-#include "esp_log.h"
+
 #include <string.h>
+
+#include "esp_log.h"
+
+#include "driver_relay.h"
 
 static const char *TAG = "relay_abstr";
 
@@ -103,3 +106,4 @@ const char *relay_abstraction_get_name(relay_id_t id)
     if (id >= RELAY_COUNT) return "INVALID";
     return RELAY_NAMES[id];
 }
+

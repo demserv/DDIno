@@ -1,9 +1,11 @@
-// @requirement RF-LOG-001 a RF-LOG-020 Sistema de logging estendido
+﻿// @requirement RF-LOG-001 a RF-LOG-020 Sistema de logging estendido
 #include "log_ctl.h"
-#include "esp_log.h"
-#include <string.h>
-#include <stdio.h>
+
 #include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "esp_log.h"
 
 #define LOG_CTL_MAX_ENTRIES 128
 #define LOG_CTL_LINE_MAX 256
@@ -98,3 +100,4 @@ esp_err_t log_ctl_export(char *buf, size_t buf_size, int max_lines)
 
 esp_err_t log_ctl_clear(void) { s_head = 0; s_count = 0; return ESP_OK; }
 esp_err_t log_ctl_flush(void) { return ESP_OK; }
+

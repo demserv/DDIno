@@ -1,8 +1,10 @@
+﻿#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
+
 #include "esp_err.h"
 #include "esp_timer.h"
+
 #include "services/log_manager.h"
 
 static const char *TAG = "log_handler";
@@ -42,3 +44,4 @@ esp_err_t log_handler_write_esp(const char *module, char esp_level, const char *
     log_severity_t sev = esp_to_log_severity(esp_level);
     return log_manager_append(sev, module, "%s", buf);
 }
+

@@ -1,20 +1,21 @@
-// @requirement RF-GLOBAL-001 Definição de estados globais
+﻿// @requirement RF-GLOBAL-001 Definição de estados globais
 // @requirement RF-GLOBAL-002 Transições com prioridade e rastreabilidade
 // @requirement RNF-GLOBAL-ANTIFLAP-001 Anti-flap em transições
 // @requirement RF-SAFEOFF-CAUSE-001 Rastreamento de causa SAFE_OFF
 #include "global_state.h"
-#include "event_bus.h"
-#include "audit_log.h"
-#include "config_manager.h"
-#include "driver_relay.h"
-#include "hardware_config.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "esp_log.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+#include "audit_log.h"
+#include "config_manager.h"
+#include "driver_relay.h"
+#include "event_bus.h"
+#include "hardware_config.h"
 
 static const char *TAG = "global_state";
 
@@ -227,3 +228,4 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
 
     return ESP_OK;
 }
+
