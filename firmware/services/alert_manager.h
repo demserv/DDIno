@@ -41,6 +41,7 @@ uint16_t     alert_manager_active_count(void);
 uint16_t     alert_manager_critical_count(void);
 const alert_slot_t* alert_manager_get_slot(int16_t alm_id);
 void         alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t max);
+void         alert_manager_get_history_slots(alert_slot_t *out, uint16_t *count, uint16_t max);
 void         alert_manager_set_silenced(int16_t alm_id, uint64_t until_ts);
 bool         alert_manager_is_silenced(int16_t alm_id, uint64_t now_ts);
 

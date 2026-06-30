@@ -32,6 +32,7 @@
 #include "services/electric_fsm.h"
 #include "services/storage_sd.h"
 #include "services/safeoff_record.h"
+#include "services/wdt_stats.h"
 #include "services/cdn_energy.h"
 #include "services/config_manager.h"
 #include "services/task_manager.h"
@@ -876,6 +877,7 @@ void app_main(void)
     alert_manager_init();
     self_test_init();
     ESP_ERROR_CHECK(safeoff_record_init());
+    wdt_stats_init((uint64_t)(esp_timer_get_time() / USEC_PER_SEC));
 
     ESP_ERROR_CHECK(hal_bus_init_all());
     ESP_ERROR_CHECK(hal_spi_init());

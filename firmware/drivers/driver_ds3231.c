@@ -2,7 +2,7 @@
 // @requirement RNF-HARDWARE-001 I2C RTC com bateria CR2032
 #include "driver_ds3231.h"
 #include "hardware_config.h"
-#include "driver/i2c.h"
+#include "hal/hal_bus.h"
 #include "esp_log.h"
 
 static const char *TAG = "ds3231";
@@ -29,8 +29,8 @@ esp_err_t ds3231_init(void)
      * Lê o registrador de segundos; ausência do CI resulta em falha de barramento. */
     uint8_t reg = DS3231_REG_SEC;
     uint8_t val = 0;
-    esp_err_t ret = i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1,
-                                                 pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1,
+                                                     pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     s_ds3231_ok = (ret == ESP_OK);
     if (!s_ds3231_ok) {
         ESP_LOGW(TAG, "DS3231 RTC nao detectado em 0x%02X: %s", DS3231_ADDR, esp_err_to_name(ret));
@@ -61,14 +61,14 @@ esp_err_t ds3231_set_time(const ds3231_time_t *t)
         month_reg,
         dec_to_bcd(t->year % 100)
     };
-    return i2c_master_write_to_device(I2C_NUM_0, DS3231_ADDR, buf, 8, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    return hal_i2c_master_write_to_device(I2C_NUM_0, DS3231_ADDR, buf, 8, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
 }
 
 esp_err_t ds3231_get_time(ds3231_time_t *t)
 {
     uint8_t reg = DS3231_REG_SEC;
     uint8_t buf[7];
-    esp_err_t ret = i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, buf, 7, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, buf, 7, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (ret != ESP_OK) return ret;
 
     t->second = bcd_to_dec(buf[0] & 0x7F);
@@ -104,7 +104,7 @@ bool ds3231_is_running(void)
 {
     uint8_t reg = DS3231_REG_SEC;
     uint8_t val = 0;
-    esp_err_t ret = i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, &val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (ret != ESP_OK) return false;
     return (val & 0x80) == 0;
 }
@@ -113,7 +113,7 @@ float ds3231_get_temp(void)
 {
     uint8_t reg = DS3231_REG_TEMP;
     uint8_t buf[2];
-    esp_err_t ret = i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, buf, 2, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t ret = hal_i2c_master_write_read_device(I2C_NUM_0, DS3231_ADDR, &reg, 1, buf, 2, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (ret != ESP_OK) return 0.0f;
     float temp = (int8_t)buf[0];
     uint8_t frac = (buf[1] >> 6) & 0x03;

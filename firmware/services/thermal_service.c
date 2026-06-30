@@ -5,6 +5,10 @@
 #include "thermal_service.h"
 
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "global_state.h"
+#include "safety_controller.h"
+#include "services/config_manager.h"
 
 static const char *TAG = "thermal_svc";
 static float s_setpoint = 25.0f;
@@ -15,11 +19,13 @@ static bool s_cooling = false;
 
 esp_err_t thermal_service_init(void)
 {
+    const thermal_params_storage_t *tp = config_get_thermal();
+    s_setpoint = tp ? tp->temp_normal_c : 25.0f;
     s_current_c = 0.0f;
     s_sample_valid = false;
     s_heating = false;
     s_cooling = false;
-    ESP_LOGI(TAG, "Thermal service initialized");
+    ESP_LOGI(TAG, "Thermal service initialized (setpoint=%.1fC)", (double)s_setpoint);
     return ESP_OK;
 }
 
@@ -34,6 +40,10 @@ void thermal_service_publish(float current_c, bool sample_valid, bool heating, b
 esp_err_t thermal_service_get_setpoint(float *out_c)
 {
     if (!out_c) return ESP_ERR_INVALID_ARG;
+    const thermal_params_storage_t *tp = config_get_thermal();
+    if (tp) {
+        s_setpoint = tp->temp_normal_c;
+    }
     *out_c = s_setpoint;
     return ESP_OK;
 }
@@ -50,10 +60,7 @@ esp_err_t thermal_service_set_setpoint(float c)
 esp_err_t thermal_service_get_current(float *out_c)
 {
     if (!out_c) return ESP_ERR_INVALID_ARG;
-    if (!s_sample_valid) {
-        *out_c = 0.0f;
-        return ESP_ERR_INVALID_STATE;
-    }
+    if (!s_sample_valid) return ESP_ERR_INVALID_STATE;
     *out_c = s_current_c;
     return ESP_OK;
 }
@@ -74,6 +81,11 @@ esp_err_t thermal_service_is_cooling(bool *out)
 
 esp_err_t thermal_service_force_safe_off(const char *reason)
 {
+    global_state_t *gs = global_state_get_write_ptr();
+    if (!gs) return ESP_ERR_INVALID_STATE;
+    uint64_t now_s = (uint64_t)(esp_timer_get_time() / USEC_PER_SEC);
     ESP_LOGW(TAG, "Force SAFE_OFF: %s", reason ? reason : "unspecified");
-    return ESP_OK;
+    return global_state_enter_safeoff(gs, SAFEOFF_REASON_THERMAL_CRITICAL,
+                                      "ALM-026", reason ? reason : "thermal_service",
+                                      now_s);
 }

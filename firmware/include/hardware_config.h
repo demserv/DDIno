@@ -20,6 +20,7 @@
 #define HW_I2C_ADDR_DS3231               (0x68U)
 #define HW_I2C_CLK_HZ                    (100000U)
 #define HW_I2C_TIMEOUT_MS                (100U)
+#define HW_I2C_MUTEX_TIMEOUT_MS          (100U)
 
 // --- Feature presence ---
 #define HW_FEATURE_RTC_DS3231_PRESENT    (1U)

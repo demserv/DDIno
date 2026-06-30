@@ -184,6 +184,14 @@ bool storage_sd_is_mounted(void)
     return s_mounted;
 }
 
+esp_err_t storage_sd_get_space(uint64_t *total_bytes, uint64_t *free_bytes)
+{
+    if (!s_mounted || !total_bytes || !free_bytes) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return esp_vfs_fat_info(SD_MOUNT_POINT, total_bytes, free_bytes);
+}
+
 static void rotate_log_if_needed(const char *path, size_t max_size_kb)
 {
     if (max_size_kb == 0) return;

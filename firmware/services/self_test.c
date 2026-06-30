@@ -7,6 +7,9 @@
 #include "freertos/task.h"
 #include "driver/i2c.h"
 #include "pin_map.h"
+#include "hal/hal_bus.h"
+#include "hardware_config.h"
+#include "driver/gpio.h"
 #include "driver_mcp3208.h"
 #include "driver_acs712.h"
 #include "driver_pzem.h"
@@ -87,7 +90,7 @@ static void test_i2c_mcp23017(selftest_result_t *r)
 {
     uint8_t reg = 0x0A;
     uint8_t val = 0;
-    esp_err_t err = i2c_master_write_read_device(I2C_NUM_0, 0x20, &reg, 1, &val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    esp_err_t err = hal_i2c_master_write_read_device(I2C_NUM_0, 0x20, &reg, 1, &val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
     if (err == ESP_OK) {
         r->passed = true;
     } else {
@@ -136,19 +139,30 @@ static void test_spi_sd(selftest_result_t *r)
 static void test_relay(selftest_result_t *r, selftest_id_t id)
 {
     if (id >= SELFTEST_ID_RELAY_P03 && id <= SELFTEST_ID_RELAY_P10) {
-        if (relay_mcp23017_ok()) {
-            r->passed = true;
-        } else {
+        if (!relay_mcp23017_ok()) {
             r->fail_count++;
             snprintf(r->detail, sizeof(r->detail), "MCP23017 relay module not detected");
+            return;
         }
-    } else {
-        /* @requirement RF-FLOW-SELFTEST-001 P01/P02 via GPIO direto: não há readback
-         * possível sem energizar carga; o caminho fica disponível após relay_init_safe().
-         * Marca-se SKIPPED (não PASS) para refletir a ausência de verificação física. */
+        uint8_t gpioa = 0xFF;
+        if (mcp23017_read_port(&gpioa, NULL) != ESP_OK || gpioa != 0x00) {
+            r->fail_count++;
+            snprintf(r->detail, sizeof(r->detail), "MCP23017 readback=0x%02X (esperado 0x00)", gpioa);
+            return;
+        }
         r->passed = true;
-        r->status = SELFTEST_STATUS_SKIPPED;
-        snprintf(r->detail, sizeof(r->detail), "GPIO direto: sem readback (SKIPPED)");
+        return;
+    }
+
+    int pin = (id == SELFTEST_ID_RELAY_P01) ? PIN_RELAY_P01_GPIO : PIN_RELAY_P02_GPIO;
+    int level = gpio_get_level(pin);
+    int expected = HW_RELAY_SAFE_OFF_LEVEL;
+    if (level == expected) {
+        r->passed = true;
+        snprintf(r->detail, sizeof(r->detail), "GPIO=%d OK (OFF)", level);
+    } else {
+        r->fail_count++;
+        snprintf(r->detail, sizeof(r->detail), "GPIO=%d esperado %d", level, expected);
     }
 }
 

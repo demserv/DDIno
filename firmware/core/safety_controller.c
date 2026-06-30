@@ -161,6 +161,7 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
             gs->safeoff_source_alm[0] = '\0';
         }
         gs->electric_ok = false;
+        safeoff_record_append(in->safeoff_reason_if_any, in->safeoff_source_alm, now_s);
     } else if (next == SYSTEM_STATE_EMERGENCY) {
         gs->electric_ok = false;
     } else if (next == SYSTEM_STATE_NORMAL) {

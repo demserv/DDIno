@@ -2,6 +2,7 @@
 // @requirement RNF-HARDWARE-001 I2C GPIO expander @0x20
 #include "driver_mcp23017.h"
 #include "hardware_config.h"
+#include "hal/hal_bus.h"
 #include "esp_log.h"
 
 #define MCP23017_REG_IODIRA 0x00
@@ -19,12 +20,12 @@ static uint8_t s_addr = 0x20;
 static esp_err_t mcp_write_reg(uint8_t reg, uint8_t val)
 {
     uint8_t data[2] = { reg, val };
-    return i2c_master_write_to_device(s_port, s_addr, data, sizeof(data), pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    return hal_i2c_master_write_to_device(s_port, s_addr, data, sizeof(data), pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
 }
 
 static esp_err_t mcp_read_reg(uint8_t reg, uint8_t *val)
 {
-    return i2c_master_write_read_device(s_port, s_addr, &reg, 1, val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
+    return hal_i2c_master_write_read_device(s_port, s_addr, &reg, 1, val, 1, pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
 }
 
 esp_err_t mcp23017_init(i2c_port_t port, uint8_t addr)

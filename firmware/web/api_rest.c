@@ -37,7 +37,9 @@
 #include "services/config_manager.h"
 #include "services/config_export.h"
 #include "services/plug_manager.h"
+#include "services/plug_preset_catalog.h"
 #include "services/storage_facade.h"
+#include "services/wdt_stats.h"
 #include "services/relay_safety_service.h"
 #include "services/reset_handler.h"
 #include "system_types.h"
@@ -280,7 +282,7 @@ static esp_err_t health_handler(httpd_req_t *req)
     cJSON_AddStringToObject(json, "version", g_gs.fw_version);
     cJSON_AddNumberToObject(json, "last_reset_reason", g_gs.last_reset_reason);
     cJSON_AddNumberToObject(json, "heap_free_kb", (double)(esp_get_free_heap_size() / 1024));
-    cJSON_AddNumberToObject(json, "wdt_resets_24h", 0);
+    cJSON_AddNumberToObject(json, "wdt_resets_24h", (double)wdt_stats_get_resets_24h());
     cJSON_AddNumberToObject(json, "last_health_check_timestamp", (double)g_gs.last_health_check_timestamp);
 
     /* @requirement RF-WEB-005 Campos adicionais de saúde. */
@@ -288,6 +290,17 @@ static esp_err_t health_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(json, "time_valid", g_gs.time_valid);
     cJSON_AddStringToObject(json, "time_source", time_source_str(g_gs.time_source));
     cJSON_AddBoolToObject(json, "sd_mounted", storage_sd_is_mounted());
+    {
+        int32_t sd_free_mb = -1;
+        if (storage_sd_is_mounted()) {
+            uint64_t total = 0;
+            uint64_t free = 0;
+            if (storage_sd_get_space(&total, &free) == ESP_OK) {
+                sd_free_mb = (int32_t)(free / (1024ULL * 1024ULL));
+            }
+        }
+        cJSON_AddNumberToObject(json, "sd_free_mb", (double)sd_free_mb);
+    }
     cJSON_AddNumberToObject(json, "wifi_rssi_dbm", (double)wifi_ctl_sta_get_rssi());
 
     /* @requirement RNF-RESILIENCE-001 Estados dos circuit breakers por barramento. */
@@ -684,6 +697,65 @@ static esp_err_t config_set_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static bool parse_audit_ts(const char *line, double *ts_out, const char **msg_out)
+{
+    if (!line || line[0] != '[') return false;
+    const char *end = strchr(line + 1, ']');
+    if (!end) return false;
+    char ts_buf[32];
+    size_t len = (size_t)(end - (line + 1));
+    if (len >= sizeof(ts_buf)) return false;
+    memcpy(ts_buf, line + 1, len);
+    ts_buf[len] = '\0';
+    *ts_out = atof(ts_buf);
+    const char *msg = end + 1;
+    while (*msg == ' ') msg++;
+    if (msg_out) *msg_out = msg;
+    return true;
+}
+
+static void tail_log_file(const char *path, cJSON *arr, const char *source, int max_lines)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+
+    char buf[256];
+    char tail[10][256];
+    int tcount = 0;
+    while (fgets(buf, sizeof(buf), f)) {
+        size_t len = strlen(buf);
+        while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) {
+            buf[--len] = '\0';
+        }
+        if (len == 0) continue;
+        if (tcount < max_lines) {
+            strncpy(tail[tcount], buf, 255);
+            tail[tcount][255] = '\0';
+            tcount++;
+        } else {
+            memmove(tail[0], tail[1], (size_t)(max_lines - 1) * sizeof(tail[0]));
+            strncpy(tail[max_lines - 1], buf, 255);
+            tail[max_lines - 1][255] = '\0';
+        }
+    }
+    fclose(f);
+
+    for (int i = 0; i < tcount; i++) {
+        cJSON *e = cJSON_CreateObject();
+        double ts = 0;
+        const char *msg = tail[i];
+        if (parse_audit_ts(tail[i], &ts, &msg)) {
+            cJSON_AddNumberToObject(e, "ts", ts);
+            cJSON_AddStringToObject(e, "msg", msg);
+        } else {
+            cJSON_AddStringToObject(e, "msg", tail[i]);
+        }
+        cJSON_AddStringToObject(e, "level", "audit");
+        if (source) cJSON_AddStringToObject(e, "source", source);
+        cJSON_AddItemToArray(arr, e);
+    }
+}
+
 static esp_err_t log_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
@@ -693,43 +765,22 @@ static esp_err_t log_handler(httpd_req_t *req)
     uint16_t n = storage_facade_audit_read_recent(ram_lines, 32);
     for (uint16_t i = 0; i < n; i++) {
         cJSON *e = cJSON_CreateObject();
-        cJSON_AddStringToObject(e, "msg", ram_lines[i]);
+        double ts = 0;
+        const char *msg = ram_lines[i];
+        if (parse_audit_ts(ram_lines[i], &ts, &msg)) {
+            cJSON_AddNumberToObject(e, "ts", ts);
+            cJSON_AddStringToObject(e, "msg", msg);
+        } else {
+            cJSON_AddStringToObject(e, "msg", ram_lines[i]);
+        }
         cJSON_AddStringToObject(e, "level", "audit");
-        cJSON_AddNumberToObject(e, "ts", (double)(esp_timer_get_time() / USEC_PER_SEC));
+        cJSON_AddStringToObject(e, "source", "ram");
         cJSON_AddItemToArray(arr, e);
     }
 
     if (storage_sd_is_mounted()) {
-        FILE *f = fopen("/sdcard/logs/security/log.txt", "r");
-        if (f) {
-            char buf[256];
-            char tail[10][256];
-            int tcount = 0;
-            while (fgets(buf, sizeof(buf), f)) {
-                size_t len = strlen(buf);
-                while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) {
-                    buf[--len] = '\0';
-                }
-                if (len == 0) continue;
-                if (tcount < 10) {
-                    strncpy(tail[tcount], buf, 255);
-                    tail[tcount][255] = '\0';
-                    tcount++;
-                } else {
-                    memmove(tail[0], tail[1], 9 * sizeof(tail[0]));
-                    strncpy(tail[9], buf, 255);
-                    tail[9][255] = '\0';
-                }
-            }
-            fclose(f);
-            for (int i = 0; i < tcount; i++) {
-                cJSON *e = cJSON_CreateObject();
-                cJSON_AddStringToObject(e, "msg", tail[i]);
-                cJSON_AddStringToObject(e, "level", "audit");
-                cJSON_AddStringToObject(e, "source", "sd");
-                cJSON_AddItemToArray(arr, e);
-            }
-        }
+        tail_log_file("/sdcard/logs/security/log.txt", arr, "sd_security", 10);
+        tail_log_file("/sdcard/logs/events/log.txt", arr, "sd_events", 10);
     }
 
     cJSON *resp = cJSON_CreateObject();
@@ -1195,6 +1246,67 @@ static esp_err_t config_monitor_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static esp_err_t plug_presets_list_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    cJSON *arr = cJSON_CreateArray();
+    for (uint8_t i = 0; i < plug_preset_count(); i++) {
+        const plug_preset_t *p = plug_preset_get(i);
+        if (!p) continue;
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddNumberToObject(o, "id", (int)p->id);
+        cJSON_AddStringToObject(o, "name", p->name);
+        cJSON_AddStringToObject(o, "icon", p->icon);
+        cJSON_AddNumberToObject(o, "type", (int)p->type);
+        cJSON_AddItemToArray(arr, o);
+    }
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddItemToObject(resp, "presets", arr);
+    return send_json_resp(req, resp, "200 OK");
+}
+
+static esp_err_t plug_preset_set_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *id_item = cJSON_GetObjectItem(json, "id");
+    cJSON *preset_item = cJSON_GetObjectItem(json, "preset_id");
+    if (!cJSON_IsNumber(id_item) || !cJSON_IsNumber(preset_item)) {
+        cJSON_Delete(json);
+        return send_error(req, "missing_fields", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    int plug_id = id_item->valueint;
+    int preset_id = preset_item->valueint;
+    if (plug_id < 3 || plug_id > 10) {
+        cJSON_Delete(json);
+        return send_error(req, "invalid_plug", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    cmd_validation_t cv = command_validator_can_set_config(&g_gs, "plug_preset");
+    if (!cv.allowed) {
+        cJSON_Delete(json);
+        return send_error(req, cv.error_code ? cv.error_code : "forbidden",
+                          ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
+
+    esp_err_t err = plug_manager_apply_preset((plug_id_t)plug_id, (plug_preset_id_t)preset_id);
+    cJSON_Delete(json);
+    if (err != ESP_OK) {
+        return send_error(req, "preset_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+    }
+
+    audit_log_event(AUDIT_CONFIG_CHANGE, "plug preset via API");
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", "preset_applied");
+    return send_json_resp(req, resp, "200 OK");
+}
+
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
@@ -1209,6 +1321,8 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/health",        .method = HTTP_GET,  .handler = health_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_GET,  .handler = plugs_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_POST, .handler = plug_set_handler,      .user_ctx = NULL },
+    { .uri = "/api/v1/plugs/presets", .method = HTTP_GET,  .handler = plug_presets_list_handler, .user_ctx = NULL },
+    { .uri = "/api/v1/plugs/preset",  .method = HTTP_POST, .handler = plug_preset_set_handler,   .user_ctx = NULL },
     { .uri = "/api/v1/plugs/mode",    .method = HTTP_POST, .handler = plug_mode_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/sensors",       .method = HTTP_GET,  .handler = sensors_handler,       .user_ctx = NULL },
     { .uri = "/api/v1/energy",        .method = HTTP_GET,  .handler = energy_handler,        .user_ctx = NULL },
@@ -1237,7 +1351,7 @@ esp_err_t api_rest_init(void)
 {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.server_port = 80;
-    cfg.max_uri_handlers = 32;
+    cfg.max_uri_handlers = 36;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
     esp_err_t err = httpd_start(&s_server, &cfg);
     if (err != ESP_OK) {

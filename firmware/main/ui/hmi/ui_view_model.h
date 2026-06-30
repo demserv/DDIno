@@ -3,6 +3,7 @@
 #define HMI_UI_VIEW_MODEL_H
 
 #include "ui_types.h"
+#include "alert_model.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -80,6 +81,7 @@ typedef struct {
     char timestamp[16];
     bool acked;
     char action_hint[96];
+    alert_category_t category;
 } ui_alert_vm_t;
 
 typedef struct {
@@ -103,6 +105,10 @@ typedef struct {
     ui_health_state_t selftest;
     ui_health_state_t buses;
     ui_health_state_t io;
+    uint32_t heap_free_kb;
+    int32_t sd_free_mb;
+    char fw_version[16];
+    ui_system_state_t system_state;
 } ui_diagnostics_vm_t;
 
 typedef struct {

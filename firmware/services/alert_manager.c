@@ -10,6 +10,24 @@
 
 static alert_slot_t s_slots[ALERT_SLOTS_MAX];
 
+#define ALERT_HISTORY_MAX 16
+static alert_slot_t s_history[ALERT_HISTORY_MAX];
+static uint16_t s_history_count;
+
+static void history_push(const alert_slot_t *slot)
+{
+    if (!slot) return;
+    uint16_t idx = s_history_count < ALERT_HISTORY_MAX ? s_history_count : (ALERT_HISTORY_MAX - 1);
+    if (s_history_count >= ALERT_HISTORY_MAX) {
+        memmove(&s_history[0], &s_history[1], (ALERT_HISTORY_MAX - 1) * sizeof(alert_slot_t));
+        idx = ALERT_HISTORY_MAX - 1;
+    } else {
+        s_history_count++;
+    }
+    s_history[idx] = *slot;
+    s_history[idx].active = false;
+}
+
 static int find_slot(int16_t alm_id)
 {
     for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
@@ -36,6 +54,8 @@ void alert_manager_init(void)
         memset(&s_slots[i], 0, sizeof(alert_slot_t));
         s_slots[i].alm_id = -1;
     }
+    memset(s_history, 0, sizeof(s_history));
+    s_history_count = 0;
 }
 
 static bool slot_is_silenced(const alert_slot_t *slot, uint64_t now_ts)
@@ -118,6 +138,7 @@ void alert_manager_clear(int16_t alm_id)
 {
     int idx = find_slot(alm_id);
     if (idx >= 0) {
+        history_push(&s_slots[idx]);
         memset(&s_slots[idx], 0, sizeof(alert_slot_t));
         s_slots[idx].alm_id = -1;
     }
@@ -192,6 +213,15 @@ void alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t
             out[written] = s_slots[i];
             written++;
         }
+    }
+    *count = written;
+}
+
+void alert_manager_get_history_slots(alert_slot_t *out, uint16_t *count, uint16_t max)
+{
+    uint16_t written = 0;
+    for (int i = (int)s_history_count - 1; i >= 0 && written < max; i--) {
+        out[written++] = s_history[i];
     }
     *count = written;
 }

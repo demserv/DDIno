@@ -72,6 +72,7 @@ set(MAIN_SRCS
     "../services/util_ctl.c"
     "../services/watchdog_guard.c"
     "../services/wdt_advanced.c"
+    "../services/wdt_stats.c"
     "../services/wifi_ctl.c"
 
     # Web
@@ -92,6 +93,7 @@ set(MAIN_SRCS
     "ui/hmi/ui_state_machine.c"
     "ui/hmi/ui_theme.c"
     "ui/hmi/ui_view_model.c"
+    "ui/hmi/ui_preset_picker.c"
     "ui/hmi/components/ui_alert_row.c"
     "ui/hmi/components/ui_bar_chart.c"
     "ui/hmi/components/ui_confirm_dialog.c"
@@ -118,10 +120,6 @@ set(MAIN_SRCS
     "ui/hmi/screens/ui_screen_main_menu.c"
     "ui/hmi/screens/ui_screen_system.c"
     "ui/hmi/screens/ui_screen_wizard.c"
-
-    # Orphan screens
-    "ui/hmi/screens/screen_calibration.c"
-    "ui/hmi/screens/screen_submenu.c"
 
     # Main task modules
     "handler/api_sensors_handler.c"

@@ -14,6 +14,9 @@
 #include "ato_service.h"
 #include "driver_buzzer_led.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
+#include "services/storage_sd.h"
+#include "hardware_config.h"
 #include <time.h>
 #include <string.h>
 
@@ -87,6 +90,49 @@ static void format_uptime(uint64_t uptime_s, char *buf, size_t len)
     uint64_t h = uptime_s / 3600ULL;
     uint64_t m = (uptime_s % 3600ULL) / 60ULL;
     snprintf(buf, len, "%02llu h %02llu m", (unsigned long long)h, (unsigned long long)m);
+}
+
+static int alert_severity_rank(alert_severity_t sev)
+{
+    switch (sev) {
+        case ALERT_SEVERITY_CRITICAL: return 0;
+        case ALERT_SEVERITY_HIGH:     return 1;
+        case ALERT_SEVERITY_WARNING:  return 2;
+        default:                      return 3;
+    }
+}
+
+static void sort_alerts_by_priority(alert_slot_t *arr, uint16_t count)
+{
+    for (uint16_t i = 0; i + 1 < count; i++) {
+        for (uint16_t j = i + 1; j < count; j++) {
+            int ri = alert_severity_rank(arr[i].severity);
+            int rj = alert_severity_rank(arr[j].severity);
+            bool swap = (rj < ri) ||
+                        (rj == ri && arr[j].last_seen_ts > arr[i].last_seen_ts);
+            if (swap) {
+                alert_slot_t tmp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = tmp;
+            }
+        }
+    }
+}
+
+static void fill_alert_vm(ui_alert_vm_t *av, const alert_slot_t *slot)
+{
+    snprintf(av->id, sizeof(av->id), "ALM-%03d", (int)slot->alm_id);
+    av->severity = map_alert_severity(slot->severity);
+    av->category = slot->category;
+    snprintf(av->severity_text, sizeof(av->severity_text), "%s",
+             slot->severity == ALERT_SEVERITY_CRITICAL ? "CRITICO" :
+             slot->severity == ALERT_SEVERITY_HIGH ? "ALTO" :
+             slot->severity == ALERT_SEVERITY_WARNING ? "AVISO" : "INFO");
+    snprintf(av->message, sizeof(av->message), "%s", slot->message);
+    snprintf(av->timestamp, sizeof(av->timestamp), "%llu",
+             (unsigned long long)slot->last_seen_ts);
+    av->acked = slot->acked;
+    snprintf(av->action_hint, sizeof(av->action_hint), "%s", slot->action_hint);
 }
 
 void ui_view_model_init_defaults(ui_root_vm_t *vm)
@@ -189,9 +235,12 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
         }
     }
 
-    alert_slot_t slots[UI_MAX_ALERTS];
+    alert_slot_t slots[ALERT_SLOTS_MAX];
     uint16_t slot_count = 0;
-    alert_manager_get_active_slots(slots, &slot_count, UI_MAX_ALERTS);
+    alert_manager_get_active_slots(slots, &slot_count, ALERT_SLOTS_MAX);
+    if (slot_count > 1) {
+        sort_alerts_by_priority(slots, slot_count);
+    }
 
     vm->alerts.active_count = 0;
     vm->alerts.critical_count = 0;
@@ -204,17 +253,7 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
             continue;
         }
         ui_alert_vm_t *av = &vm->alerts.active_alerts[vm->alerts.active_count++];
-        snprintf(av->id, sizeof(av->id), "ALM-%03d", (int)slots[i].alm_id);
-        av->severity = map_alert_severity(slots[i].severity);
-        snprintf(av->severity_text, sizeof(av->severity_text), "%s",
-                 slots[i].severity == ALERT_SEVERITY_CRITICAL ? "CRITICO" :
-                 slots[i].severity == ALERT_SEVERITY_HIGH ? "ALTO" :
-                 slots[i].severity == ALERT_SEVERITY_WARNING ? "AVISO" : "INFO");
-        snprintf(av->message, sizeof(av->message), "%s", slots[i].message);
-        snprintf(av->timestamp, sizeof(av->timestamp), "%llu",
-                 (unsigned long long)slots[i].last_seen_ts);
-        av->acked = slots[i].acked;
-        snprintf(av->action_hint, sizeof(av->action_hint), "%s", slots[i].action_hint);
+        fill_alert_vm(av, &slots[i]);
 
         switch (av->severity) {
             case UI_SEVERITY_CRITICAL: vm->alerts.critical_count++; break;
@@ -222,6 +261,14 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
             case UI_SEVERITY_WARNING:  vm->alerts.warning_count++; break;
             default:                   vm->alerts.info_count++; break;
         }
+    }
+
+    alert_slot_t hist[UI_MAX_ALERTS];
+    uint16_t hist_count = 0;
+    alert_manager_get_history_slots(hist, &hist_count, UI_MAX_ALERTS);
+    vm->alerts.history_count = 0;
+    for (uint16_t i = 0; i < hist_count && vm->alerts.history_count < UI_MAX_ALERTS; i++) {
+        fill_alert_vm(&vm->alerts.history_alerts[vm->alerts.history_count++], &hist[i]);
     }
 
     vm->diagnostics.temperature = map_health(health_get(SUB_SENSOR_TEMP));
@@ -233,6 +280,17 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->diagnostics.selftest = g_gs.selftest_passed ? UI_HEALTH_OK : UI_HEALTH_DEGRADED;
     vm->diagnostics.buses = map_health(health_get(SUB_BUS_SPI));
     vm->diagnostics.io = g_gs.ui_ok ? UI_HEALTH_OK : UI_HEALTH_FAILED;
+    vm->diagnostics.heap_free_kb = esp_get_free_heap_size() / 1024U;
+    vm->diagnostics.sd_free_mb = -1;
+    if (storage_sd_is_mounted()) {
+        uint64_t total = 0;
+        uint64_t free = 0;
+        if (storage_sd_get_space(&total, &free) == ESP_OK) {
+            vm->diagnostics.sd_free_mb = (int32_t)(free / (1024ULL * 1024ULL));
+        }
+    }
+    snprintf(vm->diagnostics.fw_version, sizeof(vm->diagnostics.fw_version), "%s", g_gs.fw_version);
+    vm->diagnostics.system_state = (ui_system_state_t)g_gs.system_state;
 
     vm->config_temperature.setpoint_c = tp->temp_normal_c;
     vm->config_temperature.temp_min_c = tp->temp_min_c;

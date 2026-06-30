@@ -91,4 +91,17 @@ Linhas abaixo refletem somente código realmente presente após a correção.
 | NC-014 | — (RTM) | docs/RTM.md | esta tabela | referências reais; sem arquivos inexistentes | COMPLIANT |
 | NC-015 | RF-WEB-002 | web/api_rest.c | state_handler | AUTH_GUARD aplicado a GET /state | COMPLIANT |
 | NC-016 | RNF-SECURITY-001 | web/api_auth.c | hash_password + ensure_salt | salt aleatório por dispositivo em NVS | COMPLIANT |
-| NC-012 | RF-STORAGE-004 | services/config_export.c; services/storage_sd_schedule.c; web/api_rest.c | config_export_to_json / storage_sd_tick_schedules | backup TXT SD + export/import JSON API | TC-STORAGE-EXPORT-001 | COMPLIANT |
+## Sprint Fase D-H (compliance >= 96%) — 2026-06-30
+
+| NC | Requisito | Arquivo | Evidência | Status |
+|---|---|---|---|---|
+| NC-S10 | Registro NVS em todo SAFE_OFF | core/safety_controller.c | safeoff_record_append no evaluate + enter_safeoff | COMPLIANT |
+| NC-S09 | Autoridade única de transição | core/global_state.c | global_state_transition delega enter_* | COMPLIANT |
+| NC-I09 | Mutex I2C | hal/hal_bus.c | hal_i2c_lock + drivers DS3231/MCP23017 | COMPLIANT |
+| NC-I04/A06 | wdt_resets_24h + sd_free_mb | services/wdt_stats.c, web/api_rest.c | NVS counter + esp_vfs_fat_info | COMPLIANT |
+| NC-A10 | /api/v1/log real | web/api_rest.c | parse [ts], tail security+events | COMPLIANT |
+| NC-F12 | thermal_service sem hardcode | services/thermal_service.c | setpoint NVS, force_safe_off real | COMPLIANT |
+| NC-U08 | Histórico + filtro alertas | alert_manager.c, ui_screen_alerts.c | history ring + roller categoria | COMPLIANT |
+| NC-PRESET-UI | Presets P03-P10 | ui_preset_picker.c, ui_device_row.c | picker UI + API /plugs/preset | COMPLIANT |
+| NC-U13 | Telas órfãs | main/CMakeLists.txt | screen_calibration/submenu removidas | COMPLIANT |
+| NC-I01 | Self-test relés | services/self_test.c | GPIO readback P01/P02, MCP read P03-P10 | COMPLIANT |

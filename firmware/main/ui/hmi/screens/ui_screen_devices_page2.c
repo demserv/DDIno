@@ -14,8 +14,9 @@ void ui_screen_devices_page2_create(lv_obj_t *parent, ui_root_vm_t *vm)
     lv_obj_set_pos(title, 168, 5);
 
     static const int y_positions[5] = {32, 78, 124, 170, 216};
+    ui_device_row_set_preset_parent(parent);
     for (int i = 0; i < 5; i++) {
-        ui_device_row_create(&rows[i], parent, 10, y_positions[i]);
+        ui_device_row_create(&rows[i], parent, 10, y_positions[i], (uint8_t)(6 + i));
         ui_device_row_update(&rows[i], &vm->devices.plugs[5 + i]);
     }
 }

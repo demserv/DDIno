@@ -1,16 +1,28 @@
 // @requirement RNF-HARDWARE-001 HAL de barramentos I2C, SPI, UART
+// @requirement RF-HW-I2C-001 Mutex I2C compartilhado (MCP23017 + DS3231)
 #include "hal_bus.h"
 #include "hardware_config.h"
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "pin_map.h"
 
 static const char *TAG = "hal_bus";
 
+static SemaphoreHandle_t s_i2c_mutex;
+
 esp_err_t hal_bus_init_i2c(void)
 {
+    if (s_i2c_mutex == NULL) {
+        s_i2c_mutex = xSemaphoreCreateMutex();
+        if (s_i2c_mutex == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
     const i2c_config_t cfg = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = PIN_I2C_SDA_GPIO,
@@ -23,6 +35,41 @@ esp_err_t hal_bus_init_i2c(void)
     if (err != ESP_OK) return err;
     err = i2c_driver_install(I2C_NUM_0, cfg.mode, 0, 0, 0);
     if (err == ESP_ERR_INVALID_STATE) return ESP_OK;
+    return err;
+}
+
+bool hal_i2c_lock(void)
+{
+    if (s_i2c_mutex == NULL) return false;
+    return xSemaphoreTake(s_i2c_mutex, pdMS_TO_TICKS(HW_I2C_MUTEX_TIMEOUT_MS)) == pdTRUE;
+}
+
+void hal_i2c_unlock(void)
+{
+    if (s_i2c_mutex != NULL) {
+        xSemaphoreGive(s_i2c_mutex);
+    }
+}
+
+esp_err_t hal_i2c_master_write_to_device(i2c_port_t port, uint8_t addr,
+                                         const uint8_t *data, size_t len,
+                                         TickType_t timeout)
+{
+    if (!hal_i2c_lock()) return ESP_ERR_TIMEOUT;
+    esp_err_t err = i2c_master_write_to_device(port, addr, data, len, timeout);
+    hal_i2c_unlock();
+    return err;
+}
+
+esp_err_t hal_i2c_master_write_read_device(i2c_port_t port, uint8_t addr,
+                                           const uint8_t *write_buf, size_t write_size,
+                                           uint8_t *read_buf, size_t read_size,
+                                           TickType_t timeout)
+{
+    if (!hal_i2c_lock()) return ESP_ERR_TIMEOUT;
+    esp_err_t err = i2c_master_write_read_device(port, addr, write_buf, write_size,
+                                                 read_buf, read_size, timeout);
+    hal_i2c_unlock();
     return err;
 }
 
