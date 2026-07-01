@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/opencode.jsonc",
+  "name": "DDIno",
+  "customCommands": {
+    "build-firmware": {
+      "command": "cd firmware; powershell -ExecutionPolicy Bypass -File build.ps1",
+      "description": "Build the ESP-IDF firmware"
+    }
+  }
+}

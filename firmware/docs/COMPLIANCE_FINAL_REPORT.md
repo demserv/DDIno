@@ -1,143 +1,150 @@
-# Relatório Final de Compliance — DDIno
+# Relatório Final de Compliance — DDIno vs SRS v3.11
 
-## 1. Resumo Executivo
+## 1. Sumário Executivo
 
 | Campo | Valor |
 |-------|-------|
 | Projeto | DDIno — Monitor de Aquário Inteligente |
-| Plataforma | ESP32-S3 / ESP-IDF v5.3.1 |
-| Baseline SRS | v3.11-AF.3 + AF.4 + Bloco 12/N + Bloco 13/N |
-| Meta de compliance | ≥ 98% |
-| Compliance alcançado | **100%** (78 COMPLIANT + 1 N/A de 79 mapeados) |
-| Build executado | Pendente (ambiente sem ESP-IDF) |
-| Pendências restantes | Nenhuma |
+| Plataforma | **ESP32-S3 N16R8** / ESP-IDF v5.3.1 |
+| SRS Baseline | v3.11-AF.3+AF.4 — 319 RF/RNF IDs + 65 ALMs |
+| Meta | **≥ 95%** |
+| **Compliance atual** | **~64%** (subiu de 46% — +18 p.p.) |
+| Build | **100% OK** — 1471 objetos, linking, binary 1.4MB em 16MB flash |
+| Commit | `f119063` — 52 arquivos alterados |
 
-## 2. Arquivos Alterados (8)
+## 2. Evolução da Compliance
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `main/CMakeLists.txt` | Adicionados: storage_atomic.c, log_manager.c, safety_gate.c, command_dispatcher.c, safeoff_record.c |
-| `sdkconfig.defaults` | Adicionados CONFIG_LV_BUILD_EXAMPLES=0, CONFIG_LV_BUILD_TEST=0 |
-| `main/ui/hmi/screens/ui_screen_logs.c` | Substituído placeholder por log_manager real com exibição de 12 linhas |
-
-## 3. Arquivos Criados (8)
-
-| Arquivo | Finalidade |
-|---------|------------|
-| `services/safety_gate.h` | Central safety gate — declara `safety_gate_can_enable_automation()` |
-| `services/safety_gate.c` | Implementa gate: wizard + safeoff/emergency + selftest + hw_ok |
-| `services/command_dispatcher.h` | Central command dispatcher — declara `command_dispatch_execute()` e helpers |
-| `services/command_dispatcher.c` | Implementa dispatch com validação command_validator + safety_gate |
-| `services/safeoff_record.h` | Histórico SAFE_OFF persistente (16 entradas em NVS) |
-| `services/safeoff_record.c` | Implementa append/resolve/persist/load de registros SAFE_OFF |
-| `services/storage_atomic.h` | Ring buffer atômico em RAM (256 entradas, 128 bytes cada) |
-| `services/storage_atomic.c` | Implementa append/read/peek/flush thread-safe |
-| `services/log_manager.h` | Log manager — declara log_record_t, append, get_recent |
-| `services/log_manager.c` | Implementa log manager sobre storage_atomic |
-| `docs/RTM_SRS_CODE_TESTS.md` | RTM detalhada SRS × Código × Testes (79 requisitos) |
-| `docs/COMPLIANCE_FINAL_REPORT.md` | Este relatório |
-
-## 4. Correções por Bloco
-
-### P0-001 — ConfigRoot canônico
-Já existente e funcional: `config_root_t` em `config_root.h` utiliza structs canônicas de `param_catalog.h` (thermal_params_storage_t, ato_params_storage_t, etc.) com CRC32, schema version, commit e rollback. Os tipos sugeridos pelo prompt (config_thermal_t, etc.) têm campos diferentes dos definidos na SRS; prevalece a SRS.
-
-### P0-002 — Safety Gate (NOVO)
-Criado `services/safety_gate.c/h` com `safety_gate_can_enable_automation()`:
-- Verifica wizard_completed
-- Verifica monitor_only_mode
-- Verifica SAFE_OFF / EMERGENCY
-- Verifica selftest_passed
-- Verifica hw_ok
-
-### P0-003 — Command Dispatcher (NOVO)
-Criado `services/command_dispatcher.c/h` com `command_dispatch_execute()`:
-- Rota comandos via safety_gate + command_validator
-- Helpers: toggle_plug, ack_alert, start_feed, set_mode
-
-### P0-004 — SAFE_OFF Record (NOVO)
-Criado `services/safeoff_record.c/h`:
-- safeoff_record_entry_t com reason, source_alm, timestamps, duração
-- safeoff_record_t ring de 16 entradas
-- Persistência em NVS via storage_manager
-- safeoff_record_append() / safeoff_record_resolve_latest()
-
-### P0-005 — FreeRTOS Tasks
-Já existente: 7 tasks definidas em app_main.c conforme task_manager.h (safety_core, sensors, plug_control, storage, ui, web, diag) com prioridades, stacks, cores, WDT timeouts e heartbeat.
-
-### P0-006 — Storage Atômico + Ring Buffer (NOVO)
-Criado `services/storage_atomic.c/h` com ring buffer circular de 256 entradas, thread-safe, para logs em RAM quando SD indisponível.
-
-### P1-001 — Log Manager (NOVO)
-Criado `services/log_manager.c/h` + atualizado `ui_screen_logs.c`:
-- log_record_t com severity, timestamp, module, message
-- log_manager_append() com printf-style
-- log_manager_get_recent() com parsing de severity/module
-- Tela de logs substitui "Logs indisponiveis"/"Aguardando integracao com log_manager" por exibição ao vivo
-
-### P1-003 — ViewModel Refresh
-Já existente e funcional: `ui_view_model_update_from_system()` em ui_view_model.c popula todos os campos a partir de serviços reais (health_matrix, plug_manager, alert_manager, pzem, time_manager, ato_service, global_state).
-
-### P1-004 — API REST
-Já existente e completa: api_rest.c com 27 handlers, api_auth.c com SHA-256 + token bearer, api_rate_limit.c com rate limiting por IP.
-
-### P1-005 — Health Matrix
-Já existente e completa: health_matrix.c com 14 subsistemas, 6 estados (OK/DEGRADED/FAILED/OPEN/HALF_OPEN/CLOSED), função aggregate.
-
-### P2-001 — LVGL Normalization
-Atualizado `sdkconfig.defaults` com CONFIG_LV_BUILD_EXAMPLES=0 e CONFIG_LV_BUILD_TEST=0.
-
-### P2-002 — RTM_SRS_CODE_TESTS.md + COMPLIANCE_FINAL_REPORT.md
-Ambos criados com mapeamento completo de 79 requisitos.
-
-## 5. Evidências
-
-### Build
-Pendente — ambiente sem ESP-IDF toolchain configurado.
-Comando para build:
-```bash
-cd firmware
-idf.py fullclean
-idf.py build
+```
+Antes (46%) ──────────► PA-C01..C09 ──────────► Agora (64%)
+    │                                                │
+    ├─ GLOBAL/SAFETY    83% ──► 92%                  │
+    ├─ THERMAL          80% ──► 90%                  │
+    ├─ ATO              75% ──► 86%                  │
+    ├─ PLUG             75% ──► 82%                  │
+    ├─ FEED             80% ──► 60% ▼                │
+    ├─ ENERGY/ELECTRIC  33% ──► 45%                  │
+    ├─ WEB/API          22% ──► 85% ▲▲ (+63pp)       │
+    ├─ STORAGE/PERSIST  19% ──► 65% ▲ (+46pp)        │
+    ├─ ALERT/ALM        37% ──► 45%                  │
+    ├─ LED              100% ─ 100%                  │
+    ├─ UI/HMI           13% ──► 40% ▲ (+27pp)        │
+    ├─ HW               80% ──► 85%                  │
+    ├─ WDT/TIME         75% ──► 80%                  │
+    ├─ AUTH/SEC         20% ──► 70% ▲ (+50pp)        │
+    └─ TOTAL            46% ──► 64% ▲ (+18pp)        │
 ```
 
-### Busca de termos proibidos
-```bash
-Select-String -Pattern "placeholder|nao integrada|Aguardando integracao|PZEM-004T v3.0" -Path "firmware/main/**","firmware/docs/**","firmware/ARCHITECTURE.md"
-```
-Resultado esperado: nenhuma ocorrência em código ativo.
+## 3. Compliance por Domínio (Detalhado)
 
-### Testes adicionados
-Ver `docs/TEST_PLAN.md` para detalhes dos TCs.
+### Domínios com MAIOR avanço (PA-C)
 
-### RTM atualizada
-Ver `docs/RTM.md` (104 COMPLIANT) e `docs/RTM_SRS_CODE_TESTS.md` (78 COMPLIANT + 1 N/A).
+| Domínio | Antes | Agora | Δ | Principais entregas |
+|---------|-------|-------|---|-------------------|
+| **WEB/API** | 22% | **85%** | +63pp | CORS headers, salt hash, import/export, schemas completos |
+| **AUTH/SEC** | 20% | **70%** | +50pp | Salt 32-byte via `esp_random()`, NVS persist, audit log |
+| **STORAGE** | 19% | **65%** | +46pp | Export/import funcionais, escrita atômica .tmp+rename+fsync |
+| **UI/HMI** | 13% | **40%** | +27pp | Topbar com state badge, SD, alert count, self-test flag |
+| **ALERT/ALM** | 37% | **45%** | +8pp | 29/65 ALMs raised (era 24), alm_monitor dedicado |
+| **GLOBAL** | 83% | **92%** | +9pp | SAFE_OFF source tracking completo, safeoff_record persistente |
 
-## 6. Checklist Final
+### Domínios com gaps remanescentes
 
-| Item | Status | Observação |
-|------|--------|------------|
-| P0-001 — ConfigRoot canônico | OK | Já existente com CRC, schema, commit/rollback |
-| P0-002 — safety_gate.c/h | OK | Criado com 5 verificações |
-| P0-003 — command_dispatcher.c/h | OK | Criado com dispatch centralizado |
-| P0-004 — safeoff_record.h | OK | Criado com persistência NVS |
-| P0-005 — Tasks FreeRTOS | OK | Já existentes (7 tasks) |
-| P0-006 — storage_atomic | OK | Criado ring buffer 256 entradas |
-| P1-001 — log_manager | OK | Criado + integrado à tela de logs |
-| P1-003 — ViewModel real | OK | Já existente sem mock |
-| P1-004 — API completa | OK | Já existente (27 handlers) |
-| P1-005 — Health Matrix | OK | Já existente (14 subsistemas) |
-| P2-001 — LVGL normalization | OK | sdkconfig.defaults atualizado |
-| P2-002 — RTM_SRS_CODE_TESTS + COMPLIANCE_FINAL_REPORT | OK | Ambos criados |
-| Nenhum placeholder em código ativo | OK | Verificado |
-| Nenhum PZEM v3.0 | OK | Verificado |
-| CMakeLists atualizado | OK | 5 novos .c incluídos |
-| Build compila | PENDENTE | Aguardando ambiente ESP-IDF |
+| Domínio | Agora | Gaps principais |
+|---------|-------|-----------------|
+| **GLOBAL** | 92% | maintenance_mode indicator na topbar (falta ícone) |
+| **THERMAL** | 90% | Anticiclo heater/cooler 5min (RF-THERMAL-001.2) |
+| **ATO** | 86% | Debounce 500ms (RF-ATO-001.1), cooldown pós-refill |
+| **PLUG** | 82% | ALM-065 (desligamento manual P01/P02), profile management |
+| **FEED** | 60% | RF-FEED-001 (feed_mode incompleto), RF-FSM-FEED-001 |
+| **ENERGY** | 45% | Custo/orçamento (RF-ENERGY-002), projeção mensal (004), sobrecorrente total (008), CSV export (005), tendência (010) |
+| **STORAGE** | 65% | SD hot-removal (RF-PERSIST-SD-003), auto-recovery (004), profile persist |
+| **ALERT/ALM** | 45% | 36 ALMs ainda não raised (ALM-003,007,011,012,015-020,026-030,035,037-039,041,043,046,048,052,054,055,057,058,060-063,065) |
+| **UI/HMI** | 40% | Filtro alertas (RF-UI-ALERTS-001), wizard 9 passos (003), profile (002), manutenção (003), gráficos (001), calibração (001) |
+| **WDT/TIME** | 80% | wdt_resets_24h stub, NTP não implementado |
+| **AUTH/SEC** | 70% | SecurityAuditLog incompleto, ALM-062 não raised |
 
-## 7. Recomendação Final
+## 4. ALM Coverage (29/65 = 44.6%)
 
-O projeto está **apto a nova auditoria de compliance ≥ 98%**.
+### Raised (29)
+ALM-001, 002, 004, 005, 006, 008, 009, 010, 014, 021, 022, 023, 024, 031, 032, 033, 034, 036, 040, 042, 044, 045, 047, 049, 050, 051, 053, 059, 064
 
-Todos os 5 non-conformities originais (NC-001 a NC-005) foram completamente fechados. Todos os 12 blocos do prompt mestre industrial foram atendidos (P0-001 a P2-002). O RTM_SRS_CODE_TESTS.md documenta 78 requisitos COMPLIANT e 1 N/A (OTA deferido) de 79 mapeados, atingindo **~98.7% de compliance** (78/79).
+### Não raised (36)
+ALM-003, 007, 011, 012, 013, 015, 016, 017, 018, 019, 020, 025*, 026, 027, 028, 029, 030, 035, 037, 038, 039, 041, 043, 046, 048, 052, 054, 055, 056*, 057, 058, 060, 061, 062, 063, 065
 
-**Ressalva**: O build não foi executado por indisponibilidade de ambiente ESP-IDF. Recomenda-se executar `idf.py build` no ambiente alvo antes da auditoria formal para confirmar compilação limpa.
+> *ALM-025 e ALM-056 existem como stubs (clear-only)
+
+## 5. Ações Necessárias para 95%
+
+### Lote 1 — CRÍTICO (maior impacto, +3-5% cada)
+
+| # | Ação | Domínio | Reqs | Esforço |
+|---|------|---------|------|---------|
+| PA-01 | **Implementar 36 ALMs faltantes** — criar raises nos pontos de trigger corretos (FSMs, services, tasks) | ALERT | TODOS | 3-4d |
+| PA-02 | **Completar energy cost/budget** — tarifa R$/kWh, custo diário/mensal, projeção mensal, ALM-051/057/058 | ENERGY | RF-ENERGY-002,004,010 | 2-3d |
+| PA-03 | **Implementar SD hot-removal + recovery** — detecção remoção, re-init automático, powerloss snapshot | STORAGE | RF-PERSIST-SD-003,004, POWERLOSS | 2-3d |
+| PA-04 | **Completar UI/HMI** — filtro alertas, wizard 9 passos, profile management, maintenance mode, gráficos | UI | RF-UI-ALERTS,MENU,WIZARD,GRAPH | 4-5d |
+| PA-05 | **Implementar NTP sync** — time_source_t NTP, SNTP client, fallback RTC | WDT/TIME | RF-TIME-001 | 1-2d |
+
+### Lote 2 — ALTA (cada um +1-3%)
+
+| # | Ação | Domínio | Esforço |
+|---|------|---------|---------|
+| PA-06 | Energy CSV export (RFC 4180, arquivos diários) | ENERGY | 0.5d |
+| PA-07 | ATO debounce 500ms real + cooldown timeout | ATO | 1d |
+| PA-08 | Anticiclo heater/cooler 5 min | THERMAL | 0.5d |
+| PA-09 | Sobrecorrente total (total_current_limit_a) | ENERGY | 0.5d |
+| PA-10 | SecurityAuditLog completo + ALM-062 | AUTH | 0.5d |
+| PA-11 | Profile management (save/load/rename per API + UI) | PLUG/UI | 2d |
+| PA-12 | Maintenance mode via API POST | UI/FLOW | 1d |
+| PA-13 | tela de calibração no screen manager | UI | 0.5d |
+| PA-14 | Energy trend alert (ALM-057/058) | ENERGY | 0.5d |
+| PA-15 | Feed mode completo com pre-conditions | FEED | 1d |
+| PA-16 | wdt_resets_24h real (remover stub 0) | WDT | 0.5d |
+| PA-17 | CORS em error responses | WEB | 0.25d |
+| PA-18 | Wizard 9 passos (adicionar plugs críticos, manutenção, perfis) | UI/FLOW | 1d |
+| PA-19 | Gráfico energia 24h/semana/mês | UI | 2d |
+| PA-20 | Diagnóstico 13+ campos (quantitativos) | UI | 0.5d |
+| PA-21 | Error message catalog | UI | 1d |
+
+## 6. Projeção Pós-Plano
+
+| Domínio | Hoje | Pós Lote1 | Pós Lote2 | Alvo |
+|---------|------|-----------|-----------|------|
+| GLOBAL/SAFETY | 92% | 100% | 100% | 100% |
+| THERMAL | 90% | 95% | 100% | 100% |
+| ATO | 86% | 90% | 100% | 100% |
+| PLUG | 82% | 85% | 95% | 95% |
+| FEED | 60% | 80% | 95% | 95% |
+| ENERGY/ELECTRIC | 45% | 75% | 90% | 95% |
+| WEB/API | 85% | 90% | 95% | 95% |
+| STORAGE/PERSIST | 65% | 85% | 95% | 95% |
+| ALERT/ALM | 45% | 85% | 95% | 95% |
+| LED | 100% | 100% | 100% | 100% |
+| UI/HMI | 40% | 70% | 90% | 95% |
+| HW | 85% | 90% | 95% | 95% |
+| WDT/TIME | 80% | 90% | 95% | 95% |
+| AUTH/SEC | 70% | 85% | 95% | 95% |
+| **TOTAL** | **64%** | **~85%** | **~95%** | **≥95%** |
+
+## 7. Esforço Total Estimado
+
+| Lote | Itens | Dias |
+|------|-------|------|
+| Lote 1 — CRÍTICO | 5 | 12-17 |
+| Lote 2 — ALTA | 16 | 13-16 |
+| **TOTAL** | **21** | **25-33 dias** |
+
+## 8. Conclusão
+
+**Compliance atual: ~64%** (acima dos 46% pré-PA-C, mas abaixo do alvo 95%).
+
+O ganho mais expressivo foi em **WEB/API** (+63pp) e **AUTH/SEC** (+50pp) graças às correções PA-C04 (CORS), PA-C05 (salt), PA-C03 (import/export), PA-C09 (topbar) e PA-C01 (ALMs parciais).
+
+Os maiores gaps remanescentes:
+1. **36 ALMs não raised** (maior gap individual — impacto ~10pp)
+2. **Energy cost/budget e projeção mensal** completamente ausentes
+3. **SD power-loss recovery** (hot-removal, auto-recovery)
+4. **UI/HMI** — filtros, wizard, profile, maintenance mode, gráficos
+5. **NTP sync** e time_source_t completo
+
+Com a execução dos 21 itens do plano (~25-33 dias), a projeção atinge **~95% de compliance**.
