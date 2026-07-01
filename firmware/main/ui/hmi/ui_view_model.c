@@ -107,15 +107,20 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->topbar.wifi_ok = g_gs.wifi_ok;
     vm->topbar.feed_mode_active = g_gs.feed_active;
     vm->topbar.feed_remaining_s = g_gs.feed_remaining_s;
+    vm->topbar.sd_ok = g_gs.sd_ok;
+    vm->topbar.selftest_passed = g_gs.selftest_passed;
+    vm->topbar.system_state = (ui_system_state_t)g_gs.system_state;
+    vm->topbar.alert_count = g_gs.active_alerts_count;
 
     if (g_gs.time_valid) {
         time_t ts = 0;
         if (time_get(&ts) == ESP_OK) {
             struct tm tm_info;
             localtime_r(&ts, &tm_info);
+            uint16_t year = (uint16_t)(tm_info.tm_year + 1900);
             snprintf(vm->topbar.datetime_text, sizeof(vm->topbar.datetime_text),
                      "%02d/%02d/%04d %02d:%02d",
-                     tm_info.tm_mday, tm_info.tm_mon + 1, tm_info.tm_year + 1900,
+                     tm_info.tm_mday, tm_info.tm_mon + 1, year,
                      tm_info.tm_hour, tm_info.tm_min);
         }
     } else {

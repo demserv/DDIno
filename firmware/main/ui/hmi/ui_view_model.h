@@ -12,9 +12,13 @@
 
 typedef struct {
     bool wifi_ok;
-    char datetime_text[24];
+    char datetime_text[48];
     bool feed_mode_active;
     uint32_t feed_remaining_s;
+    bool sd_ok;
+    bool selftest_passed;
+    ui_system_state_t system_state;
+    uint16_t alert_count;
 } ui_topbar_vm_t;
 
 typedef struct {
@@ -70,10 +74,10 @@ typedef struct {
     char id[12];
     ui_alert_severity_t severity;
     char severity_text[16];
-    char message[80];
+    char message[128];
     char timestamp[16];
     bool acked;
-    char action_hint[96];
+    char action_hint[128];
 } ui_alert_vm_t;
 
 typedef struct {

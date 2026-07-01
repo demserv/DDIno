@@ -7,6 +7,10 @@
 #include "esp_log.h"
 
 static const char *TAG = "web_ctl";
+
+void web_ctl_tick(void)
+{
+}
 static bool s_sd_available = true;
 
 esp_err_t web_ctl_init(void)

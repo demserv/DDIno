@@ -5,11 +5,11 @@
 #include "plug_model.h"
 #include "hardware_config.h"
 #include "global_state.h"
-#include "core/circuit_breaker.h"
-#include "drivers/driver_ds18b20.h"
-#include "drivers/driver_pzem.h"
-#include "drivers/driver_acs712.h"
-#include "drivers/driver_mcp3208.h"
+#include "circuit_breaker.h"
+#include "driver_ds18b20.h"
+#include "driver_pzem.h"
+#include "driver_acs712.h"
+#include "driver_mcp3208.h"
 #include "pin_map.h"
 
 extern global_state_t g_gs;

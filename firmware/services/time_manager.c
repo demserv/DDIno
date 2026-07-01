@@ -71,7 +71,7 @@ esp_err_t time_manager_init(void)
 
 esp_err_t time_get(time_t *out_unix_ts)
 {
-    if (!out) return ESP_ERR_INVALID_ARG;
+    if (!out_unix_ts) return ESP_ERR_INVALID_ARG;
     *out_unix_ts = s_current;
     return s_valid ? ESP_OK : ESP_ERR_INVALID_STATE;
 }

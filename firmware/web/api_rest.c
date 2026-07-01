@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef USEC_PER_SEC
+#define USEC_PER_SEC 1000000ULL
+#endif
+
 #include "cJSON.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -24,13 +28,14 @@
 #include "fsm/restart_fsm.h"
 #include "global_state.h"
 #include "pin_map.h"
-#include "services/alert_manager.h"
-#include "services/audit_log.h"
-#include "services/command_validator.h"
-#include "services/config_manager.h"
-#include "services/plug_manager.h"
-#include "services/relay_safety_service.h"
-#include "services/reset_handler.h"
+#include "alert_manager.h"
+#include "audit_log.h"
+#include "command_validator.h"
+#include "config_manager.h"
+#include "storage_manager.h"
+#include "plug_manager.h"
+#include "relay_safety_service.h"
+#include "reset_handler.h"
 #include "system_types.h"
 
 static const char *TAG = "api_rest";
@@ -38,6 +43,21 @@ static const char *TAG = "api_rest";
 extern global_state_t g_gs;
 extern pzem_data_t g_pzem;
 extern bool g_feed_request;
+
+static const char *ns_name_for(storage_namespace_t ns)
+{
+    switch (ns) {
+        case STORAGE_NS_CFG:     return "cfg";
+        case STORAGE_NS_CAL:     return "cal";
+        case STORAGE_NS_PROFILE: return "profile";
+        case STORAGE_NS_STATE:   return "state";
+        case STORAGE_NS_LOG:     return "log";
+        case STORAGE_NS_WIZARD:  return "wiz";
+        case STORAGE_NS_TIME:    return "time";
+        case STORAGE_NS_ALM:     return "alm";
+        default:                 return "unknown";
+    }
+}
 extern restart_fsm_t g_restart_fsm;
 
 static httpd_handle_t s_server = NULL;
@@ -65,6 +85,14 @@ static char *read_body(httpd_req_t *req)
     return buf;
 }
 
+static void set_cors_headers(httpd_req_t *req)
+{
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type, X-Auth-Token, Authorization");
+    httpd_resp_set_hdr(req, "Access-Control-Max-Age", "86400");
+}
+
 static esp_err_t send_json_resp(httpd_req_t *req, cJSON *json, const char *status_str)
 {
     char *str = cJSON_PrintUnformatted(json);
@@ -78,6 +106,7 @@ static esp_err_t send_json_resp(httpd_req_t *req, cJSON *json, const char *statu
     httpd_resp_set_status(req, status_str);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
+    set_cors_headers(req);
     esp_err_t ret = httpd_resp_sendstr(req, str);
     free(str);
     cJSON_Delete(json);
@@ -348,17 +377,29 @@ static esp_err_t alerts_handler(httpd_req_t *req)
     AUTH_GUARD();
     cJSON *arr = cJSON_CreateArray();
     for (int16_t id = 1; id <= 65; id++) {
-        if (alert_manager_is_active(id)) {
-            cJSON *a = cJSON_CreateObject();
-            cJSON_AddNumberToObject(a, "id", id);
-            const alert_slot_t *aslot = alert_manager_get_slot((int16_t)id);
-            cJSON_AddBoolToObject(a, "acked", aslot ? aslot->acked : false);
-            cJSON_AddItemToArray(arr, a);
-        }
+        const alert_slot_t *aslot = alert_manager_get_slot(id);
+        if (!aslot || !aslot->active) continue;
+        cJSON *a = cJSON_CreateObject();
+        cJSON_AddNumberToObject(a, "id", id);
+        cJSON_AddNumberToObject(a, "severity", aslot->severity);
+        cJSON_AddStringToObject(a, "severity_text",
+            aslot->severity == ALERT_SEVERITY_CRITICAL ? "CRITICAL" :
+            aslot->severity == ALERT_SEVERITY_HIGH ? "HIGH" :
+            aslot->severity == ALERT_SEVERITY_WARNING ? "WARNING" : "INFO");
+        cJSON_AddStringToObject(a, "message", aslot->message);
+        cJSON_AddStringToObject(a, "action_hint", aslot->action_hint);
+        cJSON_AddNumberToObject(a, "category", aslot->category);
+        cJSON_AddBoolToObject(a, "acked", aslot->acked);
+        cJSON_AddBoolToObject(a, "ack_req", aslot->ack_req);
+        cJSON_AddNumberToObject(a, "first_seen_ts", (double)aslot->first_seen_ts);
+        cJSON_AddNumberToObject(a, "last_seen_ts", (double)aslot->last_seen_ts);
+        cJSON_AddNumberToObject(a, "related_plug_id", aslot->related_plug_id);
+        cJSON_AddItemToArray(arr, a);
     }
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddItemToObject(resp, "alerts", arr);
     cJSON_AddNumberToObject(resp, "count", g_gs.active_alerts_count);
+    cJSON_AddNumberToObject(resp, "critical_count", g_gs.critical_alerts_count);
     return send_json_resp(req, resp, "200 OK");
 }
 
@@ -851,9 +892,92 @@ static esp_err_t config_monitor_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static esp_err_t state_handler(httpd_req_t *req)
+{
+    return status_handler(req);
+}
+
+static esp_err_t export_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    const char *ns_str = NULL;
+    size_t ns_len = httpd_req_get_hdr_value_len(req, "X-Namespace") + 1;
+    if (ns_len > 1) {
+        char *ns_buf = malloc(ns_len);
+        if (ns_buf) {
+            httpd_req_get_hdr_value_str(req, "X-Namespace", ns_buf, ns_len);
+            ns_str = ns_buf;
+        }
+    }
+    storage_namespace_t ns = STORAGE_NS_CFG;
+    if (ns_str) {
+        for (int i = 0; i < (int)STORAGE_NS_COUNT; i++) {
+            if (strcmp(ns_str, ns_name_for((storage_namespace_t)i)) == 0) { ns = (storage_namespace_t)i; break; }
+        }
+        free((void*)ns_str);
+    }
+
+    uint8_t buf[8192];
+    size_t out_len = sizeof(buf);
+    esp_err_t err = storage_export_to_buffer(ns, buf, &out_len);
+    if (err != ESP_OK) {
+        return send_error(req, "export_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "namespace", ns_name_for(ns));
+    cJSON_AddStringToObject(resp, "data", (const char *)buf);
+    return send_json_resp(req, resp, "200 OK");
+}
+
+static esp_err_t import_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char *body = read_body(req);
+    if (!body) return send_error(req, "invalid_body", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *json = cJSON_Parse(body);
+    free(body);
+    if (!json) return send_error(req, "invalid_json", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+
+    cJSON *ns_item = cJSON_GetObjectItem(json, "namespace");
+    cJSON *data_item = cJSON_GetObjectItem(json, "data");
+    if (!cJSON_IsString(ns_item) || !cJSON_IsString(data_item)) {
+        cJSON_Delete(json);
+        return send_error(req, "missing_fields", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    storage_namespace_t ns = STORAGE_NS_CFG;
+    const char *ns_str = cJSON_GetStringValue(ns_item);
+    for (int i = 0; i < (int)STORAGE_NS_COUNT; i++) {
+        if (strcmp(ns_str, ns_name_for((storage_namespace_t)i)) == 0) { ns = (storage_namespace_t)i; break; }
+    }
+
+    const char *data_str = cJSON_GetStringValue(data_item);
+    esp_err_t err = storage_import_from_buffer(ns, (const uint8_t *)data_str, strlen(data_str));
+    cJSON_Delete(json);
+
+    if (err != ESP_OK) {
+        return send_error(req, "import_failed", ERR_INTERNAL, 500, "500 Internal Server Error");
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", "imported");
+    cJSON_AddStringToObject(resp, "namespace", ns_str);
+    return send_json_resp(req, resp, "200 OK");
+}
+
 static esp_err_t catch_all_handler(httpd_req_t *req)
 {
     return send_error(req, "not_found", ERR_NOT_FOUND, 404, "404 Not Found");
+}
+
+static esp_err_t options_handler(httpd_req_t *req)
+{
+    set_cors_headers(req);
+    httpd_resp_set_status(req, "200 OK");
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, "{}");
 }
 
 static httpd_uri_t g_uris[] = {
@@ -861,6 +985,9 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/auth/logout",   .method = HTTP_POST, .handler = logout_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/auth/password", .method = HTTP_POST, .handler = auth_password_handler, .user_ctx = NULL },
     { .uri = "/api/v1/status",        .method = HTTP_GET,  .handler = status_handler,        .user_ctx = NULL },
+    { .uri = "/api/v1/state",         .method = HTTP_GET,  .handler = state_handler,         .user_ctx = NULL },
+    { .uri = "/api/v1/export",        .method = HTTP_GET,  .handler = export_handler,        .user_ctx = NULL },
+    { .uri = "/api/v1/import",        .method = HTTP_POST, .handler = import_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/health",        .method = HTTP_GET,  .handler = health_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_GET,  .handler = plugs_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/plugs",         .method = HTTP_POST, .handler = plug_set_handler,      .user_ctx = NULL },
@@ -884,6 +1011,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/reset",         .method = HTTP_POST, .handler = reset_api_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_GET,  .handler = catch_all_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/*",             .method = HTTP_POST, .handler = catch_all_handler,     .user_ctx = NULL },
+    { .uri = "/api/v1/*",             .method = HTTP_OPTIONS, .handler = options_handler,    .user_ctx = NULL },
 };
 
 esp_err_t api_rest_init(void)

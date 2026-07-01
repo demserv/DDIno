@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "hardware_config.h"
 
 #include "driver_acs712.h"
 #include "driver_relay.h"

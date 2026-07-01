@@ -2,11 +2,14 @@
 #include "storage_manager.h"
 
 #include <string.h>
+#include <stdio.h>
 
 #include "esp_log.h"
 #include "nvs_flash.h"
 
 #include "nvs.h"
+#include "cJSON.h"
+#include <ctype.h>
 
 static const char *TAG = "storage_mgr";
 
@@ -81,9 +84,9 @@ esp_err_t storage_commit(storage_namespace_t ns)
 esp_err_t storage_close(storage_namespace_t ns)
 {
     if (!s_open[ns]) return ESP_OK;
-    esp_err_t err = nvs_close(s_handles[ns]);
+    nvs_close(s_handles[ns]);
     s_open[ns] = false;
-    return err;
+    return ESP_OK;
 }
 
 esp_err_t storage_set_u32(storage_namespace_t ns, const char *key, uint32_t value)
@@ -177,24 +180,186 @@ esp_err_t storage_migrate_if_needed(storage_namespace_t ns)
     return err;
 }
 
+static esp_err_t nvs_type_to_cjson(nvs_handle_t h, const char *key, nvs_type_t t, cJSON *obj)
+{
+    switch (t) {
+        case NVS_TYPE_U8: {
+            uint8_t v; esp_err_t e = nvs_get_u8(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, v);
+            return e;
+        }
+        case NVS_TYPE_I8: {
+            int8_t v; esp_err_t e = nvs_get_i8(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, v);
+            return e;
+        }
+        case NVS_TYPE_U16: {
+            uint16_t v; esp_err_t e = nvs_get_u16(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, v);
+            return e;
+        }
+        case NVS_TYPE_I16: {
+            int16_t v; esp_err_t e = nvs_get_i16(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, v);
+            return e;
+        }
+        case NVS_TYPE_U32: {
+            uint32_t v; esp_err_t e = nvs_get_u32(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, (double)v);
+            return e;
+        }
+        case NVS_TYPE_I32: {
+            int32_t v; esp_err_t e = nvs_get_i32(h, key, &v);
+            if (e == ESP_OK) cJSON_AddNumberToObject(obj, key, (double)v);
+            return e;
+        }
+        case NVS_TYPE_STR: {
+            size_t sz = 0; esp_err_t e = nvs_get_str(h, key, NULL, &sz);
+            if (e == ESP_OK && sz > 0) {
+                char *s = malloc(sz);
+                if (s) {
+                    e = nvs_get_str(h, key, s, &sz);
+                    if (e == ESP_OK) cJSON_AddStringToObject(obj, key, s);
+                    free(s);
+                }
+            }
+            return e;
+        }
+        case NVS_TYPE_BLOB: {
+            size_t sz = 0; esp_err_t e = nvs_get_blob(h, key, NULL, &sz);
+            if (e == ESP_OK && sz > 0) {
+                uint8_t *blob = malloc(sz);
+                if (blob) {
+                    e = nvs_get_blob(h, key, blob, &sz);
+                    if (e == ESP_OK) {
+                        char *hex = malloc(sz * 2 + 1);
+                        if (hex) {
+                            for (size_t i = 0; i < sz; i++)
+                                sprintf(hex + i * 2, "%02x", (unsigned)blob[i]);
+                            hex[sz * 2] = '\0';
+                            cJSON_AddStringToObject(obj, key, hex);
+                            free(hex);
+                        }
+                    }
+                    free(blob);
+                }
+            }
+            return e;
+        }
+        default:
+            return ESP_ERR_NOT_SUPPORTED;
+    }
+}
+
 esp_err_t storage_export_to_buffer(storage_namespace_t ns, uint8_t *buf, size_t *len)
 {
     if (!buf || !len) return ESP_ERR_INVALID_ARG;
-    ESP_LOGI(TAG, "Export %s to buffer", NS_NAMES[ns]);
-    return ESP_ERR_NOT_SUPPORTED;
+    if (ns >= STORAGE_NS_COUNT) return ESP_ERR_INVALID_ARG;
+
+    esp_err_t err = storage_open(ns, true);
+    if (err != ESP_OK) return err;
+
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) { storage_close(ns); return ESP_ERR_NO_MEM; }
+
+    nvs_iterator_t it = NULL;
+    esp_err_t res = nvs_entry_find("nvs", NS_NAMES[ns], NVS_TYPE_ANY, &it);
+    while (res == ESP_OK) {
+        nvs_entry_info_t info;
+        nvs_entry_info(it, &info);
+        nvs_type_to_cjson(s_handles[ns], info.key, info.type, obj);
+        res = nvs_entry_next(&it);
+    }
+    nvs_release_iterator(it);
+
+    storage_close(ns);
+
+    char *json = cJSON_PrintUnformatted(obj);
+    cJSON_Delete(obj);
+    if (!json) return ESP_ERR_NO_MEM;
+
+    size_t json_len = strlen(json);
+    if (json_len + 1 > *len) {
+        free(json);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    memcpy(buf, json, json_len + 1);
+    *len = json_len;
+    free(json);
+    return ESP_OK;
 }
 
 esp_err_t storage_import_from_buffer(storage_namespace_t ns, const uint8_t *buf, size_t len)
 {
     if (!buf || len == 0) return ESP_ERR_INVALID_ARG;
-    ESP_LOGI(TAG, "Import %s from buffer", NS_NAMES[ns]);
-    return ESP_ERR_NOT_SUPPORTED;
+    if (ns >= STORAGE_NS_COUNT) return ESP_ERR_INVALID_ARG;
+
+    cJSON *obj = cJSON_Parse((const char *)buf);
+    if (!obj) return ESP_ERR_INVALID_ARG;
+
+    esp_err_t err = storage_open(ns, false);
+    if (err != ESP_OK) { cJSON_Delete(obj); return err; }
+
+    cJSON *child = NULL;
+    cJSON_ArrayForEach(child, obj) {
+        const char *key = child->string;
+        if (!key) continue;
+
+        if (cJSON_IsNumber(child)) {
+            double v = cJSON_GetNumberValue(child);
+            if (v >= 0 && v == (double)(uint32_t)v) {
+                nvs_set_u32(s_handles[ns], key, (uint32_t)v);
+            } else if (v == (double)(int32_t)v) {
+                nvs_set_i32(s_handles[ns], key, (int32_t)v);
+            }
+        } else if (cJSON_IsString(child)) {
+            const char *val = cJSON_GetStringValue(child);
+            if (val) {
+                size_t slen = strlen(val);
+                if (slen > 0 && val[0] >= '0' && val[0] <= '9' && slen % 2 == 0) {
+                    size_t blen = slen / 2;
+                    uint8_t *blob = malloc(blen);
+                    if (blob) {
+                        bool is_hex = true;
+                        for (size_t i = 0; i < slen; i++) {
+                            if (!isxdigit((unsigned char)val[i])) { is_hex = false; break; }
+                        }
+                        if (is_hex && blen > 0) {
+                            for (size_t i = 0; i < blen; i++) {
+                                unsigned int b;
+                                sscanf(val + i * 2, "%02x", &b);
+                                blob[i] = (uint8_t)b;
+                            }
+                            nvs_set_blob(s_handles[ns], key, blob, blen);
+                        } else {
+                            nvs_set_str(s_handles[ns], key, val);
+                        }
+                        free(blob);
+                    }
+                } else {
+                    nvs_set_str(s_handles[ns], key, val);
+                }
+            }
+        }
+    }
+
+    nvs_commit(s_handles[ns]);
+    storage_close(ns);
+    cJSON_Delete(obj);
+    return ESP_OK;
 }
 
 esp_err_t storage_erase_namespace(storage_namespace_t ns)
 {
     if (ns >= STORAGE_NS_COUNT) return ESP_ERR_INVALID_ARG;
-    return storage_manager_erase_ns(NS_NAMES[ns]);
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NS_NAMES[ns], NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    err = nvs_erase_all(h);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    return err;
 }
 
 esp_err_t storage_manager_save_str(const char *ns, const char *key, const char *val)

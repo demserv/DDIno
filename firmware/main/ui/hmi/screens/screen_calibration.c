@@ -2,7 +2,7 @@
 #include "../ui_screen_manager.h"  /* TODO: port para new HMI */
 #include "global_state.h"
 #include "param_catalog.h"
-#include "services/config_manager.h"
+#include "config_manager.h"
 #include "lvgl.h"
 
 static lv_obj_t *calib_labels[14];

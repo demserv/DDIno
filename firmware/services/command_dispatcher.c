@@ -37,7 +37,7 @@ esp_err_t command_dispatch_toggle_plug(const global_state_t *gs, uint8_t plug_id
         return ESP_ERR_INVALID_STATE;
     }
 
-    return plug_manager_set(plug_id, desired_on);
+    return plug_manager_toggle(plug_id, desired_on);
 }
 
 esp_err_t command_dispatch_ack_alert(const global_state_t *gs, uint16_t alert_id)
@@ -50,7 +50,8 @@ esp_err_t command_dispatch_ack_alert(const global_state_t *gs, uint16_t alert_id
         return ESP_ERR_INVALID_STATE;
     }
 
-    return alert_manager_ack(alert_id);
+    alert_manager_ack(alert_id, 0);
+    return ESP_OK;
 }
 
 esp_err_t command_dispatch_start_feed(const global_state_t *gs)
@@ -63,7 +64,8 @@ esp_err_t command_dispatch_start_feed(const global_state_t *gs)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return feed_snapshot_start();
+    (void)gs;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id)
@@ -76,6 +78,6 @@ esp_err_t command_dispatch_set_mode(const global_state_t *gs, uint8_t plug_id)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return plug_manager_set_mode(plug_id);
+    return plug_manager_set_mode(plug_id, PLUG_MODE_AUTO);
 }
 

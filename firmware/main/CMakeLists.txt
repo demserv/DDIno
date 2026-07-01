@@ -34,6 +34,7 @@ set(MAIN_SRCS
     "../services/alert_manager.c"
     "../services/alert_manager_ext.c"
     "../services/alm_ctl.c"
+    "../services/alm_monitor.c"
     "../services/ato_service.c"
     "../services/audit_log.c"
     "../services/bom_ctl.c"
@@ -123,11 +124,11 @@ set(MAIN_SRCS
     "ui/hmi/screens/screen_submenu.c"
 
     # Main task modules
-    "api_sensors_handler.c"
-    "app_main.c"
-    "log_handler.c"
-    "task_web.c"
-    "ui_task.c"
+    "handler/api_sensors_handler.c"
+    "app/app_main.c"
+    "handler/log_handler.c"
+    "task/task_web.c"
+    "task/ui_task.c"
 )
 
 set(MAIN_INCLUDE_DIRS

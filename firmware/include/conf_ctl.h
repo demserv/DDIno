@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "esp_err.h"
+#include "log_ctl.h"
 
 #ifdef __cplusplus
 extern "C" {

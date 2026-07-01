@@ -2,6 +2,7 @@
 #ifndef FIRMWARE_INCLUDE_ELECTRIC_SERVICE_H
 #define FIRMWARE_INCLUDE_ELECTRIC_SERVICE_H
 
+#include <stdbool.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus

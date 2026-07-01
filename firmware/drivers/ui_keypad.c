@@ -27,13 +27,13 @@ static int map_adc_to_lvgl_key(uint16_t adc_value)
     return 0x80;
 }
 
-bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+void ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     uint32_t now = esp_timer_get_time() / 1000;
     if (now - last_key_time < HW_I2C_TIMEOUT_MS) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     uint16_t adc_value;
@@ -41,14 +41,14 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     if (ret != ESP_OK) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     int key = map_adc_to_lvgl_key(adc_value);
     if (key == 0 || key == last_key) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     last_key = key;
@@ -56,8 +56,6 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
     data->state = LV_INDEV_STATE_PR;
     data->key = key;
-
-    return false;
 }
 
 esp_err_t ui_keypad_init(void)

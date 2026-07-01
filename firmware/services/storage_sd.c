@@ -16,6 +16,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <unistd.h>
 
 
 extern global_state_t g_gs;
@@ -71,6 +72,9 @@ static esp_err_t ensure_all_dirs(void)
 static esp_err_t atomic_write_and_rename(const char *final_path, const char *tmp_path, FILE *f)
 {
     if (!f) return ESP_ERR_INVALID_ARG;
+
+    fflush(f);
+    fsync(fileno(f));
     fclose(f);
 
     if (rename(tmp_path, final_path) != 0) {

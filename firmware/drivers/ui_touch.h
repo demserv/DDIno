@@ -7,6 +7,6 @@
 #include "lvgl.h"
 
 esp_err_t ui_touch_init(void);
-bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
+void ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
 
 #endif

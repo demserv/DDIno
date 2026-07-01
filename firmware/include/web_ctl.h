@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 esp_err_t web_ctl_init(void);
+void web_ctl_tick(void);
 esp_err_t web_ctl_export_config(void);
 esp_err_t web_ctl_import_config(void);
 esp_err_t web_ctl_get_health_json(char *buf, size_t buf_size);

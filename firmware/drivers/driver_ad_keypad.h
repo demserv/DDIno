@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
+#include "hardware_config.h"
 
 typedef enum {
     KEY_NONE = 0,

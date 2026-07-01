@@ -9,6 +9,6 @@
 #define LV_KEY_HOME 0x80
 
 esp_err_t ui_keypad_init(void);
-bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
+void ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
 
 #endif

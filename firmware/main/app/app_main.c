@@ -24,34 +24,34 @@
 #include "driver_acs712.h"
 #include "driver_ad_keypad.h"
 #include "driver_pzem.h"
-#include "core/safety_controller.h"
-#include "services/command_validator.h"
-#include "services/alert_manager.h"
-#include "services/safeoff_alm_map.h"
-#include "services/electric_fsm.h"
-#include "services/storage_sd.h"
-#include "services/cdn_energy.h"
-#include "services/config_manager.h"
-#include "services/task_manager.h"
-#include "services/wdt_advanced.h"
-#include "fsm/thermal_fsm.h"
-#include "drivers/driver_ds18b20.h"
-#include "drivers/driver_ds3231.h"
-#include "drivers/driver_buzzer_led.h"
-#include "fsm/ato_fsm.h"
-#include "web/api_rest.h"
-#include "drivers/ui_display.h"
+#include "safety_controller.h"
+#include "command_validator.h"
+#include "alert_manager.h"
+#include "safeoff_alm_map.h"
+#include "electric_fsm.h"
+#include "storage_sd.h"
+#include "cdn_energy.h"
+#include "config_manager.h"
+#include "task_manager.h"
+#include "wdt_advanced.h"
+#include "thermal_fsm.h"
+#include "driver_ds18b20.h"
+#include "driver_ds3231.h"
+#include "driver_buzzer_led.h"
+#include "ato_fsm.h"
+#include "api_rest.h"
+#include "ui_display.h"
 #include "ui/hmi/ui_screen_manager.h"
 #include "ui/hmi/ui_app.h"
-#include "core/circuit_breaker.h"
-#include "services/self_test.h"
-#include "services/temp_filter.h"
-#include "services/audit_log.h"
-#include "services/plug_manager.h"
-#include "fsm/feed_fsm.h"
-#include "fsm/restart_fsm.h"
-#include "services/feed_snapshot.h"
-#include "services/reset_handler.h"
+#include "circuit_breaker.h"
+#include "self_test.h"
+#include "temp_filter.h"
+#include "audit_log.h"
+#include "plug_manager.h"
+#include "feed_fsm.h"
+#include "restart_fsm.h"
+#include "feed_snapshot.h"
+#include "reset_handler.h"
 #include "event_bus.h"
 #include "health_matrix.h"
 #include "wifi_ctl.h"
@@ -70,6 +70,7 @@
 #include "pending_actions.h"
 #include "sec_policy.h"
 #include "watchdog_guard.h"
+#include "alm_monitor.h"
 
 static const char *TAG = "app_main";
 
@@ -607,6 +608,8 @@ static void task_safety_core_fn(void *pv)
         feed_fsm_update(&s_feed_fsm, now_ms);
         update_feed_snapshot(now_ms, now_s);
 
+        alm_monitor_tick(now_s);
+
         plug_manager_set_thermal_request(PLUG_ID_P02,
             tout ? tout->request_heater_on : false,
             tout ? tout->request_cooler_on : false);
@@ -686,7 +689,7 @@ static void task_ui_fn(void *pv)
     while (1) {
         wdt_advanced_reset(TASK_ID_UI);
         watchdog_guard_heartbeat(TASK_ID_UI);
-        ui_screen_update_all();
+        ui_screen_manager_refresh();
         ui_app_tick();
         lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_UI));
@@ -864,6 +867,7 @@ void app_main(void)
     wifi_ctl_init();
     web_ctl_init();
     alm_ctl_init();
+    alm_monitor_init();
     bom_ctl_init();
     data_ctl_init();
 

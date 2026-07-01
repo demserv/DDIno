@@ -4,11 +4,16 @@
 
 #include "lvgl.h"
 #include "../ui_view_model.h"
+#include "ui_status_badge.h"
 
 typedef struct {
     lv_obj_t *root;
     lv_obj_t *wifi_label;
+    ui_status_badge_t state_badge;
     lv_obj_t *datetime_label;
+    lv_obj_t *sd_label;
+    lv_obj_t *selftest_label;
+    lv_obj_t *alert_count_label;
     lv_obj_t *feed_btn;
     lv_obj_t *feed_label;
 } ui_topbar_t;

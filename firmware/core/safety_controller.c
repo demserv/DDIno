@@ -16,6 +16,7 @@
 #include "driver_relay.h"
 #include "event_log.h"
 #include "hardware_config.h"
+#include "safeoff_alm_map.h"
 
 static const char *TAG = "safety_controller";
 
@@ -55,10 +56,15 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
     gs->safeoff_reason = reason;
     snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
              (unsigned long long)now_s);
-    if (source_alm) {
+    if (source_alm && source_alm[0] != '\0') {
         snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", source_alm);
     } else {
-        gs->safeoff_source_alm[0] = '\0';
+        int16_t alm = safeoff_reason_to_alm_id(reason);
+        if (alm > 0) {
+            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-%03d", (int)alm);
+        } else {
+            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-060");
+        }
     }
     gs->electric_ok = false;
     relay_all_off();
@@ -153,10 +159,16 @@ void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, u
         gs->safeoff_reason = in->safeoff_reason_if_any;
         snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
                  (unsigned long long)now_s);
-        if (in->safeoff_source_alm) {
-            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", in->safeoff_source_alm);
+        const char *alm_str = in->safeoff_source_alm;
+        if (!alm_str || alm_str[0] == '\0') {
+            int16_t alm = safeoff_reason_to_alm_id(in->safeoff_reason_if_any);
+            if (alm > 0) {
+                snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-%03d", (int)alm);
+            } else {
+                snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-060");
+            }
         } else {
-            gs->safeoff_source_alm[0] = '\0';
+            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", alm_str);
         }
         gs->electric_ok = false;
         ESP_LOGE(TAG, "SAFE_OFF: reason=%d source=%s entered_at=%s",

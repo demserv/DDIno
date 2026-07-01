@@ -5,6 +5,7 @@
 #include "config_manager.h"
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -206,7 +207,7 @@ esp_err_t config_manager_init(void)
     esp_err_t root_err = config_root_load(&s_root);
     if (root_err == ESP_OK && config_root_validate(&s_root)) {
         root_to_indiv();
-        ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08X, wizard=%d)",
+        ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08"PRIX32", wizard=%d)",
                  s_root.crc32, s_system.wizard_completed);
         return ESP_OK;
     }

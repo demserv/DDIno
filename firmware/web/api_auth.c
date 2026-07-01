@@ -17,6 +17,8 @@ static const char *TAG = "api_auth";
 
 #define AUTH_NVS_NS "api_auth"
 #define NVS_KEY_PW_HASH "admin_pw"
+#define NVS_KEY_PW_SALT "pw_salt"
+#define SALT_LEN 32
 #define TOKEN_EXPIRY_MS (3600000ULL)
 
 typedef struct {
@@ -27,18 +29,27 @@ typedef struct {
 
 static api_auth_token_t s_tokens[API_AUTH_MAX_TOKENS];
 static uint8_t s_admin_hash[32];
+static uint8_t s_admin_salt[SALT_LEN];
 static bool s_initialized = false;
 static bool s_has_password = false;
     static fail_tracker_t s_fail_trackers[HW_API_AUTH_FAIL_TRACKERS];
 
-static void hash_password(const char *password, uint8_t *out)
+static void hash_password(const char *password, const uint8_t *salt, uint8_t *out)
 {
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
     mbedtls_sha256_starts(&ctx, 0);
     mbedtls_sha256_update(&ctx, (const unsigned char*)password, strlen(password));
+    mbedtls_sha256_update(&ctx, salt, SALT_LEN);
     mbedtls_sha256_finish(&ctx, out);
     mbedtls_sha256_free(&ctx);
+}
+
+static void generate_salt(uint8_t *salt)
+{
+    for (int i = 0; i < SALT_LEN; i++) {
+        salt[i] = (uint8_t)esp_random();
+    }
 }
 
 static void to_hex(const uint8_t *in, size_t in_len, char *out)
@@ -161,6 +172,15 @@ esp_err_t api_auth_init(void)
         s_has_password = true;
     }
 
+    size_t salt_len = SALT_LEN;
+    err = nvs_get_blob(nvs, NVS_KEY_PW_SALT, s_admin_salt, &salt_len);
+    if (err != ESP_OK || salt_len != SALT_LEN) {
+        ESP_LOGW(TAG, "No password salt found — generating new salt");
+        generate_salt(s_admin_salt);
+        nvs_set_blob(nvs, NVS_KEY_PW_SALT, s_admin_salt, SALT_LEN);
+        nvs_commit(nvs);
+    }
+
     nvs_close(nvs);
     s_initialized = true;
     ESP_LOGI(TAG, "Auth initialized (password_set=%d)", s_has_password);
@@ -176,16 +196,22 @@ esp_err_t api_auth_set_password(const char *password)
 {
     if (!password || strlen(password) < 4) return ESP_ERR_INVALID_ARG;
 
+    uint8_t salt[SALT_LEN];
+    generate_salt(salt);
     uint8_t hash[32];
-    hash_password(password, hash);
+    hash_password(password, salt, hash);
 
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(AUTH_NVS_NS, NVS_READWRITE, &nvs);
     if (err != ESP_OK) return err;
 
-    err = nvs_set_blob(nvs, NVS_KEY_PW_HASH, hash, 32);
+    err = nvs_set_blob(nvs, NVS_KEY_PW_SALT, salt, SALT_LEN);
+    if (err == ESP_OK) {
+        err = nvs_set_blob(nvs, NVS_KEY_PW_HASH, hash, 32);
+    }
     if (err == ESP_OK) {
         nvs_commit(nvs);
+        memcpy(s_admin_salt, salt, SALT_LEN);
         memcpy(s_admin_hash, hash, 32);
         s_has_password = true;
     }
@@ -209,7 +235,7 @@ const char* api_auth_login(const char *user, const char *password)
     if (!check_fail_limit(ip)) return NULL;
 
     uint8_t input_hash[32];
-    hash_password(password, input_hash);
+    hash_password(password, s_admin_salt, input_hash);
 
     if (memcmp(input_hash, s_admin_hash, 32) != 0) {
         record_fail(ip);

@@ -16,6 +16,7 @@
 #include "driver_relay.h"
 #include "event_bus.h"
 #include "hardware_config.h"
+#include "safeoff_alm_map.h"
 
 static const char *TAG = "global_state";
 
@@ -190,11 +191,17 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
         s_gs->safeoff_reason = reason;
         snprintf(s_gs->safeoff_entered_at, sizeof(s_gs->safeoff_entered_at),
                  "%llu", (unsigned long long)now_s);
-        if (source_alm) {
+        if (source_alm && source_alm[0] != '\0') {
             snprintf(s_gs->safeoff_source_alm, sizeof(s_gs->safeoff_source_alm),
                      "%s", source_alm);
         } else {
-            s_gs->safeoff_source_alm[0] = '\0';
+            int16_t alm = safeoff_reason_to_alm_id(reason);
+            if (alm > 0) {
+                snprintf(s_gs->safeoff_source_alm, sizeof(s_gs->safeoff_source_alm),
+                         "ALM-%03d", (int)alm);
+            } else {
+                s_gs->safeoff_source_alm[0] = '\0';
+            }
         }
         s_gs->electric_ok = false;
         relay_all_off();

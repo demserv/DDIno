@@ -2,6 +2,7 @@
 #ifndef FIRMWARE_INCLUDE_ATO_SERVICE_H
 #define FIRMWARE_INCLUDE_ATO_SERVICE_H
 
+#include <stdbool.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus

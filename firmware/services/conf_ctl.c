@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "esp_log.h"
 
@@ -68,9 +69,9 @@ esp_err_t conf_ctl_export_json(char *buf, size_t buf_size)
 {
     if (!buf || buf_size == 0) return ESP_ERR_INVALID_ARG;
     snprintf(buf, buf_size,
-        "{\"temp_min\":%.1f,\"temp_max\":%.1f,\"brightness\":%u,\"sleep_timeout\":%u,\"timezone\":\"%s\"}",
+        "{\"temp_min\":%.1f,\"temp_max\":%.1f,\"brightness\":%"PRIu32",\"sleep_timeout\":%"PRIu32",\"timezone\":\"%s\"}",
         s_saved.sensor.temp_min_c, s_saved.sensor.temp_max_c,
-        s_saved.display.brightness, s_saved.display.sleep_timeout_s,
+        (uint32_t)s_saved.display.brightness, (uint32_t)s_saved.display.sleep_timeout_s,
         s_saved.datetime.timezone);
     return ESP_OK;
 }

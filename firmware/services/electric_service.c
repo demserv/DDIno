@@ -73,7 +73,7 @@ esp_err_t electric_service_is_overload(bool *out)
     float cur = 0.0f;
     electric_service_get_current_a(&cur);
     if (s_fsm_out) {
-        float limit = s_fsm_out->per_plug_current_limit_a;
+        float limit = s_fsm.cfg.per_plug_current_limit_a;
         *out = (cur > limit);
     } else {
         *out = false;
@@ -84,7 +84,7 @@ esp_err_t electric_service_is_overload(bool *out)
 esp_err_t electric_service_force_safe_off(const char *reason)
 {
     ESP_LOGW(TAG, "Force SAFE_OFF: %s", reason ? reason : "unspecified");
-    electric_fsm_force_safe_off(&s_fsm);
+    s_fsm.out.force_safe_off = true;
     return ESP_OK;
 }
 

@@ -1,7 +1,7 @@
 // @requirement RF-THERMAL-006 Parametros termicos configuraveis via UI
 #include "../ui_screen_manager.h"  /* TODO: port para new HMI */
 #include "global_state.h"
-#include "services/config_manager.h"
+#include "config_manager.h"
 #include "lvgl.h"
 
 static lv_obj_t *setpoint_label = NULL;
