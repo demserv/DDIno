@@ -3,6 +3,10 @@
 #include "ui_critical_overlay.h"
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"
+#include "../ui_events.h"
+#include "ui_overlay_cause.h"
+#include "system_types.h"
+#include <stdio.h>
 
 static void alerts_btn_cb(lv_event_t *e)
 {
@@ -16,6 +20,15 @@ static void diag_btn_cb(lv_event_t *e)
     ui_screen_manager_show(UI_SCREEN_DIAGNOSTICS);
 }
 
+/* @requirement RF-UI-OVERLAY-001 ACK inline: permite reconhecer os alertas
+ * críticos ativos direto do overlay, sem navegar até a tela de Alertas. A
+ * política de duplo-ACK é aplicada pelo handler do evento (alert_manager). */
+static void ack_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_events_emit(UI_EVENT_REQUEST_ACK_ALERT);
+}
+
 static void create_common_buttons(ui_critical_overlay_t *ov)
 {
     ov->alerts_btn = lv_btn_create(ov->root);
@@ -27,6 +40,16 @@ static void create_common_buttons(ui_critical_overlay_t *ov)
     lv_obj_t *albl = lv_label_create(ov->alerts_btn);
     lv_label_set_text(albl, "Ver Alertas");
     lv_obj_center(albl);
+
+    ov->ack_btn = lv_btn_create(ov->root);
+    lv_obj_set_size(ov->ack_btn, 100, 28);
+    lv_obj_align(ov->ack_btn, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_set_style_bg_color(ov->ack_btn, UI_COLOR_HIGH, 0);
+    lv_obj_set_style_radius(ov->ack_btn, UI_RADIUS_BUTTON, 0);
+    lv_obj_add_event_cb(ov->ack_btn, ack_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *acklbl = lv_label_create(ov->ack_btn);
+    lv_label_set_text(acklbl, "ACK");
+    lv_obj_center(acklbl);
 
     ov->diag_btn = lv_btn_create(ov->root);
     lv_obj_set_size(ov->diag_btn, 100, 28);
@@ -110,4 +133,19 @@ void ui_critical_overlay_show(ui_critical_overlay_t *ov, bool show)
     } else {
         lv_obj_add_flag(ov->root, LV_OBJ_FLAG_HIDDEN);
     }
+}
+
+void ui_critical_overlay_set_cause(ui_critical_overlay_t *ov, safeoff_reason_t reason, bool emergency)
+{
+    const ui_overlay_cause_template_t *t = ui_overlay_cause_lookup(reason);
+    if (!ov->title_label || !ov->message_label) return;
+
+    lv_label_set_text(ov->title_label, t->title);
+
+    char msg[384];
+    snprintf(msg, sizeof(msg),
+             "Ocorreu: %s\n\nImpacto: %s\n\nAcao: %s\n\n%s",
+             t->occurred, t->impact, t->action, t->exit_hint);
+    lv_label_set_text(ov->message_label, msg);
+    lv_obj_set_size(ov->message_label, 420, emergency ? 140 : 120);
 }

@@ -23,8 +23,11 @@ void ui_screen_main_menu_create(lv_obj_t *parent, ui_root_vm_t *vm)
     lv_obj_set_style_text_color(title, UI_COLOR_TEXT_MAIN, 0);
     lv_obj_set_pos(title, 178, 6);
 
-    static const char *icons[] = {"\xe2\x99\xa8", "\xe2\x99\xa8", "\xe2\x9a\xa1", "\xe2\x96\x88", "\xe2\x9a\xa0", "\xe2\x9a\x99", "\xf0\x9f\x93\xa1", "\xe2\x9a\x99", "\xf0\x9f\x94\x8d"};
-    static const char *texts[] = {"Temperatura", "ATO", "Energia", "Dispositivos", "Alertas", "Configuracao", "Rede/WiFi", "Sistema", "Logs"};
+    /* @requirement RF-UI-CAROUSEL-001 / SRS §73.1 Estrutura de menu normativa:
+     * Temperatura, ATO, Energia, Corrente/Plugue, Alarmes, Diagnósticos,
+     * Configurações, Manutenção, Logs. */
+    static const char *icons[] = {"\xe2\x99\xa8", "\xe2\x99\xa8", "\xe2\x9a\xa1", "\xe2\x96\x88", "\xe2\x9a\xa0", "\xe2\x9a\x95", "\xe2\x9a\x99", "\xe2\x9a\x99", "\xf0\x9f\x94\x8d"};
+    static const char *texts[] = {"Temperatura", "ATO", "Energia", "Corrente/Plug", "Alarmes", "Diagnosticos", "Configuracao", "Manutencao", "Logs"};
 
     static ui_screen_id_t targets[] = {
         UI_SCREEN_CONFIG_TEMPERATURE,
@@ -32,8 +35,8 @@ void ui_screen_main_menu_create(lv_obj_t *parent, ui_root_vm_t *vm)
         UI_SCREEN_ENERGY,
         UI_SCREEN_DEVICES_1,
         UI_SCREEN_ALERTS,
-        UI_SCREEN_CONFIG_TEMPERATURE,
-        UI_SCREEN_SYSTEM,
+        UI_SCREEN_DIAGNOSTICS,
+        UI_SCREEN_CONFIG_HUB,
         UI_SCREEN_SYSTEM,
         UI_SCREEN_LOGS
     };

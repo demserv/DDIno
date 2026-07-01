@@ -7,5 +7,6 @@
 
 void ui_screen_config_temperature_create(lv_obj_t *parent, ui_root_vm_t *vm);
 void ui_screen_config_temperature_update(ui_root_vm_t *vm);
+bool ui_screen_config_temperature_save(void);
 
 #endif

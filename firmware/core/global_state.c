@@ -13,10 +13,13 @@
 
 #include "audit_log.h"
 #include "config_manager.h"
-#include "driver_relay.h"
+#include "relay_abstraction.h"
 #include "event_bus.h"
 #include "hardware_config.h"
-#include "safeoff_alm_map.h"
+#include "config_root.h"
+#include "driver_acs712.h"
+#include "safety_controller.h"
+#include "services/plug_manager.h"
 
 static const char *TAG = "global_state";
 
@@ -63,7 +66,7 @@ static event_id_t state_to_event(system_state_t s)
     }
 }
 
-static bool check_antiflap(uint64_t now_ms)
+bool global_state_antiflap_allow(uint64_t now_ms)
 {
     const antiflap_params_storage_t *cfg = config_get_antiflap();
     uint32_t cooldown_ms = cfg->cooldown_reentrada_s * MS_PER_SEC;
@@ -80,6 +83,31 @@ static bool check_antiflap(uint64_t now_ms)
     }
     s_transition_count_in_window++;
     return s_transition_count_in_window <= max_trans;
+}
+
+void global_state_antiflap_commit(uint64_t now_ms)
+{
+    s_last_transition_ms = now_ms;
+}
+
+void global_state_sync_from_config(global_state_t *gs)
+{
+    if (!gs) {
+        return;
+    }
+    const system_params_storage_t *sys = config_get_system();
+    gs->wizard_completed = sys->wizard_completed;
+    gs->monitor_only_mode = sys->monitor_only_mode;
+    gs->maintenance_mode = sys->maintenance_mode;
+    gs->wizard_step = (wizard_step_t)config_get_wizard_step();
+    snprintf(gs->config_schema_version, sizeof(gs->config_schema_version),
+             "%s", CONFIG_ROOT_SCHEMA_VERSION);
+
+    const calibration_params_storage_t *cal = config_get_calibration();
+    for (int p = 1; p <= 10; p++) {
+        acs712_set_zero_offset((uint8_t)p, cal->acs712_zero_offset_mv[p - 1]);
+    }
+    plug_manager_reload_limits();
 }
 
 esp_err_t global_state_init(void)
@@ -150,89 +178,38 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
                                    const char *source_alm, const char *source_module,
                                    uint64_t now_s)
 {
+    /* @requirement RF-GLOBAL-002 Autoridade única: delega às funções enter_* que
+     * compartilham audit, relay OFF e safeoff_record com safety_controller.
+     * Runtime loop usa safety_controller_evaluate → enter_* diretamente;
+     * esta API é equivalente para callers explícitos (testes/futuro). */
     if (!s_gs) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    uint64_t now_ms = now_s * MS_PER_SEC;
-
-    mutex_lock();
-    system_state_t prev = s_gs->system_state;
-
-    if (prev == next_state) {
-        mutex_unlock();
-        return ESP_OK;
-    }
-
-    if (prev == SYSTEM_STATE_EMERGENCY && next_state == SYSTEM_STATE_NORMAL) {
-        ESP_LOGW(TAG, "Transicao EMERGENCY->NORMAL bloqueada");
-        mutex_unlock();
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    if (next_state < prev && prev != SYSTEM_STATE_EMERGENCY) {
-        if (next_state < SYSTEM_STATE_SAFE_OFF) {
-            ESP_LOGW(TAG, "Transicao descendente invalida %s->%s",
-                     state_to_str(prev), state_to_str(next_state));
-            mutex_unlock();
-            return ESP_ERR_INVALID_ARG;
-        }
-    }
-
-    if (!check_antiflap(now_ms)) {
-        ESP_LOGW(TAG, "ANTIFLAP bloqueou %s->%s", state_to_str(prev), state_to_str(next_state));
-        mutex_unlock();
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    s_gs->system_state = next_state;
-
-    if (next_state == SYSTEM_STATE_SAFE_OFF) {
-        s_gs->safeoff_reason = reason;
-        snprintf(s_gs->safeoff_entered_at, sizeof(s_gs->safeoff_entered_at),
-                 "%llu", (unsigned long long)now_s);
-        if (source_alm && source_alm[0] != '\0') {
-            snprintf(s_gs->safeoff_source_alm, sizeof(s_gs->safeoff_source_alm),
-                     "%s", source_alm);
-        } else {
-            int16_t alm = safeoff_reason_to_alm_id(reason);
-            if (alm > 0) {
-                snprintf(s_gs->safeoff_source_alm, sizeof(s_gs->safeoff_source_alm),
-                         "ALM-%03d", (int)alm);
-            } else {
-                s_gs->safeoff_source_alm[0] = '\0';
+    switch (next_state) {
+        case SYSTEM_STATE_SAFE_OFF:
+            return global_state_enter_safeoff(s_gs, reason, source_alm, source_module, now_s);
+        case SYSTEM_STATE_EMERGENCY:
+            return global_state_enter_emergency(s_gs, source_alm, source_module, now_s);
+        case SYSTEM_STATE_DEGRADED:
+            return global_state_enter_degraded(s_gs, source_module);
+        case SYSTEM_STATE_NORMAL: {
+            mutex_lock();
+            if (s_gs->system_state == SYSTEM_STATE_EMERGENCY) {
+                mutex_unlock();
+                return ESP_ERR_INVALID_STATE;
             }
+            if (s_gs->system_state == SYSTEM_STATE_SAFE_OFF) {
+                mutex_unlock();
+                return ESP_ERR_INVALID_STATE;
+            }
+            mutex_unlock();
+            /* Anti-flap: responsabilidade do caller (safety_controller_evaluate). */
+            return global_state_enter_normal(s_gs,
+                source_module ? source_module : "global_state_transition");
         }
-        s_gs->electric_ok = false;
-        relay_all_off();
-    } else if (next_state == SYSTEM_STATE_EMERGENCY) {
-        s_gs->electric_ok = false;
-        relay_all_off();
-    } else if (next_state == SYSTEM_STATE_NORMAL) {
-        s_gs->safeoff_reason = SAFEOFF_REASON_NONE;
-        s_gs->safeoff_source_alm[0] = '\0';
-        s_gs->safeoff_entered_at[0] = '\0';
-        s_gs->electric_ok = true;
-    } else if (next_state == SYSTEM_STATE_DEGRADED) {
-        if (prev == SYSTEM_STATE_SAFE_OFF || prev == SYSTEM_STATE_EMERGENCY) {
-            s_gs->safeoff_reason = SAFEOFF_REASON_NONE;
-            s_gs->safeoff_source_alm[0] = '\0';
-        }
+        default:
+            return ESP_ERR_INVALID_ARG;
     }
-
-    s_last_transition_ms = now_ms;
-    mutex_unlock();
-
-    audit_log_state_change(state_to_str(prev), state_to_str(next_state),
-                           source_module ? source_module : "global_state_transition");
-    event_bus_publish(state_to_event(next_state), NULL);
-
-    ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s reason=%d alm=%s module=%s ts=%llu",
-             state_to_str(prev), state_to_str(next_state), (int)reason,
-             source_alm ? source_alm : "-",
-             source_module ? source_module : "-",
-             (unsigned long long)now_s);
-
-    return ESP_OK;
 }
 

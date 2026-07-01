@@ -14,16 +14,29 @@
 extern "C" {
 #endif
 
+/* @requirement RF-UI-WIZARD-004 Ordem oficial mínima do Wizard (16 etapas, SRS §72.5).
+ * A etapa 16 (Entrada na Home) corresponde ao estado COMPLETE (pós-commit). */
 typedef enum {
-    WIZARD_STEP_NONE = 0,
-    WIZARD_STEP_WELCOME,
-    WIZARD_STEP_PASSWORD,
-    WIZARD_STEP_THERMAL,
-    WIZARD_STEP_ATO,
-    WIZARD_STEP_ELECTRIC,
-    WIZARD_STEP_REVIEW,
-    WIZARD_STEP_COMPLETE
+    WIZARD_STEP_WELCOME = 0,   /* 1  Boas-vindas/contexto                         */
+    WIZARD_STEP_HW_CHECK,      /* 2  Detecção/checagem de hardware                */
+    WIZARD_STEP_UI_ADJUST,     /* 3  Ajuste básico de UI                          */
+    WIZARD_STEP_KEYPAD,        /* 4  Calibração do keypad AD                      */
+    WIZARD_STEP_THERMAL,       /* 5  Configuração térmica                         */
+    WIZARD_STEP_ATO,           /* 6  Configuração ATO                             */
+    WIZARD_STEP_PLUGS,         /* 7  Plugues críticos                             */
+    WIZARD_STEP_ELECTRIC,      /* 8  Proteção elétrica + seleção 127/220 V        */
+    WIZARD_STEP_RESILIENCE,    /* 9  Resiliência                                  */
+    WIZARD_STEP_SECURITY,      /* 10 Segurança                                    */
+    WIZARD_STEP_MAINTENANCE,   /* 11 Manutenção                                   */
+    WIZARD_STEP_PROFILES,      /* 12 Perfis/config final                          */
+    WIZARD_STEP_STORAGE,       /* 13 Validação de storage                         */
+    WIZARD_STEP_REVIEW,        /* 14 Resumo final                                 */
+    WIZARD_STEP_CONFIRM,       /* 15 Confirmação e gravação                       */
+    WIZARD_STEP_COMPLETE       /* 16 Entrada na Home                              */
 } wizard_step_t;
+
+/* Total de etapas oficiais exibidas (SRS §72.5). */
+#define WIZARD_TOTAL_STEPS  16
 
 typedef enum {
     GS_HEALTH_TEMP = 0,
@@ -87,6 +100,13 @@ esp_err_t global_state_transition(system_state_t next_state, safeoff_reason_t re
                                    uint64_t now_s);
 esp_err_t global_state_set_health_flag(global_state_health_field_t field, bool ok);
 global_state_t *global_state_get_write_ptr(void);
+
+/* @requirement RNF-GLOBAL-ANTIFLAP-001 Anti-flap compartilhado (NVS via config_get_antiflap). */
+bool global_state_antiflap_allow(uint64_t now_ms);
+void global_state_antiflap_commit(uint64_t now_ms);
+
+/* @requirement RF-WEB-008 Sincroniza RAM runtime após import/persistência de system/calib. */
+void global_state_sync_from_config(global_state_t *gs);
 
 #ifdef __cplusplus
 }

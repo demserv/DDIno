@@ -15,6 +15,7 @@ esp_err_t electric_service_get_current_a(float *out);
 esp_err_t electric_service_get_voltage_v(float *out);
 esp_err_t electric_service_is_overload(bool *out);
 esp_err_t electric_service_force_safe_off(const char *reason);
+void electric_service_publish(float power_w, float current_a, float voltage_v, bool overload);
 
 #ifdef __cplusplus
 }

@@ -102,13 +102,32 @@ void ato_fsm_update(ato_fsm_t *fsm, const ato_input_t *in)
         fsm->out.state = ATO_STATE_REFILLING;
         fsm->out.pump_request_on = true;
 
+        /* ALM-027: marca o instante em que o nivel entrou abaixo de LOW. */
+        if (fsm->low_since_ms == 0) {
+            fsm->low_since_ms = in->now_ms;
+        }
+
         if (fsm->refill_started_ms == 0) {
+            /* Novo ciclo de refill: registra inicio, nivel base e contabiliza frequencia. */
             fsm->refill_started_ms = in->now_ms;
-            fsm->out.suggested_alm = ALM_018;
+            fsm->refill_start_level = level;
+
+            /* @requirement RF-ATO-004 ALM-038: frequencia anormal de refill na janela. */
+            if (fsm->cycles_window_start_ms == 0 ||
+                (in->now_ms - fsm->cycles_window_start_ms) >
+                    ((uint64_t)HW_ATO_REFILL_FREQ_WINDOW_S * MS_PER_SEC)) {
+                fsm->cycles_window_start_ms = in->now_ms;
+                fsm->refill_cycles = 0;
+            }
+            fsm->refill_cycles++;
+            fsm->out.suggested_alm =
+                (fsm->refill_cycles > HW_ATO_REFILL_FREQ_MAX) ? ALM_038 : ALM_018;
             return;
         }
 
         const uint64_t elapsed_ms = in->now_ms - fsm->refill_started_ms;
+
+        /* Timeout total de refill -> BLOCKED + SAFE_OFF (politica consolidada). */
         if (elapsed_ms > ((uint64_t)fsm->cfg.refill_timeout_s * MS_PER_SEC)) {
             fsm->blocked_latched = true;
             fsm->out.state = ATO_STATE_BLOCKED;
@@ -118,10 +137,30 @@ void ato_fsm_update(ato_fsm_t *fsm, const ato_input_t *in)
             fsm->out.suggested_alm = ALM_019;
             return;
         }
+
+        /* @requirement RF-ATO-005 ALM-039: bomba ativa por tempo sem subida
+         * suficiente do nivel => reservatorio vazio/bloqueio. Reage como
+         * ERROR/DEGRADED e para a bomba (evita funcionamento a seco). A escalada
+         * para BLOCKED/SAFE_OFF fica a cargo do timeout total acima. */
+        if (elapsed_ms >= ((uint64_t)HW_ATO_EMPTY_DETECT_S * MS_PER_SEC) &&
+            (level - fsm->refill_start_level) < (int32_t)HW_ATO_EMPTY_MIN_RISE_ADC) {
+            fsm->out.state = ATO_STATE_ERROR;
+            fsm->out.pump_request_on = false;
+            fsm->out.suggested_alm = ALM_039;
+            return;
+        }
+
+        /* @requirement ALM-027: nivel permanece abaixo de LOW por tempo prolongado (DEGRADED). */
+        if ((in->now_ms - fsm->low_since_ms) >=
+                ((uint64_t)HW_ATO_PERSIST_LOW_S * MS_PER_SEC)) {
+            fsm->out.suggested_alm = ALM_027;
+        }
         return;
     }
 
+    /* Nivel normalizou: encerra refill e condicao de nivel baixo. */
     fsm->refill_started_ms = 0;
+    fsm->low_since_ms = 0;
     fsm->out.state = ATO_STATE_NORMAL;
     fsm->debounce_count = 0;
 }

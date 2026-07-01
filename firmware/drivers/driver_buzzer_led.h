@@ -19,5 +19,8 @@ void led_all_on(void);
 void led_all_off(void);
 void buzzer_led_alert(void);
 void buzzer_led_clear(void);
+void buzzer_set_mute(uint32_t duration_ms);
+void buzzer_clear_mute(void);
+bool buzzer_is_muted(void);
 
 #endif

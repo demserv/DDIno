@@ -9,9 +9,19 @@
 | Firmware Version | compliance-fix-v1 |
 | SRS Baseline | Técnico Consolidado Final v3.11-AF.3 + AF.4 + Bloco 12/N + Bloco 13/N |
 
+## Compliance Score Scope (2026-07-01)
+
+> **Política canônica:** `docs/COMPLIANCE_SCOPE.md`
+
+Para o **placar oficial ≥ 95% SRS**, contam apenas implementação e cabeamento de software.
+**Não contam:** montagem de hardware, flash/smoke/E2E físico, execução de suítes Unity em
+`test/`, nem CI de testes. Hardware só entra **após** sign-off de software ≥ 95%.
+
+---
+
 ## Scope Boundaries
 
-### In Scope
+### In Scope (audit trail — código)
 
 The following directories and file types are included in compliance audit:
 
@@ -27,18 +37,26 @@ The following directories and file types are included in compliance audit:
 | `ui/` | All `.c`, `.h` | — |
 | `security/` | All `.c`, `.h` | — |
 | `include/` | All `.h` | — |
-| `test/` | All `.c`, `CMakeLists.txt` | — |
+| `test/` | All `.c`, `CMakeLists.txt` | For **code audit** only — **excluded from ≥95% score** |
 | `docs/` | All `.md` | — |
 | `scripts/` | All files | — |
 | Root config files | `partitions.csv`, `sdkconfig.defaults`, `CMakeLists.txt` | — |
 
-### Out of Scope
+### Out of Scope (≥ 95% score)
+
+| Item | Reason |
+|------|--------|
+| Montagem / bancada / flash / smoke test | Gate **após** software ≥ 95% (`COMPLIANCE_SCOPE.md`) |
+| Execução Unity / `idf.py test` / CI de testes | QA opcional; não reduz placar de software |
+| E2E físico (relés, sensores, touch) | Requer hardware montado |
+
+### Out of Scope (audit trail)
 
 | Path | Reason |
 |------|--------|
 | `managed_components/` | Third-party vendor code (LVGL, ESP-IDF managed) — not subject to project audit; version/pinned reference recorded in THIRD_PARTY_COMPONENTS.md |
 | `build/` | Build artifacts — regenerated |
-| `test/` (test frameworks) | Test harness code is in scope; test runner infrastructure (Unity, CMock) is third-party |
+| Unity / CMock runners | Third-party test infrastructure |
 | `concatena.ps1` (root) | Developer utility script — not part of firmware deliverable |
 | Any `*.bin`, `*.elf`, `*.map`, `*.o` | Build artifacts |
 | Any `*.pyc`, `__pycache__/` | Python cache |
@@ -65,7 +83,7 @@ The following directories and file types are included in compliance audit:
 | Criterion | Description |
 |-----------|-------------|
 | FREE RTOS TASKS | Dedicated tasks with priorities (not single-loop) |
-| UNIT TESTS | `idf.py test` passes for all test/ components |
+| UNIT TESTS | `idf.py test` passes — **recommended post-95%**, not part of official score |
 | RTM_COVERAGE | 100% of SRS requirements mapped in RTM.md |
 | COMPLIANCE_REPORT | SRS_COMPLIANCE_IMPLEMENTATION_REPORT.md with evidence for every requirement |
 | WDT_COVERAGE | Task watchdog or advanced WDT for all critical paths |

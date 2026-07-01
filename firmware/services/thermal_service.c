@@ -10,6 +10,10 @@ static const char *TAG = "thermal_svc";
 static thermal_fsm_t s_fsm;
 static const thermal_output_t *s_fsm_out = NULL;
 static float s_setpoint = 25.0f;
+static float s_current_c = 0.0f;
+static bool s_sample_valid = false;
+static bool s_heating_pub = false;
+static bool s_cooling_pub = false;
 
 esp_err_t thermal_service_init(void)
 {
@@ -18,6 +22,14 @@ esp_err_t thermal_service_init(void)
     s_fsm_out = thermal_fsm_get_output(&s_fsm);
     ESP_LOGI(TAG, "Thermal service initialized");
     return ESP_OK;
+}
+
+void thermal_service_publish(float current_c, bool sample_valid, bool heating, bool cooling)
+{
+    s_current_c = current_c;
+    s_sample_valid = sample_valid;
+    s_heating_pub = heating;
+    s_cooling_pub = cooling;
 }
 
 esp_err_t thermal_service_get_setpoint(float *out_c)
@@ -37,21 +49,22 @@ esp_err_t thermal_service_set_setpoint(float c)
 esp_err_t thermal_service_get_current(float *out_c)
 {
     if (!out_c) return ESP_ERR_INVALID_ARG;
-    *out_c = 0.0f;
+    if (!s_sample_valid) return ESP_ERR_INVALID_STATE;
+    *out_c = s_current_c;
     return ESP_OK;
 }
 
 esp_err_t thermal_service_is_heating(bool *out)
 {
     if (!out) return ESP_ERR_INVALID_ARG;
-    *out = (s_fsm_out && s_fsm_out->request_heater_on);
+    *out = s_heating_pub;
     return ESP_OK;
 }
 
 esp_err_t thermal_service_is_cooling(bool *out)
 {
     if (!out) return ESP_ERR_INVALID_ARG;
-    *out = (s_fsm_out && s_fsm_out->request_cooler_on);
+    *out = s_cooling_pub;
     return ESP_OK;
 }
 

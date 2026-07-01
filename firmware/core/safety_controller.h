@@ -16,6 +16,7 @@ typedef struct {
     bool degraded_condition;
     safeoff_reason_t safeoff_reason_if_any;
     const char *safeoff_source_alm;
+    const char *emergency_source_alm;
     const char *transition_cause;
     bool all_sensors_valid;
     bool selftest_passed;
@@ -41,7 +42,21 @@ bool safety_controller_can_exit_emergency(const global_state_t *gs, const safety
 esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason,
                                      const char *source_alm, const char *source_module,
                                      uint64_t now_s);
-esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s);
+esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_alm,
+                                       const char *source_module, uint64_t now_s);
 esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_module);
+esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_module);
+
+/* @requirement RF-AUDIT RF-GLOBAL-002 mapeamento estado→string */
+static inline const char *system_state_to_str(system_state_t s)
+{
+    switch (s) {
+        case SYSTEM_STATE_NORMAL:    return "NORMAL";
+        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
+        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
+        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
+        default:                     return "UNKNOWN";
+    }
+}
 
 #endif

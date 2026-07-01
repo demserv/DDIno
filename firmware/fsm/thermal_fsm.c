@@ -48,10 +48,16 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
     if (!in->sample_valid) {
         fsm->out.state = THERMAL_STATE_SENSOR_FAIL;
         fsm->out.sensor_fault = true;
-        fsm->out.force_safe_off = true;
-        fsm->out.safeoff_reason = SAFEOFF_REASON_FSM_INVALID;
+        /* @requirement RF-THERMAL-002 / ALM-013 Falha de sensor → DEGRADED (via
+         * degraded_condition em app_main), não SAFE_OFF. Heater OFF por ausência de
+         * request_heater_on; cooler idem. */
         fsm->out.suggested_alm = ALM_013;
         return;
+    }
+
+    if (in->sample_valid) {
+        fsm->last_valid_temp_c = in->temp_c;
+        fsm->last_valid_at_ms  = in->now_ms;
     }
 
     const float t = in->temp_c;
@@ -112,6 +118,16 @@ void thermal_fsm_update(thermal_fsm_t *fsm, const thermal_input_t *in)
         return;
     }
 
+    /* @requirement RF-THERMAL-003 Envelope operacional superior (temp_max_c):
+     * ultrapassar o limite máximo configurado força SAFE_OFF. */
+    if (fsm->cfg.temp_max_c > 0.0f && t >= fsm->cfg.temp_max_c) {
+        fsm->out.state = THERMAL_STATE_CRITICAL;
+        fsm->out.force_safe_off = true;
+        fsm->out.safeoff_reason = SAFEOFF_REASON_THERMAL_CRITICAL;
+        fsm->out.suggested_alm = ALM_026;
+        return;
+    }
+
     bool want_heater = (t < (sp - h));
     bool want_cooler = (t > (sp + h));
 
@@ -140,5 +156,14 @@ const thermal_output_t* thermal_fsm_get_output(const thermal_fsm_t *fsm)
 {
     if (!fsm) return NULL;
     return &fsm->out;
+}
+
+/* @requirement RF-THERMAL-001 getter de última temp válida */
+bool thermal_fsm_get_last_valid_temp(const thermal_fsm_t *f, float *out_c)
+{
+    if (!f || !out_c) return false;
+    if (f->last_valid_at_ms == 0) return false;
+    *out_c = f->last_valid_temp_c;
+    return true;
 }
 

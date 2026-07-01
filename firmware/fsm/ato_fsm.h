@@ -48,6 +48,11 @@ typedef struct {
     int32_t last_stable_level;
     uint32_t debounce_count;
     uint32_t debounce_required;
+    /* @requirement RF-ATO-004/005, ALM-027/038/039 */
+    int32_t  refill_start_level;      /* nivel ao iniciar refill (deteccao de reservatorio vazio) */
+    uint32_t refill_cycles;           /* ciclos de refill dentro da janela corrente               */
+    uint64_t cycles_window_start_ms;  /* inicio da janela de frequencia de refill                 */
+    uint64_t low_since_ms;            /* instante em que o nivel entrou (e permaneceu) abaixo de LOW */
 } ato_fsm_t;
 
 void ato_fsm_init(ato_fsm_t *fsm, const ato_params_t *cfg);

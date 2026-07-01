@@ -3892,10 +3892,13 @@ ALM-058	Tendência de corrente para sobrecarga	PROCESS	WARNING	SIM	NÃO	—	Moni
 ALM-059	Sensor/subsistema em Circuit Breaker	SYSTEM	HIGH	SIM	SIM	DEGRADED	Verificar subsistema afetado
 ALM-060	FSM em estado inválido	SYSTEM	CRITICAL	NÃO	SIM	SAFE_OFF/EMERGENCY conforme contexto	Revisar condição de falha
 ALM-061	Integridade/configuração crítica inválida	SYSTEM	CRITICAL	NÃO	SIM	EMERGENCY/SAFE_OFF conforme recovery	Validar NVS/backup/schema
-ALM-062	Acesso não autorizado Web	SECURITY	CRITICAL	NÃO	SIM	—	Revisar tentativas de login
+ALM-062	Acesso não autorizado Web	SECURITY	WARNING	SIM	NÃO	—	Revisar tentativas de login (Errata 2026-07-01: apenas alarme, NÃO escala para SAFE_OFF)
 ALM-063	Self-test falhou	SYSTEM	CRITICAL	NÃO	SIM	SAFE_OFF	Verificar hardware antes de operar
 ALM-064	Modo de manutenção ativo/expirado conforme subtipo	SYSTEM	INFO/WARNING conforme subtipo	SIM	NÃO	NORMAL/DEGRADED conforme expiração	Finalizar ou revisar manutenção
 ALM-065	Falha de perfil/realocação/configuração crítica	PROCESS/SYSTEM conforme subtipo	CRITICAL	NÃO	SIM	SAFE_OFF quando inseguro	Verificar perfil/plugue/configuração
+________________________________________
+49.1 Errata de Normalização 2026-07-01 (decisão do Owner)
+ALM-062 (Acesso não autorizado Web) é reclassificado de CRITICAL para SECURITY/WARNING com auto-clear e SEM ACK obrigatório. Justificativa: erro de senha/login inválido deve gerar apenas alarme informativo de segurança e NUNCA provocar SAFE_OFF (evitar negação de serviço por tentativas repetidas de login). ALM-062 não participa do escalonamento por timeout de ACK (ALM-046) e não conta como alerta crítico. O bloqueio temporário de IP por tentativas excessivas continua tratado por ALM-011.
 ________________________________________
 50. Extensão operacional da tabela ALM
 Para cada ALM, o firmware deve manter ou derivar:

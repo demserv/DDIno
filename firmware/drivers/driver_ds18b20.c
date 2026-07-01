@@ -10,7 +10,6 @@
 #include "pin_map.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "alert_manager.h"
 
 static const char *TAG = "ds18b20";
 
@@ -117,7 +116,6 @@ bool ds18b20_read(float *temp_c)
 
     if (!ow_reset()) {
         ESP_LOGW(TAG, "DS18B20 sem resposta (ow_reset falhou)");
-        alert_manager_raise(ALM_013, true, start / USEC_PER_MSEC);
         return false;
     }
     ow_write_byte(0xCC);
@@ -125,12 +123,10 @@ bool ds18b20_read(float *temp_c)
     vTaskDelay(pdMS_TO_TICKS(750));
     if ((esp_timer_get_time() / USEC_PER_MSEC - start) > DS18B20_TIMEOUT_MS) {
         ESP_LOGW(TAG, "DS18B20 timeout na conversao");
-        alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
         return false;
     }
     if (!ow_reset()) {
         ESP_LOGW(TAG, "DS18B20 sem resposta apos conversao");
-        alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
         return false;
     }
     ow_write_byte(0xCC);
@@ -140,14 +136,12 @@ bool ds18b20_read(float *temp_c)
     }
     if (crc8_dallas(scratchpad, 8) != scratchpad[8]) {
         ESP_LOGW(TAG, "CRC mismatch on scratchpad");
-        alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
         return false;
     }
     int16_t raw = (int16_t)((scratchpad[1] << 8) | scratchpad[0]);
     *temp_c = raw * 0.0625f;
     if (*temp_c > 84.9f && *temp_c < 85.1f) {
         ESP_LOGW(TAG, "Rejeitando leitura 85C (power-on reset)");
-        alert_manager_raise(ALM_013, true, esp_timer_get_time() / USEC_PER_SEC);
         return false;
     }
     return true;

@@ -14,7 +14,8 @@ typedef enum {
     SD_LOG_TYPE_EVENT = 0,
     SD_LOG_TYPE_ALERT,
     SD_LOG_TYPE_ENERGY,
-    SD_LOG_TYPE_AUDIT
+    SD_LOG_TYPE_AUDIT,
+    SD_LOG_TYPE_ELECTRIC
 } sd_log_type_t;
 
 esp_err_t storage_sd_init(void);
@@ -25,5 +26,7 @@ esp_err_t storage_sd_backup_config(void);
 esp_err_t storage_sd_unmount(void);
 void     storage_sd_flush_ram_fallback(void);
 uint32_t storage_sd_ram_fallback_count(void);
+esp_err_t storage_sd_get_space(uint64_t *total_bytes, uint64_t *free_bytes);
+void storage_sd_tick_schedules(void);
 
 #endif

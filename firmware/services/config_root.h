@@ -24,6 +24,7 @@ typedef struct {
     selftest_params_storage_t   selftest;
     system_params_storage_t     system;
     calibration_params_storage_t calibration;
+    ph_params_storage_t         ph;
 } config_root_t;
 
 esp_err_t config_root_compute_crc(config_root_t *root);

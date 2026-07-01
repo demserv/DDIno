@@ -3,6 +3,7 @@
 
 #include "global_state.h"
 #include "alert_manager.h"
+#include "alm_ids.h"
 #include "config_manager.h"
 #include "plug_manager.h"
 #include "health_matrix.h"
@@ -10,8 +11,10 @@
 #include "driver_pzem.h"
 #include "plug_model.h"
 #include "alert_model.h"
+#include "driver_buzzer_led.h"
 #include "ato_service.h"
-#include "esp_err.h"
+#include "maintenance_mode.h"
+#include "cdn_energy.h"
 #include <time.h>
 #include <string.h>
 
@@ -111,6 +114,10 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->topbar.selftest_passed = g_gs.selftest_passed;
     vm->topbar.system_state = (ui_system_state_t)g_gs.system_state;
     vm->topbar.alert_count = g_gs.active_alerts_count;
+    vm->topbar.maintenance_mode = g_gs.maintenance_mode;
+    vm->topbar.mute_active = buzzer_is_muted();
+    vm->topbar.wizard_incomplete = !g_gs.wizard_completed;
+    vm->topbar.nvs_ok = !alert_manager_is_active(ALM_061);
 
     if (g_gs.time_valid) {
         time_t ts = 0;
@@ -164,6 +171,17 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->energy.power_factor = vm->dashboard.power_factor;
     vm->energy.frequency_hz = g_pzem.valid ? g_pzem.frequency_hz : 0.0f;
 
+    {
+        float hist[UI_ENERGY_MONTHS];
+        uint8_t hcount = 0;
+        cdn_energy_get_monthly_history(hist, &hcount);
+        for (uint8_t i = 0; i < UI_ENERGY_MONTHS; i++) {
+            vm->energy.monthly_kwh[i] = (i < hcount) ? hist[i] : 0.0f;
+            vm->energy.monthly_data_valid[i] = (i < hcount);
+            snprintf(vm->energy.month_labels[i], sizeof(vm->energy.month_labels[i]), "M-%u", (unsigned)(i + 1));
+        }
+    }
+
     vm->devices.plug_count = UI_MAX_PLUGS;
     for (uint8_t i = 0; i < UI_MAX_PLUGS; i++) {
         plug_id_t pid = (plug_id_t)(i + 1);
@@ -177,12 +195,15 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
             pv->current_a = plug->current_a;
             pv->current_valid = true;
             pv->is_critical = (pid == PLUG_ID_P01 || pid == PLUG_ID_P02);
+            pv->can_unblock = plug->blocked && !plug->blocked_by_safe_state
+                                && maintenance_mode_is_active();
         } else {
             pv->name[0] = '\0';
             pv->state = UI_PLUG_OFF;
             pv->current_a = 0.0f;
             pv->current_valid = false;
             pv->is_critical = (pid == PLUG_ID_P01 || pid == PLUG_ID_P02);
+            pv->can_unblock = false;
         }
     }
 
@@ -219,6 +240,20 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
             case UI_SEVERITY_WARNING:  vm->alerts.warning_count++; break;
             default:                   vm->alerts.info_count++; break;
         }
+    }
+
+    alert_slot_t hist[UI_MAX_ALERTS];
+    uint16_t hist_count = 0;
+    alert_manager_get_history_slots(hist, &hist_count, UI_MAX_ALERTS);
+    vm->alerts.history_count = 0;
+    for (uint16_t i = 0; i < hist_count && vm->alerts.history_count < UI_MAX_ALERTS; i++) {
+        ui_alert_vm_t *hv = &vm->alerts.history_alerts[vm->alerts.history_count++];
+        snprintf(hv->id, sizeof(hv->id), "ALM-%03d", (int)hist[i].alm_id);
+        hv->severity = map_alert_severity(hist[i].severity);
+        snprintf(hv->message, sizeof(hv->message), "%s", hist[i].message);
+        snprintf(hv->timestamp, sizeof(hv->timestamp), "%llu",
+                 (unsigned long long)hist[i].last_seen_ts);
+        hv->acked = hist[i].acked;
     }
 
     vm->diagnostics.temperature = map_health(health_get(SUB_SENSOR_TEMP));

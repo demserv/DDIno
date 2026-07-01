@@ -132,3 +132,10 @@ bool time_is_ntp_synced(void)
     return s_ntp_synced;
 }
 
+void time_manager_tick(uint32_t delta_s)
+{
+    if (s_valid && delta_s > 0) {
+        s_current += (time_t)delta_s;
+    }
+}
+

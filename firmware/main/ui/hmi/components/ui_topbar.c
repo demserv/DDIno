@@ -68,6 +68,26 @@ void ui_topbar_create(ui_topbar_t *bar, lv_obj_t *parent)
     lv_obj_set_style_text_font(bar->selftest_label, UI_FONT_SMALL, 0);
     lv_obj_set_pos(bar->selftest_label, 304, 9);
 
+    bar->badge_maint_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->badge_maint_label, "");
+    lv_obj_set_style_text_font(bar->badge_maint_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(bar->badge_maint_label, 330, 9);
+
+    bar->badge_mute_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->badge_mute_label, "");
+    lv_obj_set_style_text_font(bar->badge_mute_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(bar->badge_mute_label, 355, 9);
+
+    bar->badge_wiz_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->badge_wiz_label, "");
+    lv_obj_set_style_text_font(bar->badge_wiz_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(bar->badge_wiz_label, 375, 9);
+
+    bar->nvs_label = lv_label_create(bar->root);
+    lv_label_set_text(bar->nvs_label, "");
+    lv_obj_set_style_text_font(bar->nvs_label, UI_FONT_SMALL, 0);
+    lv_obj_set_pos(bar->nvs_label, 395, 9);
+
     bar->alert_count_label = lv_label_create(bar->root);
     lv_label_set_text(bar->alert_count_label, "!");
     lv_obj_set_style_text_font(bar->alert_count_label, UI_FONT_SMALL, 0);
@@ -125,6 +145,34 @@ void ui_topbar_update(ui_topbar_t *bar, const ui_topbar_vm_t *vm)
         lv_obj_set_style_text_color(bar->alert_count_label, UI_COLOR_CRITICAL, 0);
     } else {
         lv_label_set_text(bar->alert_count_label, "");
+    }
+
+    if (vm->maintenance_mode) {
+        lv_label_set_text(bar->badge_maint_label, "MNT");
+        lv_obj_set_style_text_color(bar->badge_maint_label, UI_COLOR_WARN, 0);
+    } else {
+        lv_label_set_text(bar->badge_maint_label, "");
+    }
+
+    if (vm->mute_active) {
+        lv_label_set_text(bar->badge_mute_label, "MUTE");
+        lv_obj_set_style_text_color(bar->badge_mute_label, UI_COLOR_TEXT_DIM, 0);
+    } else {
+        lv_label_set_text(bar->badge_mute_label, "");
+    }
+
+    if (vm->wizard_incomplete) {
+        lv_label_set_text(bar->badge_wiz_label, "WIZ");
+        lv_obj_set_style_text_color(bar->badge_wiz_label, UI_COLOR_WARN, 0);
+    } else {
+        lv_label_set_text(bar->badge_wiz_label, "");
+    }
+
+    if (!vm->nvs_ok) {
+        lv_label_set_text(bar->nvs_label, "NVS!");
+        lv_obj_set_style_text_color(bar->nvs_label, UI_COLOR_CRITICAL, 0);
+    } else {
+        lv_label_set_text(bar->nvs_label, "");
     }
 
     if (vm->feed_mode_active) {

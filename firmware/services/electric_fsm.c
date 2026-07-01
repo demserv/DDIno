@@ -1,9 +1,9 @@
-// @requirement RF-ENERGY-007 Proteção de sobretensão e subtensão
-// @requirement RF-ENERGY-008 Proteção de sobrecorrente total
-// @requirement RF-ENERGY-009 Monitoramento de fator de potência
+﻿// @requirement RF-ENERGY-007 Prote├º├úo de sobretens├úo e subtens├úo
+// @requirement RF-ENERGY-008 Prote├º├úo de sobrecorrente total
+// @requirement RF-ENERGY-009 Monitoramento de fator de pot├¬ncia
 // @requirement RF-PLUG-014 Curto-circuito e sobrecarga extrema por plugue
-// @requirement RF-FSM-ELECTRIC-001 FSM de proteção elétrica
-// @requirement RNF-ELECTRICAL-002 Hierarquia de proteções elétricas
+// @requirement RF-FSM-ELECTRIC-001 FSM de prote├º├úo el├®trica
+// @requirement RNF-ELECTRICAL-002 Hierarquia de prote├º├Áes el├®tricas
 #include "services/electric_fsm.h"
 #include "hardware_config.h"
 #include <string.h>
@@ -30,19 +30,25 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
     electric_reset_output(&fsm->out);
 
     if (!in->sample_valid) {
+        /* ALM-022 é dono único de alm_monitor.c (comunicação PZEM). */
         fsm->out.state = ELECTRIC_STATE_SENSOR_FAIL;
-        fsm->out.suggested_alm = ALM_029;
         return;
     }
 
     fsm->out.measured_total_power_w = in->total_power_w;
 
-    /* Short-circuit detection per plug with fator_curto */
+    /* @requirement RF-PLUG-014 Detec├º├úo de curto-circuito por janela temporal
+     * (tempo_deteccao_curto_ms): a corrente do plugue deve permanecer acima de
+     * fator_curto ├ù limite por todo o intervalo configurado antes de declarar curto.
+     * O plugue afetado ├® sinalizado em shorted_plug_id para bloqueio/isolamento. */
     for (uint8_t i = 0; i < in->plug_count && i < 10; i++) {
         float limit = fsm->cfg.fator_curto * fsm->cfg.per_plug_current_limit_a;
         if (in->plug_currents_a[i] > limit) {
-            fsm->plug_overcurrent_count[i]++;
-            if (fsm->plug_overcurrent_count[i] >= 3) {
+            if (fsm->plug_short_start_ms[i] == 0) {
+                fsm->plug_short_start_ms[i] = in->now_ms;
+            }
+            uint64_t elapsed_ms = in->now_ms - fsm->plug_short_start_ms[i];
+            if (elapsed_ms >= fsm->cfg.tempo_deteccao_curto_ms) {
                 fsm->out.state = ELECTRIC_STATE_SHORT_CIRCUIT;
                 fsm->out.force_safe_off = true;
                 fsm->out.safeoff_reason = SAFEOFF_REASON_PLUG_SHORT;
@@ -51,7 +57,7 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
                 return;
             }
         } else {
-            fsm->plug_overcurrent_count[i] = 0;
+            fsm->plug_short_start_ms[i] = 0;
         }
     }
 
@@ -77,7 +83,8 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
             fsm->out.state = ELECTRIC_STATE_OVERVOLTAGE;
             fsm->out.force_safe_off = true;
             fsm->out.safeoff_reason = SAFEOFF_REASON_OVERVOLTAGE;
-            fsm->out.suggested_alm = ALM_052;
+            /* @requirement RF-ENERGY-007 ALM-050 = Sobretens├úo de rede (tabela ALM SRS). */
+            fsm->out.suggested_alm = ALM_050;
             return;
         }
         fsm->out.state = ELECTRIC_STATE_OVERVOLTAGE;
@@ -95,12 +102,41 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
             fsm->out.state = ELECTRIC_STATE_UNDERVOLTAGE;
             fsm->out.force_safe_off = true;
             fsm->out.safeoff_reason = SAFEOFF_REASON_UNDERVOLTAGE;
-            fsm->out.suggested_alm = ALM_052;
+            /* @requirement RF-ENERGY-007 ALM-051 = Subtens├úo de rede (tabela ALM SRS). */
+            fsm->out.suggested_alm = ALM_051;
             return;
         }
         fsm->out.state = ELECTRIC_STATE_UNDERVOLTAGE;
     } else {
         fsm->undervoltage_start_ms = 0;
+    }
+
+    /* Total current overload with persistence (RF-ENERGY-008): a corrente total do
+     * PZEM ├® a fonte prim├íria da prote├º├úo; a soma dos ACS712 ├® fallback quando o PZEM
+     * n├úo fornece leitura v├ílida (<= 0). */
+    if (fsm->cfg.total_current_limit_a > 0.0f) {
+        float total_current = in->pzem_total_current_a;
+        if (total_current <= 0.0f) {
+            total_current = 0.0f;
+            for (uint8_t i = 0; i < in->plug_count && i < 10; i++) {
+                total_current += in->plug_currents_a[i];
+            }
+        }
+        if (total_current > fsm->cfg.total_current_limit_a) {
+            if (fsm->total_overcurrent_start_ms == 0) {
+                fsm->total_overcurrent_start_ms = in->now_ms;
+            }
+            uint64_t elapsed = (in->now_ms - fsm->total_overcurrent_start_ms) / MS_PER_SEC;
+            if (elapsed >= fsm->cfg.total_current_time_s) {
+                fsm->out.state = ELECTRIC_STATE_OVERLOAD;
+                fsm->out.force_safe_off = true;
+                fsm->out.safeoff_reason = SAFEOFF_REASON_ELECTRIC_TOTAL;
+                fsm->out.suggested_alm = ALM_052;
+                return;
+            }
+        } else {
+            fsm->total_overcurrent_start_ms = 0;
+        }
     }
 
     /* Total power overload */
@@ -112,21 +148,24 @@ void electric_fsm_update(electric_fsm_t *fsm, const electric_input_t *in)
         return;
     }
 
-    /* Power factor monitoring */
+    /* Power factor monitoring (RF-ENERGY-009): WARNING-only, sem mudan├ºa de estado
+     * nem SAFE_OFF. @requirement ALM-053 = Fator de pot├¬ncia baixo (tabela ALM SRS). */
     if (in->pf > 0.01f && in->pf < fsm->cfg.pf_min) {
         if (fsm->pf_low_start_ms == 0) {
             fsm->pf_low_start_ms = in->now_ms;
         }
         uint64_t elapsed = (in->now_ms - fsm->pf_low_start_ms) / MS_PER_SEC;
         if (elapsed >= fsm->cfg.pf_time_s) {
-            fsm->out.state = ELECTRIC_STATE_SENSOR_FAIL;
-            fsm->out.suggested_alm = ALM_058;
-            /* PF warning only, no SAFE_OFF */
-            return;
+            /* ALM-053: dono único em alm_monitor.c */
         }
     } else {
         fsm->pf_low_start_ms = 0;
     }
+
+    /* @requirement RF-ENERGY-010 O alerta de tendência elétrica pré-alarme
+     * (ALM-057/058) é tratado em services/alm_monitor.c, que centraliza o
+     * raise+clear (com histerese) das advertências elétricas de limiar
+     * (ALM-050/051/053/057/058), evitando duplicação de lógica. */
 
     /* High consumption warning zone (hysteresis-based) */
     if (in->total_power_w > (fsm->cfg.total_power_limit_w - fsm->cfg.hysteresis_w)) {
@@ -141,4 +180,11 @@ const electric_output_t* electric_fsm_get_output(const electric_fsm_t *fsm)
 {
     if (!fsm) return NULL;
     return &fsm->out;
+}
+
+void electric_fsm_force_safe_off(electric_fsm_t *fsm)
+{
+    if (!fsm) return;
+    fsm->out.force_safe_off = true;
+    fsm->out.safeoff_reason = SAFEOFF_REASON_ELECTRIC_TOTAL;
 }

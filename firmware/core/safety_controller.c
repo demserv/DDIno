@@ -13,25 +13,19 @@
 #include "esp_log.h"
 
 #include "audit_log.h"
-#include "driver_relay.h"
+#include "config_manager.h"
+#include "relay_abstraction.h"
 #include "event_log.h"
+#include "event_bus.h"
+#include "global_state.h"
 #include "hardware_config.h"
-#include "safeoff_alm_map.h"
+#include "services/safeoff_record.h"
+#include "services/safe_state_ack.h"
+#include "services/plug_manager.h"
 
 static const char *TAG = "safety_controller";
 
 static safety_context_t s_ctx;
-
-static const char *state_to_str(system_state_t s)
-{
-    switch (s) {
-        case SYSTEM_STATE_NORMAL:    return "NORMAL";
-        case SYSTEM_STATE_DEGRADED:  return "DEGRADED";
-        case SYSTEM_STATE_SAFE_OFF:  return "SAFE_OFF";
-        case SYSTEM_STATE_EMERGENCY: return "EMERGENCY";
-        default:                     return "UNKNOWN";
-    }
-}
 
 void safety_controller_init(global_state_t *gs)
 {
@@ -56,37 +50,46 @@ esp_err_t global_state_enter_safeoff(global_state_t *gs, safeoff_reason_t reason
     gs->safeoff_reason = reason;
     snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
              (unsigned long long)now_s);
-    if (source_alm && source_alm[0] != '\0') {
+    if (source_alm) {
         snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", source_alm);
     } else {
-        int16_t alm = safeoff_reason_to_alm_id(reason);
-        if (alm > 0) {
-            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-%03d", (int)alm);
-        } else {
-            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-060");
-        }
+        gs->safeoff_source_alm[0] = '\0';
     }
     gs->electric_ok = false;
-    relay_all_off();
+    relay_abstraction_all_off();
+    plug_manager_apply_safe_off();
+
+    safeoff_record_append(reason, source_alm, now_s);
+    safe_state_ack_on_enter_safeoff(gs);
 
     ESP_LOGE("safety", "SAFE_OFF entered from %d reason=%d alm=%s module=%s",
              (int)prev, (int)reason, source_alm ? source_alm : "?", source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "SAFE_OFF", source_module ? source_module : "enter_safeoff");
+    audit_log_state_change(system_state_to_str(prev), "SAFE_OFF", source_module ? source_module : "enter_safeoff");
     return ESP_OK;
 }
 
-esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_module, uint64_t now_s)
+esp_err_t global_state_enter_emergency(global_state_t *gs, const char *source_alm,
+                                      const char *source_module, uint64_t now_s)
 {
+    (void)now_s;
     if (!gs) return ESP_ERR_INVALID_ARG;
     if (gs->system_state >= SYSTEM_STATE_EMERGENCY) return ESP_OK;
 
     system_state_t prev = gs->system_state;
     gs->system_state = SYSTEM_STATE_EMERGENCY;
     gs->electric_ok = false;
-    relay_all_off();
+    if (source_alm) {
+        snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", source_alm);
+    } else {
+        gs->safeoff_source_alm[0] = '\0';
+    }
+    relay_abstraction_all_off();
+    plug_manager_apply_safe_off();
+    safe_state_ack_on_enter_emergency();
 
-    ESP_LOGE("safety", "EMERGENCY entered from %d module=%s", (int)prev, source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "EMERGENCY", source_module ? source_module : "enter_emergency");
+    ESP_LOGE("safety", "EMERGENCY entered from %d alm=%s module=%s", (int)prev,
+             source_alm ? source_alm : "?", source_module ? source_module : "?");
+    audit_log_state_change(system_state_to_str(prev), "EMERGENCY", source_module ? source_module : "enter_emergency");
     return ESP_OK;
 }
 
@@ -95,109 +98,92 @@ esp_err_t global_state_enter_degraded(global_state_t *gs, const char *source_mod
     if (!gs) return ESP_ERR_INVALID_ARG;
     if (gs->system_state >= SYSTEM_STATE_DEGRADED) return ESP_OK;
 
+    system_state_t prev = gs->system_state;
     gs->system_state = SYSTEM_STATE_DEGRADED;
     ESP_LOGW("safety", "DEGRADED entered module=%s", source_module ? source_module : "?");
-    audit_log_state_change("NORMAL", "DEGRADED", source_module ? source_module : "enter_degraded");
+    audit_log_state_change(system_state_to_str(prev), "DEGRADED", source_module ? source_module : "enter_degraded");
     return ESP_OK;
 }
 
-static bool check_antiflap(system_state_t next, uint64_t now_ms)
+esp_err_t global_state_enter_normal(global_state_t *gs, const char *source_module)
 {
-    (void)next;
-    if (s_ctx.last_transition_ms == 0) return true;
-    uint64_t elapsed = now_ms - s_ctx.last_transition_ms;
-    if (elapsed < HW_ANTIFLAP_COOLDOWN_MS) return false;
+    if (!gs) return ESP_ERR_INVALID_ARG;
+    if (gs->system_state == SYSTEM_STATE_NORMAL) return ESP_OK;
 
-    if (s_ctx.flap_window_start_ms == 0) {
-        s_ctx.flap_window_start_ms = now_ms;
-        s_ctx.transition_count_in_window = 0;
-    }
-    if ((now_ms - s_ctx.flap_window_start_ms) > HW_ANTIFLAP_WINDOW_MS) {
-        s_ctx.flap_window_start_ms = now_ms;
-        s_ctx.transition_count_in_window = 0;
-    }
-    s_ctx.transition_count_in_window++;
-    if (s_ctx.transition_count_in_window > HW_ANTIFLAP_MAX_TRANSITIONS) return false;
-    return true;
+    system_state_t prev = gs->system_state;
+    gs->system_state = SYSTEM_STATE_NORMAL;
+    gs->safeoff_reason = SAFEOFF_REASON_NONE;
+    gs->safeoff_source_alm[0] = '\0';
+    gs->electric_ok = true;
+    ESP_LOGI("safety", "NORMAL entered from %s module=%s",
+             system_state_to_str(prev), source_module ? source_module : "?");
+    audit_log_state_change(system_state_to_str(prev), "NORMAL", source_module ? source_module : "enter_normal");
+    event_bus_publish(EVENT_ID_NORMAL, NULL);
+    return ESP_OK;
 }
 
 void safety_controller_evaluate(global_state_t *gs, const safety_inputs_t *in, uint64_t now_s)
 {
     if (!gs || !in) return;
 
-    system_state_t prev = gs->system_state;
-    system_state_t next = SYSTEM_STATE_NORMAL;
+    /* @requirement RF-GLOBAL-002 Prioridade EMERGENCY > SAFE_OFF > DEGRADED > NORMAL.
+     * Esta função muta o gs recebido (contrato testável) e replica os efeitos
+     * centrais: relay_abstraction_all_off em SAFE_OFF/EMERGENCY e audit trail.
+     * Saída de SAFE_OFF/EMERGENCY nunca é automática (ver can_exit_*). */
+    const system_state_t prev = gs->system_state;
+    system_state_t next;
 
     if (in->emergency_condition) {
         next = SYSTEM_STATE_EMERGENCY;
     } else if (in->safeoff_condition) {
         next = SYSTEM_STATE_SAFE_OFF;
-    } else if (in->degraded_condition || !in->all_sensors_valid) {
+    } else if (in->degraded_condition || !in->all_sensors_valid || !in->selftest_passed) {
+        /* Não rebaixar SAFE_OFF/EMERGENCY para DEGRADED automaticamente. */
+        if (prev == SYSTEM_STATE_SAFE_OFF || prev == SYSTEM_STATE_EMERGENCY) return;
         next = SYSTEM_STATE_DEGRADED;
     } else {
+        /* @requirement RF-GLOBAL-SAFEOFF-EXIT-001 / RF-GLOBAL-EMERG-EXIT-001
+         * Retorno a NORMAL somente a partir de NORMAL/DEGRADED. */
+        if (prev != SYSTEM_STATE_NORMAL && prev != SYSTEM_STATE_DEGRADED) return;
         next = SYSTEM_STATE_NORMAL;
     }
 
     if (next == prev) return;
 
-    if (gs->system_state == SYSTEM_STATE_SAFE_OFF && gs->restart_in_progress) {
-        if (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED) {
-            ESP_LOGV(TAG, "RESTART: bloqueada transicao %s->%s durante religamento",
-                     state_to_str(prev), state_to_str(next));
-            return;
-        }
-    }
+    /* EMERGENCY não rebaixa automaticamente. */
+    if (prev == SYSTEM_STATE_EMERGENCY && next != SYSTEM_STATE_EMERGENCY) return;
 
-    if (!check_antiflap(next, now_s * MS_PER_SEC)) {
-        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %d em %dms)",
-                 state_to_str(prev), state_to_str(next),
-                 HW_ANTIFLAP_MAX_TRANSITIONS, HW_ANTIFLAP_WINDOW_MS);
+    bool is_recovery = (next == SYSTEM_STATE_NORMAL || next == SYSTEM_STATE_DEGRADED);
+    uint64_t now_ms = now_s * MS_PER_SEC;
+    if (is_recovery && !global_state_antiflap_allow(now_ms)) {
+        const antiflap_params_storage_t *cfg = config_get_antiflap();
+        ESP_LOGW(TAG, "ANTIFLAP: transicao %s->%s bloqueada (max %lu em %lus)",
+                 system_state_to_str(prev), system_state_to_str(next),
+                 (unsigned long)cfg->max_transicoes_flap, (unsigned long)cfg->janela_flap_s);
         return;
     }
 
-    if (next == SYSTEM_STATE_SAFE_OFF) {
-        gs->safeoff_reason = in->safeoff_reason_if_any;
-        snprintf(gs->safeoff_entered_at, sizeof(gs->safeoff_entered_at), "%llu",
-                 (unsigned long long)now_s);
-        const char *alm_str = in->safeoff_source_alm;
-        if (!alm_str || alm_str[0] == '\0') {
-            int16_t alm = safeoff_reason_to_alm_id(in->safeoff_reason_if_any);
-            if (alm > 0) {
-                snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-%03d", (int)alm);
-            } else {
-                snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "ALM-060");
-            }
-        } else {
-            snprintf(gs->safeoff_source_alm, sizeof(gs->safeoff_source_alm), "%s", alm_str);
-        }
-        gs->electric_ok = false;
-        ESP_LOGE(TAG, "SAFE_OFF: reason=%d source=%s entered_at=%s",
-                 (int)gs->safeoff_reason, gs->safeoff_source_alm, gs->safeoff_entered_at);
+    const char *cause = in->transition_cause ? in->transition_cause : "safety_controller";
+
+    safeoff_reason_t so_reason = in->safeoff_reason_if_any;
+    if (next == SYSTEM_STATE_SAFE_OFF && so_reason == SAFEOFF_REASON_NONE) {
+        ESP_LOGW(TAG, "SAFE_OFF bloqueado: safeoff_reason_if_any ausente");
+        return;
     }
 
-    if (next == SYSTEM_STATE_EMERGENCY) {
-        gs->electric_ok = false;
+    const char *alm_tag = in->safeoff_source_alm;
+    if (next == SYSTEM_STATE_EMERGENCY && in->emergency_source_alm) {
+        alm_tag = in->emergency_source_alm;
+    }
+    esp_err_t tr = global_state_transition(next, so_reason, alm_tag, cause, now_s);
+    if (tr != ESP_OK) {
+        return;
     }
 
-    if (next == SYSTEM_STATE_NORMAL) {
-        gs->safeoff_reason = SAFEOFF_REASON_NONE;
-        gs->safeoff_source_alm[0] = '\0';
-        gs->electric_ok = true;
-    }
-
-    if (next == SYSTEM_STATE_DEGRADED) {
-        if (prev == SYSTEM_STATE_SAFE_OFF || prev == SYSTEM_STATE_EMERGENCY) {
-            gs->safeoff_reason = SAFEOFF_REASON_NONE;
-            gs->safeoff_source_alm[0] = '\0';
-        }
-    }
-
-    gs->system_state = next;
-    s_ctx.last_transition_ms = now_s * MS_PER_SEC;
+    global_state_antiflap_commit(now_ms);
 
     ESP_LOGW(TAG, "GLOBAL_TRANSITION prev=%s next=%s cause=%s",
-             state_to_str(prev), state_to_str(next),
-             in->transition_cause ? in->transition_cause : "N/A");
+             system_state_to_str(prev), system_state_to_str(next), cause);
 }
 
 bool safety_controller_can_exit_safeoff(const global_state_t *gs, const safety_inputs_t *in, uint64_t now_s)

@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 
-#include "driver_relay.h"
 #include "global_state.h"
 
 static bool is_p01_p02(uint8_t plug_id)
@@ -39,43 +38,5 @@ relay_apply_result_t relay_safety_compute(
 
     *effective_on = req->desired_on;
     return RELAY_APPLY_OK;
-}
-
-esp_err_t relay_logical_on(uint8_t plug_id, bool critical_confirmed)
-{
-    const global_state_t *gs = global_state_get_snapshot_ptr();
-    if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return ESP_ERR_INVALID_STATE;
-
-    relay_apply_request_t req = {
-        .system_state = gs->system_state,
-        .monitor_only_mode = gs->monitor_only_mode,
-        .plug_id = plug_id,
-        .desired_on = true,
-        .critical_manual_confirmed = critical_confirmed,
-        .plug_is_critical_role = (plug_id == 1 || plug_id == 2)
-    };
-    bool effective = false;
-    relay_apply_result_t r = relay_safety_compute(&req, &effective);
-    if (r != RELAY_APPLY_OK) return ESP_ERR_INVALID_STATE;
-    return relay_set(plug_id, true);
-}
-
-esp_err_t relay_logical_off(uint8_t plug_id, bool critical_confirmed)
-{
-    const global_state_t *gs = global_state_get_snapshot_ptr();
-    if (gs->system_state >= SYSTEM_STATE_SAFE_OFF) return ESP_ERR_INVALID_STATE;
-
-    relay_apply_request_t req = {
-        .system_state = gs->system_state,
-        .monitor_only_mode = gs->monitor_only_mode,
-        .plug_id = plug_id,
-        .desired_on = false,
-        .critical_manual_confirmed = critical_confirmed,
-        .plug_is_critical_role = (plug_id == 1 || plug_id == 2)
-    };
-    bool effective = false;
-    relay_apply_result_t r = relay_safety_compute(&req, &effective);
-    if (r != RELAY_APPLY_OK) return ESP_ERR_INVALID_STATE;
-    return relay_set(plug_id, false);
 }
 

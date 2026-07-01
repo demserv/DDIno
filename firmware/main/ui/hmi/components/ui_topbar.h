@@ -14,6 +14,10 @@ typedef struct {
     lv_obj_t *sd_label;
     lv_obj_t *selftest_label;
     lv_obj_t *alert_count_label;
+    lv_obj_t *badge_maint_label;
+    lv_obj_t *badge_mute_label;
+    lv_obj_t *badge_wiz_label;
+    lv_obj_t *nvs_label;
     lv_obj_t *feed_btn;
     lv_obj_t *feed_label;
 } ui_topbar_t;

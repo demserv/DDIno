@@ -19,6 +19,7 @@ const antiflap_params_storage_t*  config_get_antiflap(void);
 const selftest_params_storage_t*  config_get_selftest(void);
 const system_params_storage_t*    config_get_system(void);
 const calibration_params_storage_t* config_get_calibration(void);
+const ph_params_storage_t*        config_get_ph(void);
 
 esp_err_t config_set_thermal(const thermal_params_storage_t *p);
 esp_err_t config_set_ato(const ato_params_storage_t *p);
@@ -31,6 +32,7 @@ esp_err_t config_set_antiflap(const antiflap_params_storage_t *p);
 esp_err_t config_set_selftest(const selftest_params_storage_t *p);
 esp_err_t config_set_system(const system_params_storage_t *p);
 esp_err_t config_set_calibration(const calibration_params_storage_t *p);
+esp_err_t config_set_ph(const ph_params_storage_t *p);
 
 esp_err_t config_save_all(void);
 esp_err_t config_load_all(void);
@@ -41,5 +43,10 @@ void config_set_wizard_completed(bool val);
 void config_set_monitor_only(bool val);
 uint8_t config_get_wizard_step(void);
 void config_set_wizard_step(uint8_t step);
+
+uint16_t config_get_carousel_interval_s(void);
+esp_err_t config_set_carousel_interval_s(uint16_t interval_s);
+uint16_t config_get_carousel_pause_s(void);
+esp_err_t config_set_carousel_pause_s(uint16_t pause_s);
 
 #endif

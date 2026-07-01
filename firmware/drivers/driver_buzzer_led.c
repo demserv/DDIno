@@ -9,8 +9,27 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "buzzer_led";
+
+static uint64_t s_mute_until_ms = 0;
+
+void buzzer_set_mute(uint32_t duration_ms)
+{
+    s_mute_until_ms = (uint64_t)(esp_timer_get_time() / 1000) + duration_ms;
+}
+
+void buzzer_clear_mute(void)
+{
+    s_mute_until_ms = 0;
+}
+
+bool buzzer_is_muted(void)
+{
+    return (s_mute_until_ms > 0) &&
+           ((uint64_t)(esp_timer_get_time() / 1000) < s_mute_until_ms);
+}
 
 #define MCP23017_ADDR      0x20
 #define MCP23017_REG_IODIRB 0x01
@@ -56,6 +75,7 @@ void led_set(led_color_t color)
 
 void buzzer_beep(uint32_t duration_ms)
 {
+    if (buzzer_is_muted()) return;
     s_gpio_state |= BUZZER_BIT;
     mcp23017_write_gpiob(s_gpio_state);
     vTaskDelay(pdMS_TO_TICKS(duration_ms));
@@ -77,8 +97,10 @@ void led_all_off(void)
 
 void buzzer_led_alert(void)
 {
+    bool muted = buzzer_is_muted();
     for (int i = 0; i < 3; i++) {
-        s_gpio_state |= (BUZZER_BIT | LED_RED_BIT);
+        s_gpio_state |= LED_RED_BIT;
+        if (!muted) s_gpio_state |= BUZZER_BIT;
         mcp23017_write_gpiob(s_gpio_state);
         vTaskDelay(pdMS_TO_TICKS(HW_I2C_TIMEOUT_MS));
         s_gpio_state &= ~BUZZER_BIT;

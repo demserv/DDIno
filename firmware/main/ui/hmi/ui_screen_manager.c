@@ -2,7 +2,7 @@
 // @requirement RF-UI-STATUS-001 Topbar e footer persistentes
 #include "ui_screen_manager.h"
 #include "ui_theme.h"
-#include "hardware_config.h"
+#include "config_manager.h"
 #include "global_state.h"
 
 #include "screens/ui_screen_dashboard.h"
@@ -18,9 +18,16 @@
 #include "screens/ui_screen_logs.h"
 #include "screens/ui_screen_wizard.h"
 #include "screens/ui_screen_ato.h"
+#include "screens/ui_screen_calibration.h"
+#include "screens/ui_screen_config_hub.h"
+#include "screens/ui_screen_profiles.h"
+#include "screens/ui_screen_diag_detail.h"
+#include "screens/ui_screen_carousel_settings.h"
 
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "hardware_config.h"
+#include "config_manager.h"
 
 static const char *TAG = "ui_scr_mgr";
 
@@ -45,8 +52,8 @@ static const ui_screen_id_t s_carousel_screens[] = {
 typedef void (*ui_screen_create_fn_t)(lv_obj_t *, ui_root_vm_t *);
 typedef void (*ui_screen_update_fn_t)(ui_root_vm_t *);
 
-static ui_screen_create_fn_t g_create_fns[13];
-static ui_screen_update_fn_t g_update_fns[13];
+static ui_screen_create_fn_t g_create_fns[UI_SCREEN_COUNT];
+static ui_screen_update_fn_t g_update_fns[UI_SCREEN_COUNT];
 
 extern global_state_t g_gs;
 
@@ -90,6 +97,23 @@ static void register_screens(void)
 
     g_create_fns[UI_SCREEN_ATO] = ui_screen_ato_create;
     g_update_fns[UI_SCREEN_ATO] = ui_screen_ato_update;
+
+    g_create_fns[UI_SCREEN_CALIBRATION] = ui_screen_calibration_create;
+    g_update_fns[UI_SCREEN_CALIBRATION] = ui_screen_calibration_update;
+
+    g_create_fns[UI_SCREEN_CONFIG_HUB] = ui_screen_config_hub_create;
+    g_update_fns[UI_SCREEN_CONFIG_HUB] = ui_screen_config_hub_update;
+
+    g_create_fns[UI_SCREEN_PROFILES] = ui_screen_profiles_create;
+    g_update_fns[UI_SCREEN_PROFILES] = ui_screen_profiles_update;
+
+    g_create_fns[UI_SCREEN_DIAG_DETAIL] = ui_screen_diag_detail_create;
+    g_update_fns[UI_SCREEN_DIAG_DETAIL] = ui_screen_diag_detail_update;
+
+    g_create_fns[UI_SCREEN_CAROUSEL_SETTINGS] = ui_screen_carousel_settings_create;
+    g_update_fns[UI_SCREEN_CAROUSEL_SETTINGS] = ui_screen_carousel_settings_update;
+
+    ui_screen_manager_carousel_apply_config();
 }
 
 static bool carousel_blocked(void)
@@ -142,12 +166,17 @@ void ui_screen_manager_init(lv_obj_t *root, ui_root_vm_t *vm)
     s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
     s_last_interaction_ms = s_last_carousel_ms;
 
-    ui_screen_manager_show(UI_SCREEN_DASHBOARD);
+    /* @requirement RF-UI-WIZARD-001 Roteamento obrigatório do wizard na 1ª inicialização. */
+    if (!config_is_wizard_completed()) {
+        ui_screen_manager_show(UI_SCREEN_WIZARD);
+    } else {
+        ui_screen_manager_show(UI_SCREEN_DASHBOARD);
+    }
 }
 
 void ui_screen_manager_show(ui_screen_id_t screen_id)
 {
-    if (screen_id >= 13) {
+    if (screen_id >= UI_SCREEN_COUNT) {
         ESP_LOGW(TAG, "screen_id invalido: %d", (int)screen_id);
         return;
     }
@@ -194,7 +223,19 @@ ui_screen_id_t ui_screen_manager_get_current(void)
 void ui_screen_manager_on_user_interaction(void)
 {
     s_last_interaction_ms = esp_timer_get_time() / USEC_PER_MSEC;
-    s_carousel_paused = true;
+}
+
+static uint32_t carousel_interval_ms(void)
+{
+    uint16_t sec = config_get_carousel_interval_s();
+    if (sec == 0) return 0;
+    return (uint32_t)sec * 1000U;
+}
+
+void ui_screen_manager_carousel_apply_config(void)
+{
+    s_carousel_enabled = (config_get_carousel_interval_s() != 0);
+    s_last_carousel_ms = esp_timer_get_time() / USEC_PER_MSEC;
 }
 
 void ui_screen_manager_carousel_pause(void)
@@ -214,11 +255,16 @@ void ui_screen_manager_tick(void)
         return;
     }
 
-    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
-    if (now_ms - s_last_interaction_ms < HW_UI_CAROUSEL_PAUSE_ON_ACTIVITY_MS) {
+    uint32_t interval_ms = carousel_interval_ms();
+    if (interval_ms == 0) {
         return;
     }
-    if (now_ms - s_last_carousel_ms < HW_UI_CAROUSEL_INTERVAL_MS) {
+
+    uint64_t now_ms = esp_timer_get_time() / USEC_PER_MSEC;
+    if (now_ms - s_last_interaction_ms < (uint64_t)config_get_carousel_pause_s() * 1000ULL) {
+        return;
+    }
+    if (now_ms - s_last_carousel_ms < interval_ms) {
         return;
     }
 

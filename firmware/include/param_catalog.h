@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
     bool     enabled;
+    bool     digital_mode;       /* RF-ATO-DIGITAL-001: ADC→ON/OFF com histerese */
     int32_t  low_level_adc;
     int32_t  high_level_adc;
     int32_t  overflow_margin_adc;
@@ -61,6 +62,8 @@ typedef struct {
     uint32_t session_timeout_min;
     uint32_t max_login_attempts;
     uint32_t login_block_duration_min;
+    uint32_t ack_timeout_s;
+    bool     read_requires_auth;
 } security_params_storage_t;
 
 typedef struct {
@@ -80,6 +83,8 @@ typedef struct {
     bool     monitor_only_mode;
     bool     maintenance_mode;
     uint8_t  wizard_step;
+    uint16_t carousel_interval_s;  /* RF-UI-CAROUSEL-001.1: 0=off, 15/30/60 */
+    uint16_t carousel_pause_s;     /* RF-UI-CAROUSEL-001.1: pausa pos interacao 5/10/15/30 */
 } system_params_storage_t;
 
 #define PARAM_THERMAL_DEFAULT_TEMP_NORMAL_C      25.0f
@@ -91,6 +96,7 @@ typedef struct {
 #define PARAM_THERMAL_DEFAULT_EXTREME_ENABLED    true
 
 #define PARAM_ATO_DEFAULT_ENABLED                true
+#define PARAM_ATO_DEFAULT_DIGITAL_MODE           true
 #define PARAM_ATO_DEFAULT_LOW_ADC                500
 #define PARAM_ATO_DEFAULT_HIGH_ADC               2500
 #define PARAM_ATO_DEFAULT_OVERFLOW_ADC           200
@@ -120,10 +126,13 @@ typedef struct {
 #define PARAM_RESTART_DEFAULT_MONITOR_S          10
 
 #define PARAM_FEED_DEFAULT_DURATION_MIN          10
+#define PARAM_FEED_DEFAULT_COOLDOWN_MIN          30
+#define PARAM_PLUG_DEFAULT_MAX_ENERGY_WH_DAY     500.0f
 
 #define PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT   60
 #define PARAM_SECURITY_DEFAULT_MAX_LOGIN         5
 #define PARAM_SECURITY_DEFAULT_BLOCK_DURATION    15
+#define PARAM_SECURITY_DEFAULT_ACK_TIMEOUT_S     300
 
 #define PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S   10
 #define PARAM_ANTIFLAP_DEFAULT_JANELA_S          60
@@ -135,6 +144,8 @@ typedef struct {
 #define PARAM_SYSTEM_DEFAULT_MAINS_VOLTAGE       127
 #define PARAM_SYSTEM_DEFAULT_MONITOR_ONLY        false
 #define PARAM_SYSTEM_DEFAULT_MAINTENANCE_MODE    false
+#define PARAM_SYSTEM_DEFAULT_CAROUSEL_INTERVAL_S 15U
+#define PARAM_SYSTEM_DEFAULT_CAROUSEL_PAUSE_S    5U
 
 typedef struct {
     float acs712_zero_offset_mv[10];
@@ -144,5 +155,22 @@ typedef struct {
 
 #define PARAM_CALIB_DEFAULT_ATO_ZERO_ADC     0
 #define PARAM_CALIB_DEFAULT_TEMP_OFFSET_C    0.0f
+
+/* @requirement RF-PH-001..004 (Adendo baseline pH v3.11) Parâmetros operacionais do
+ * sensor de pH. pH é telemetria/log: advertências NÃO forçam SAFE_OFF (RF-PH-004);
+ * calibração inválida usa o ALM canônico ALM-049 (SRS §49), sem inventar novos IDs. */
+typedef struct {
+    bool  enabled;
+    float warn_low_ph;
+    float warn_high_ph;
+    float calib_min_ph;
+    float calib_max_ph;
+} ph_params_storage_t;
+
+#define PARAM_PH_DEFAULT_ENABLED             true
+#define PARAM_PH_DEFAULT_WARN_LOW            6.5f
+#define PARAM_PH_DEFAULT_WARN_HIGH           8.5f
+#define PARAM_PH_DEFAULT_CALIB_MIN           4.0f
+#define PARAM_PH_DEFAULT_CALIB_MAX           10.0f
 
 #endif

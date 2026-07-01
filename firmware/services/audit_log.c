@@ -1,6 +1,7 @@
 // @requirement RNF-SECURITY-003 Logs de auditoria de segurança
 #include "services/audit_log.h"
 #include "services/storage_sd.h"
+#include "services/storage_facade.h"
 #include "hardware_config.h"
 #include "esp_timer.h"
 #include <stdio.h>
@@ -27,14 +28,14 @@ static const char *event_type_str(audit_event_type_t type)
 esp_err_t audit_log_event(audit_event_type_t type, const char *msg)
 {
     if (!msg) return ESP_ERR_INVALID_ARG;
-    if (!storage_sd_is_mounted()) return ESP_ERR_INVALID_STATE;
 
     uint64_t now_us = esp_timer_get_time();
     char line[AUDIT_LOG_LINE_SIZE];
     snprintf(line, sizeof(line), "[%llu] [%s] %s",
              (unsigned long long)(now_us / USEC_PER_SEC),
              event_type_str(type), msg);
-    return storage_sd_write_log(SD_LOG_TYPE_AUDIT, line);
+    /* @requirement RF-WEB-007 Usa storage_facade (SD ou RAM fallback). */
+    return storage_facade_write(STORAGE_CHAN_AUDIT_LOG, line, strlen(line) + 1);
 }
 
 esp_err_t audit_log_state_change(const char *from_state, const char *to_state, const char *reason)

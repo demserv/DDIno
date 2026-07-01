@@ -8,8 +8,11 @@
 #include "components/ui_footer.h"
 #include "components/ui_critical_overlay.h"
 #include "ui_screen_manager.h"
+#include "global_state.h"
 
 #include "lvgl.h"
+
+extern global_state_t g_gs;
 
 static ui_root_vm_t g_vm;
 static ui_topbar_t g_topbar;
@@ -37,6 +40,14 @@ void ui_app_init(void)
     ui_topbar_update(&g_topbar, &g_vm.topbar);
 }
 
+void ui_app_refresh_now(void)
+{
+    ui_view_model_update_from_system(&g_vm);
+    ui_topbar_update(&g_topbar, &g_vm.topbar);
+    ui_footer_update(&g_footer, &g_vm.footer);
+    ui_screen_manager_refresh();
+}
+
 void ui_app_tick(void)
 {
     ui_view_model_update_from_system(&g_vm);
@@ -48,9 +59,11 @@ void ui_app_tick(void)
 
     /* Overlays criticos baseados no estado do sistema */
     if (g_vm.footer.system_state == UI_SYSTEM_EMERGENCY) {
+        ui_critical_overlay_set_cause(&g_emergency_overlay, g_gs.safeoff_reason, true);
         ui_critical_overlay_show(&g_emergency_overlay, true);
         ui_critical_overlay_show(&g_safeoff_overlay, false);
     } else if (g_vm.footer.system_state == UI_SYSTEM_SAFE_OFF) {
+        ui_critical_overlay_set_cause(&g_safeoff_overlay, g_gs.safeoff_reason, false);
         ui_critical_overlay_show(&g_safeoff_overlay, true);
         ui_critical_overlay_show(&g_emergency_overlay, false);
     } else {

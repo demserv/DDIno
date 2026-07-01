@@ -1,3 +1,9 @@
+// @requirement RF-ALERT-001 Monitor periódico de ALMs de sistema e processo
+// @requirement RF-ALERT-003 Publicação/clear condicional sem flap (ALM-006 debounce)
+// @requirement RF-ENERGY-003 ALM-025 orçamento de energia
+// @requirement RF-PH-003 pH fora de calibração → ALM-049 (canônico); ALM-038/039 são ATO
+// @requirement RF-PLUG-001 ALM-041/056 divergência relé e falha de acionamento
+// @requirement RF-TIME-003 ALM-009/010 WiFi (via g_gs.wifi_ok)
 #include "alm_monitor.h"
 
 #include "alert_manager.h"
@@ -8,7 +14,14 @@
 #include "config_manager.h"
 #include "hardware_config.h"
 #include "circuit_breaker.h"
+#include "services/storage_sd.h"
 #include "plug_model.h"
+#include "plug_manager.h"
+#include "cdn_energy.h"
+#include "drivers/driver_ph_sensor.h"
+#include "driver_relay.h"
+#include "wdt_stats.h"
+#include "safety_controller.h"
 #include "plug_manager.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -21,6 +34,7 @@ static const char *TAG = "alm_monitor";
 static uint64_t s_boot_ts = 0;
 
 extern pzem_data_t g_pzem;
+extern global_state_t g_gs;
 
 static void raise_alm(int16_t alm_id, alert_severity_t sev, alert_category_t cat,
                       const char *msg, const char *hint, bool ack_req, uint64_t now_s)
@@ -33,12 +47,7 @@ static void raise_alm(int16_t alm_id, alert_severity_t sev, alert_category_t cat
 
 static void clear_alm(int16_t alm_id, bool condition)
 {
-    if (condition) {
-        const alert_slot_t *slot = alert_manager_get_slot(alm_id);
-        if (slot && slot->active) {
-            alert_manager_clear(alm_id);
-        }
-    }
+    alert_manager_try_auto_clear(alm_id, condition);
 }
 
 esp_err_t alm_monitor_init(void)
@@ -71,6 +80,16 @@ void alm_monitor_tick(uint64_t now_s)
         s_already_raised[1] = true;
     }
 
+    /* ALM-003: Reset por Watchdog (SRS §49 — HIGH/DEGRADED/ACK) */
+    if (!s_already_raised[2]) {
+        esp_reset_reason_t rr = esp_reset_reason();
+        if (rr == ESP_RST_TASK_WDT || rr == ESP_RST_INT_WDT || rr == ESP_RST_WDT) {
+            raise_alm(ALM_003, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_SYSTEM,
+                      "Reset por Watchdog detectado", "Verificar travamento do firmware", true, now_s);
+        }
+        s_already_raised[2] = true;
+    }
+
     /* ALM-004: Reset por Brownout */
     if (!s_already_raised[3]) {
         if (esp_reset_reason() == ESP_RST_BROWNOUT) {
@@ -78,6 +97,20 @@ void alm_monitor_tick(uint64_t now_s)
                       "Reset por Brownout detectado", "Verificar alimentacao", true, now_s);
         }
         s_already_raised[3] = true;
+    }
+
+    /* ALM-029: Excesso de resets → EMERGENCY (SRS §49). */
+    {
+        static bool s_alm029_raised = false;
+        if (!s_alm029_raised && wdt_stats_get_resets_24h() > HW_WDT_RESET_MAX_24H) {
+            raise_alm(ALM_029, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                      "Excesso de resets na janela de 24h", "Verificar firmware e energia", true, now_s);
+            s_alm029_raised = true;
+            if (g_gs.system_state < SYSTEM_STATE_EMERGENCY) {
+                global_state_enter_emergency(&g_gs, "ALM-029", "alm_monitor", now_s);
+                plug_manager_apply_safe_off();
+            }
+        }
     }
 
     /* ALM-005: NVS invalida */
@@ -88,9 +121,28 @@ void alm_monitor_tick(uint64_t now_s)
     }
 
     /* ALM-006: SD indisponivel */
-    raise_alm(ALM_006, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
-              "Cartao SD indisponivel", "Verificar cartao SD", false, now_s);
-    clear_alm(ALM_006, gs->sd_ok);
+    if (!gs->sd_ok) {
+        raise_alm(ALM_006, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
+                  "Cartao SD indisponivel", "Verificar cartao SD", false, now_s);
+    } else {
+        clear_alm(ALM_006, true);
+    }
+
+    /* ALM-007: Espaco livre no SD abaixo de 10% */
+    if (gs->sd_ok) {
+        uint64_t total = 0, free = 0;
+        if (storage_sd_get_space(&total, &free) == ESP_OK && total > 0) {
+            bool low_space = (free * 100ULL) / total < 10ULL;
+            if (low_space) {
+                raise_alm(ALM_007, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
+                          "Espaco livre no SD abaixo de 10%", "Liberar espaco", false, now_s);
+            } else {
+                clear_alm(ALM_007, true);
+            }
+        }
+    } else {
+        clear_alm(ALM_007, true);
+    }
 
     /* ALM-008: Heap/RAM livre abaixo do minimo */
     {
@@ -178,8 +230,22 @@ void alm_monitor_tick(uint64_t now_s)
         }
     }
 
-    /* ALM-025: Orcamento mensal excedido (dados indisponiveis) */
-    clear_alm(ALM_025, true);
+    /* ALM-025: Orcamento mensal de energia excedido */
+    {
+        static uint64_t s_last_budget_check = 0;
+        if (now_s - s_last_budget_check >= 60) {
+            s_last_budget_check = now_s;
+            const electric_params_storage_t *ep = config_get_electric();
+            float budget_wh = ep->total_power_limit_w * HW_ENERGY_MONTHLY_BUDGET_H;
+            float month_wh = cdn_energy_get_wh_month();
+            if (budget_wh > 0.0f && month_wh > budget_wh) {
+                raise_alm(ALM_025, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
+                          "Orcamento mensal de energia excedido", "Rever consumo", false, now_s);
+            } else {
+                clear_alm(ALM_025, budget_wh <= 0.0f || month_wh <= budget_wh);
+            }
+        }
+    }
 
     /* ALM-031: Sobrecorrente em plugue */
     {
@@ -265,6 +331,39 @@ void alm_monitor_tick(uint64_t now_s)
         }
     }
 
+    /* @requirement RF-PH-002/003/004 (Adendo baseline pH v3.11) pH é telemetria:
+     * fora da faixa de calibração configurável gera ALM-049 (canônico — SRS §49).
+     * NÃO usa ALM-038/039 (pertencem ao ATO) e NÃO força SAFE_OFF. */
+    {
+        static uint64_t s_last_ph_check = 0;
+        if (now_s - s_last_ph_check >= 30) {
+            s_last_ph_check = now_s;
+            const ph_params_storage_t *php = config_get_ph();
+            float ph = 0.0f;
+            bool ph_valid = false;
+            if (php && php->enabled &&
+                ph_sensor_read(&ph, &ph_valid) == ESP_OK && ph_valid) {
+                if (ph < php->calib_min_ph || ph > php->calib_max_ph) {
+                    raise_alm(ALM_049, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
+                              "pH fora da faixa calibrada — recalibrar sensor", "Recalibrar sensor", true, now_s);
+                } else if (health_get(SUB_SENSOR_VOLTAGE) != HEALTH_FAILED) {
+                    clear_alm(ALM_049, true);
+                }
+            }
+        }
+    }
+
+    /* ALM-047: Falha do MCP3208 (ADC externo) — distinto de ALM-049 (pH). */
+    {
+        bool mcp3208_fail = (health_get(SUB_SENSOR_LEVEL) == HEALTH_FAILED);
+        if (mcp3208_fail) {
+            raise_alm(ALM_047, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_SYSTEM,
+                      "Falha do MCP3208/ADC externo", "Verificar SPI e alimentacao", true, now_s);
+        } else {
+            clear_alm(ALM_047, true);
+        }
+    }
+
     /* ALM-040: Consumo alto por plugue */
     {
         static uint64_t s_last_high_cons_check = 0;
@@ -328,38 +427,64 @@ void alm_monitor_tick(uint64_t now_s)
         clear_alm(ALM_045, gs->ui_ok);
     }
 
-    /* ALM-047: Falha do MCP3208 */
-    if (health_get(SUB_SENSOR_LEVEL) == HEALTH_FAILED && !s_already_raised[46]) {
-        raise_alm(ALM_047, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_SYSTEM,
-                  "Falha do MCP3208/ADC externo", "Verificar SPI e alimentacao", true, now_s);
-        s_already_raised[46] = true;
-    }
-
-    /* ALM-049: Falha de calibracao */
-    if (health_get(SUB_SENSOR_VOLTAGE) == HEALTH_FAILED && !s_already_raised[48]) {
-        raise_alm(ALM_049, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
-                  "Falha de calibracao/inconsistencia de sensor", "Recalibrar sensor", true, now_s);
-        s_already_raised[48] = true;
-    }
-
-    /* ALM-050 + ALM-051: Tensao de rede (supplements electric_fsm) */
+    /* ALM-048: Falha MCP23017 → SAFE_OFF (relés I2C comprometidos). */
     {
-        static uint64_t s_last_volt_check = 0;
-        if (now_s - s_last_volt_check >= 10) {
-            s_last_volt_check = now_s;
+        static uint64_t s_last_mcp_check = 0;
+        if (now_s - s_last_mcp_check >= 10) {
+            s_last_mcp_check = now_s;
+            if (!relay_mcp23017_ok()) {
+                raise_alm(ALM_048, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                          "Falha do MCP23017/relés I2C", "Verificar I2C e acionamento", true, now_s);
+                if (g_gs.system_state < SYSTEM_STATE_SAFE_OFF) {
+                    global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_MCP23017_FAIL,
+                                               "ALM-048", "alm_monitor", now_s);
+                    plug_manager_apply_safe_off();
+                }
+            } else {
+                clear_alm(ALM_048, true);
+            }
+        }
+    }
+
+    /* ALM-050/051: dono único = electric_fsm + safeoff_alm_map (sem duplicar aqui). */
+
+    /* ALM-058: Consumo total acima de 90% do limite */
+    {
+        static uint64_t s_last_total_cur_check = 0;
+        if (now_s - s_last_total_cur_check >= 10) {
+            s_last_total_cur_check = now_s;
             if (g_pzem.valid) {
                 const electric_params_storage_t *ep = config_get_electric();
-                if (g_pzem.voltage_v > ep->overvoltage_limit_v) {
-                    raise_alm(ALM_050, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_PROCESS,
-                              "Sobretensao de rede", "Verificar rede eletrica", true, now_s);
+                float threshold = ep->total_current_limit_a * 0.9f;
+                if (g_pzem.current_a > threshold && threshold > 0.0f) {
+                    raise_alm(ALM_058, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
+                              "Consumo total elevado", "Monitorar consumo total", false, now_s);
                 } else {
-                    clear_alm(ALM_050, g_pzem.voltage_v <= ep->overvoltage_limit_v);
+                    clear_alm(ALM_058, g_pzem.current_a <= threshold || threshold <= 0.0f);
                 }
-                if (g_pzem.voltage_v < ep->undervoltage_limit_v && g_pzem.voltage_v > 0) {
-                    raise_alm(ALM_051, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_PROCESS,
-                              "Subtensao de rede", "Verificar rede eletrica", true, now_s);
+            }
+        }
+    }
+
+    /* @requirement RF-ENERGY-010 ALM-057: Tendência de tensão (pré-alarme WARNING). */
+    {
+        static uint64_t s_last_vtrend_check = 0;
+        if (now_s - s_last_vtrend_check >= 10) {
+            s_last_vtrend_check = now_s;
+            if (g_pzem.valid && g_pzem.voltage_v > 0.1f) {
+                const electric_params_storage_t *ep = config_get_electric();
+                const float m = HW_ELECTRIC_TREND_MARGIN_PCT;
+                float ov = ep->overvoltage_limit_v;
+                float uv = ep->undervoltage_limit_v;
+                bool near_ov = (ov > 0.0f) &&
+                               (g_pzem.voltage_v >= ov * (1.0f - m)) && (g_pzem.voltage_v < ov);
+                bool near_uv = (uv > 0.0f) &&
+                               (g_pzem.voltage_v <= uv * (1.0f + m)) && (g_pzem.voltage_v > uv);
+                if (near_ov || near_uv) {
+                    raise_alm(ALM_057, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
+                              "Tendencia de tensao para fora da faixa", "Monitorar rede", false, now_s);
                 } else {
-                    clear_alm(ALM_051, g_pzem.voltage_v >= ep->undervoltage_limit_v || g_pzem.voltage_v <= 0);
+                    clear_alm(ALM_057, true);
                 }
             }
         }
@@ -380,11 +505,6 @@ void alm_monitor_tick(uint64_t now_s)
                 }
             }
         }
-    }
-
-    /* ALM-056: Falha ao religar plugue (dados indisponiveis) */
-    {
-        clear_alm(ALM_056, true);
     }
 
     /* ALM-059: Circuit Breaker ativo */

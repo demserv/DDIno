@@ -39,8 +39,9 @@ static const char *log_type_to_dir(sd_log_type_t type)
         case SD_LOG_TYPE_EVENT:  return "logs/events";
         case SD_LOG_TYPE_ALERT:  return "logs/alerts";
         case SD_LOG_TYPE_ENERGY: return "logs/energy";
-        case SD_LOG_TYPE_AUDIT:  return "logs/security";
-        default:                 return "logs/misc";
+        case SD_LOG_TYPE_AUDIT:   return "logs/security";
+        case SD_LOG_TYPE_ELECTRIC: return "logs/electric";
+        default:                  return "logs/misc";
     }
 }
 
@@ -231,9 +232,27 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
     char tmp_path[100];
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path);
 
-    FILE *f = fopen(tmp_path, "a");
-    if (!f) return ESP_ERR_NOT_FOUND;
-
+    /* @requirement RF-STORAGE-003 Append atômico: copia log existente → .tmp, acrescenta
+     * linha, fsync, rename. Evita truncar o arquivo inteiro a cada escrita. */
+    FILE *src = fopen(path, "r");
+    FILE *f = fopen(tmp_path, "w");
+    if (!f) {
+        if (src) fclose(src);
+        return ESP_ERR_NOT_FOUND;
+    }
+    if (src) {
+        char buf[256];
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+            if (fwrite(buf, 1, n, f) != n) {
+                fclose(src);
+                fclose(f);
+                remove(tmp_path);
+                return ESP_FAIL;
+            }
+        }
+        fclose(src);
+    }
     fprintf(f, "%s\n", line);
     return atomic_write_and_rename(path, tmp_path, f);
 }
@@ -299,6 +318,14 @@ esp_err_t storage_sd_backup_config(void)
     snprintf(final_path, sizeof(final_path), "%s/config/backup/config_backup.json", SD_MOUNT_POINT);
 
     return atomic_write_and_rename(final_path, tmp_path, f);
+}
+
+esp_err_t storage_sd_get_space(uint64_t *total_bytes, uint64_t *free_bytes)
+{
+    if (!s_mounted || !total_bytes || !free_bytes) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return esp_vfs_fat_info(SD_MOUNT_POINT, total_bytes, free_bytes);
 }
 
 esp_err_t storage_sd_unmount(void)

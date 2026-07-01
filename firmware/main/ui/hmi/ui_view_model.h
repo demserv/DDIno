@@ -19,6 +19,10 @@ typedef struct {
     bool selftest_passed;
     ui_system_state_t system_state;
     uint16_t alert_count;
+    bool maintenance_mode;
+    bool mute_active;
+    bool wizard_incomplete;
+    bool nvs_ok;
 } ui_topbar_vm_t;
 
 typedef struct {
@@ -52,6 +56,7 @@ typedef struct {
     float current_a;
     bool is_critical;
     bool current_valid;
+    bool can_unblock;
 } ui_plug_vm_t;
 
 typedef struct {

@@ -71,7 +71,13 @@ cmd_validation_t command_validator_can_restart(const global_state_t *gs)
 cmd_validation_t command_validator_can_ack_alert(const global_state_t *gs, uint16_t alert_id)
 {
     if (!gs) return denied("INTERNAL_ERROR");
-    (void)alert_id;
+    /* @requirement RF-WEB-003 ack_all (alert_id==0) bloqueado em SAFE_OFF/EMERGENCY;
+     * ACK individual permanece permitido na UI para duplo-ACK de saída. */
+    if (alert_id == 0 &&
+        (gs->system_state == SYSTEM_STATE_SAFE_OFF ||
+         gs->system_state == SYSTEM_STATE_EMERGENCY)) {
+        return denied("SAFE_MODE_ACTIVE");
+    }
     cmd_validation_t ok = { .allowed = true, .requires_double_confirmation = false, .error_code = NULL };
     return ok;
 }

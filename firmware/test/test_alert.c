@@ -4,18 +4,20 @@
 #include "services/alert_manager.h"
 #include "alert_model.h"
 
-/* include production source */
-#include "services/alert_manager.c"
+void setUp(void)
+{
+    alert_manager_init();
+}
 
 TEST_CASE("Alert: init limpa todos os slots", "[alert]")
 {
-    alert_manager_init();
+    setUp();
     TEST_ASSERT_EQUAL(0, alert_manager_active_count());
 }
 
 TEST_CASE("Alert: raise ativa um alerta", "[alert]")
 {
-    alert_manager_init();
+    setUp();
     esp_err_t err = alert_manager_raise(ALM_026, true, 1000);
     TEST_ASSERT_EQUAL(ESP_OK, err);
     TEST_ASSERT_TRUE(alert_manager_is_active(ALM_026));

@@ -22,10 +22,10 @@
 | RF | Feature | Files | Status |
 |----|---------|-------|--------|
 | RF-RESET-001..004 | Factory reset FSM (dupla confirmação, countdown, NVS erase) | `services/reset_handler.c/h` | COMPLETED |
-| RF-PLUG-004 | Bypass detection (corrente com plug OFF → ALM-054) | `services/plug_manager.c` | COMPLETED |
+| RF-PLUG-004 | Bypass detection (corrente com plug OFF → **ALM-030**) | `services/plug_manager.c` | COMPLETED (ALM corrigido na Fase 1) |
 | RF-PLUG-008 | Min ON/OFF time enforcement | `services/plug_manager.c` | COMPLETED |
 | RF-PLUG-012 | Relocation AQUECEDOR/COOLER | `services/plug_manager.c` | COMPLETED |
-| RF-PLUG-013 | Max energy/day monitoring | `services/plug_manager.c` | COMPLETED |
+| RF-PLUG-013 | Max energy/day monitoring (→ **ALM-054**) | `services/plug_manager.c` | COMPLETED (ALM corrigido na Fase 1) |
 | RF-ALERT-004 | ACK timeout com escalação ALM-046 | `services/alert_manager.c/h` | COMPLETED |
 | RF-ALERT-002 | Silence enforcement (alert_manager_set_silenced) | `services/alert_manager.c/h` | COMPLETED |
 | RF-THERMAL-005 | Trend indicator (°C/min) | `fsm/thermal_fsm.c` | COMPLETED |

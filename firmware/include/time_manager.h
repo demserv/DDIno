@@ -20,6 +20,7 @@ bool time_is_valid(void);
 esp_err_t time_sync_ntp_async(const char *ntp_server);
 esp_err_t time_set_timezone(const char *tz);
 bool time_is_ntp_synced(void);
+void time_manager_tick(uint32_t delta_s);
 
 #ifdef __cplusplus
 }

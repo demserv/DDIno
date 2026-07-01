@@ -11,8 +11,8 @@ int16_t safeoff_reason_to_alm_id(safeoff_reason_t reason)
         case SAFEOFF_REASON_THERMAL_EXTREME:  return ALM_028;
         case SAFEOFF_REASON_ATO_OVERFLOW:     return ALM_037;
         case SAFEOFF_REASON_ELECTRIC_TOTAL:   return ALM_052;
-        case SAFEOFF_REASON_OVERVOLTAGE:      return ALM_052;
-        case SAFEOFF_REASON_UNDERVOLTAGE:     return ALM_052;
+        case SAFEOFF_REASON_OVERVOLTAGE:      return ALM_050;
+        case SAFEOFF_REASON_UNDERVOLTAGE:     return ALM_051;
         case SAFEOFF_REASON_PLUG_SHORT:       return ALM_055;
         case SAFEOFF_REASON_MCP23017_FAIL:    return ALM_048;
         case SAFEOFF_REASON_CONFIG_INVALID:   return ALM_061;

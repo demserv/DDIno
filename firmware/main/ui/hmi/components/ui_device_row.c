@@ -80,6 +80,51 @@ void ui_device_row_create(ui_device_row_t *row, lv_obj_t *parent, int x, int y)
     lv_label_set_text(row->current_label, "-- A");
     lv_obj_set_style_text_font(row->current_label, UI_FONT_NORMAL, 0);
     lv_obj_set_pos(row->current_label, 420, 13);
+
+    row->preset_btn = lv_btn_create(row->root);
+    lv_obj_set_size(row->preset_btn, 48, 24);
+    lv_obj_set_pos(row->preset_btn, 230, 9);
+    lv_obj_set_style_bg_color(row->preset_btn, UI_COLOR_PANEL, 0);
+    lv_obj_add_flag(row->preset_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *pr_lbl = lv_label_create(row->preset_btn);
+    lv_label_set_text(pr_lbl, "Pre");
+    lv_obj_center(pr_lbl);
+
+    row->toggle_btn = lv_btn_create(row->root);
+    lv_obj_set_size(row->toggle_btn, 48, 24);
+    lv_obj_set_pos(row->toggle_btn, 285, 9);
+    lv_obj_set_style_bg_color(row->toggle_btn, UI_COLOR_CYAN, 0);
+    lv_obj_add_flag(row->toggle_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *tg_lbl = lv_label_create(row->toggle_btn);
+    lv_label_set_text(tg_lbl, "Tgl");
+    lv_obj_center(tg_lbl);
+
+    row->unblock_btn = lv_btn_create(row->root);
+    lv_obj_set_size(row->unblock_btn, 56, 24);
+    lv_obj_set_pos(row->unblock_btn, 285, 9);
+    lv_obj_set_style_bg_color(row->unblock_btn, UI_COLOR_WARN, 0);
+    lv_obj_add_flag(row->unblock_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *ub_lbl = lv_label_create(row->unblock_btn);
+    lv_label_set_text(ub_lbl, "Desbl");
+    lv_obj_center(ub_lbl);
+}
+
+void ui_device_row_set_unblock_cb(ui_device_row_t *row, lv_event_cb_t cb, void *user_data)
+{
+    if (!row || !row->unblock_btn) return;
+    lv_obj_add_event_cb(row->unblock_btn, cb, LV_EVENT_CLICKED, user_data);
+}
+
+void ui_device_row_set_toggle_cb(ui_device_row_t *row, lv_event_cb_t cb, void *user_data)
+{
+    if (!row || !row->toggle_btn) return;
+    lv_obj_add_event_cb(row->toggle_btn, cb, LV_EVENT_CLICKED, user_data);
+}
+
+void ui_device_row_set_preset_cb(ui_device_row_t *row, lv_event_cb_t cb, void *user_data)
+{
+    if (!row || !row->preset_btn) return;
+    lv_obj_add_event_cb(row->preset_btn, cb, LV_EVENT_CLICKED, user_data);
 }
 
 void ui_device_row_update(ui_device_row_t *row, const ui_plug_vm_t *plug)
@@ -100,6 +145,28 @@ void ui_device_row_update(ui_device_row_t *row, const ui_plug_vm_t *plug)
 
     lv_obj_set_style_text_color(row->state_label, get_plug_state_color(plug->state), 0);
     lv_label_set_text(row->state_label, get_plug_state_text(plug->state));
+
+    bool show_unblock = plug->can_unblock;
+    bool show_toggle = !show_unblock && plug->state != UI_PLUG_BLOCKED && plug->state != UI_PLUG_ERROR;
+    bool show_preset = plug->plug_id >= 3 && !show_unblock;
+
+    if (show_unblock) {
+        lv_obj_clear_flag(row->unblock_btn, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(row->unblock_btn, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (show_toggle) {
+        lv_obj_clear_flag(row->toggle_btn, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(row->toggle_btn, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (show_preset) {
+        lv_obj_clear_flag(row->preset_btn, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(row->preset_btn, LV_OBJ_FLAG_HIDDEN);
+    }
 
     if (plug->current_valid) {
         char cur_buf[16];

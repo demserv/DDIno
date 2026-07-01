@@ -1,10 +1,20 @@
 // @requirement RF-UI-DIAG-001 Tela de diagnóstico com 9 subsistemas
-// @requirement RF-FLOW-BOOT-003 Exibição de self-test na UI
+// @requirement RF-UI-DIAG-002 Drill-down por subsistema (self-test detalhado)
 #include "ui_screen_diagnostics.h"
 #include "../ui_theme.h"
+#include "../ui_screen_manager.h"
+#include "ui_screen_diag_detail.h"
+#include "../components/ui_focus.h"
 #include <stdio.h>
 
+static void calib_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_screen_manager_show(UI_SCREEN_CALIBRATION);
+}
+
 typedef struct {
+    lv_obj_t *panel;
     lv_obj_t *name_label;
     lv_obj_t *status_label;
 } diag_row_t;
@@ -33,6 +43,14 @@ static const char *health_text(ui_health_state_t state)
     }
 }
 
+static void row_click_cb(lv_event_t *e)
+{
+    int *idx = (int *)lv_event_get_user_data(e);
+    if (!idx) return;
+    ui_screen_diag_detail_show_subsystem(*idx);
+    ui_screen_manager_show(UI_SCREEN_DIAG_DETAIL);
+}
+
 void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
 {
     lv_obj_t *title = lv_label_create(parent);
@@ -47,8 +65,10 @@ void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
         "Barramentos", "I/O"
     };
 
+    static int row_idx[9];
     static const int y_pos[9] = {32, 58, 84, 110, 136, 162, 188, 214, 240};
     for (int i = 0; i < 9; i++) {
+        row_idx[i] = i;
         lv_obj_t *panel = lv_obj_create(parent);
         lv_obj_set_size(panel, 460, 24);
         lv_obj_set_pos(panel, 10, y_pos[i]);
@@ -56,7 +76,11 @@ void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
         lv_obj_set_style_radius(panel, UI_RADIUS_SMALL, 0);
         lv_obj_set_style_border_width(panel, 0, 0);
         lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(panel, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(panel, row_click_cb, LV_EVENT_CLICKED, &row_idx[i]);
+        ui_focus_apply(panel);
 
+        rows[i].panel = panel;
         rows[i].name_label = lv_label_create(panel);
         lv_label_set_text(rows[i].name_label, names[i]);
         lv_obj_set_style_text_font(rows[i].name_label, UI_FONT_NORMAL, 0);
@@ -68,6 +92,15 @@ void ui_screen_diagnostics_create(lv_obj_t *parent, ui_root_vm_t *vm)
         lv_obj_set_style_text_font(rows[i].status_label, UI_FONT_NORMAL, 0);
         lv_obj_set_pos(rows[i].status_label, 390, 4);
     }
+
+    lv_obj_t *calib_btn = lv_btn_create(parent);
+    lv_obj_set_size(calib_btn, 120, 26);
+    lv_obj_align(calib_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -8);
+    lv_obj_set_style_bg_color(calib_btn, UI_COLOR_PANEL_2, 0);
+    lv_obj_add_event_cb(calib_btn, calib_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *calib_lbl = lv_label_create(calib_btn);
+    lv_label_set_text(calib_lbl, "Calibracao");
+    lv_obj_center(calib_lbl);
 
     ui_screen_diagnostics_update(vm);
 }

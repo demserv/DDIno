@@ -12,6 +12,7 @@
 
 #include "config_root.h"
 #include "driver_acs712.h"
+#include "event_bus.h"
 
 static const char *TAG = "config_mgr";
 
@@ -27,6 +28,7 @@ static const char *TAG = "config_mgr";
 #define NVS_NS_SELFTEST  "cfg_stest"
 #define NVS_NS_SYSTEM    "cfg_sys"
 #define NVS_NS_CALIB     "cfg_calib"
+#define NVS_NS_PH        "cfg_ph"
 
 #define NVS_KEY_BLOB     "blob"
 #define NVS_KEY_VERSION  "version"
@@ -44,6 +46,7 @@ static antiflap_params_storage_t s_antiflap;
 static selftest_params_storage_t s_selftest;
 static system_params_storage_t   s_system;
 static calibration_params_storage_t s_calibration;
+static ph_params_storage_t       s_ph;
 
 static config_root_t s_root;
 
@@ -60,6 +63,7 @@ static void root_to_indiv(void)
     s_selftest    = s_root.selftest;
     s_system      = s_root.system;
     s_calibration = s_root.calibration;
+    s_ph          = s_root.ph;
 }
 
 static void indiv_to_root(void)
@@ -75,6 +79,27 @@ static void indiv_to_root(void)
     s_root.selftest    = s_selftest;
     s_root.system      = s_system;
     s_root.calibration = s_calibration;
+    s_root.ph          = s_ph;
+}
+
+static bool carousel_interval_valid(uint16_t s)
+{
+    return s == 0 || s == 15 || s == 30 || s == 60;
+}
+
+static bool carousel_pause_valid(uint16_t s)
+{
+    return s == 5 || s == 10 || s == 15 || s == 30;
+}
+
+static void config_sanitize_system(void)
+{
+    if (!carousel_interval_valid(s_system.carousel_interval_s)) {
+        s_system.carousel_interval_s = PARAM_SYSTEM_DEFAULT_CAROUSEL_INTERVAL_S;
+    }
+    if (!carousel_pause_valid(s_system.carousel_pause_s)) {
+        s_system.carousel_pause_s = PARAM_SYSTEM_DEFAULT_CAROUSEL_PAUSE_S;
+    }
 }
 
 static void set_defaults(void)
@@ -88,6 +113,7 @@ static void set_defaults(void)
     s_thermal.extreme_enabled = PARAM_THERMAL_DEFAULT_EXTREME_ENABLED;
 
     s_ato.enabled             = PARAM_ATO_DEFAULT_ENABLED;
+    s_ato.digital_mode        = PARAM_ATO_DEFAULT_DIGITAL_MODE;
     s_ato.low_level_adc       = PARAM_ATO_DEFAULT_LOW_ADC;
     s_ato.high_level_adc      = PARAM_ATO_DEFAULT_HIGH_ADC;
     s_ato.overflow_margin_adc = PARAM_ATO_DEFAULT_OVERFLOW_ADC;
@@ -115,10 +141,13 @@ static void set_defaults(void)
     s_restart.tempo_monitoramento_pos_relig_s = PARAM_RESTART_DEFAULT_MONITOR_S;
 
     s_feed.feed_duration_min          = PARAM_FEED_DEFAULT_DURATION_MIN;
+    s_feed.feed_cooldown_min          = PARAM_FEED_DEFAULT_COOLDOWN_MIN;
 
     s_security.session_timeout_min    = PARAM_SECURITY_DEFAULT_SESSION_TIMEOUT;
     s_security.max_login_attempts     = PARAM_SECURITY_DEFAULT_MAX_LOGIN;
     s_security.login_block_duration_min = PARAM_SECURITY_DEFAULT_BLOCK_DURATION;
+    s_security.ack_timeout_s          = PARAM_SECURITY_DEFAULT_ACK_TIMEOUT_S;
+    s_security.read_requires_auth     = true;
 
     s_antiflap.tempo_min_estabilizacao_s = PARAM_ANTIFLAP_DEFAULT_ESTABILIZACAO_S;
     s_antiflap.janela_flap_s             = PARAM_ANTIFLAP_DEFAULT_JANELA_S;
@@ -131,6 +160,8 @@ static void set_defaults(void)
     s_system.mains_voltage        = PARAM_SYSTEM_DEFAULT_MAINS_VOLTAGE;
     s_system.monitor_only_mode    = PARAM_SYSTEM_DEFAULT_MONITOR_ONLY;
     s_system.maintenance_mode     = PARAM_SYSTEM_DEFAULT_MAINTENANCE_MODE;
+    s_system.carousel_interval_s  = PARAM_SYSTEM_DEFAULT_CAROUSEL_INTERVAL_S;
+    s_system.carousel_pause_s     = PARAM_SYSTEM_DEFAULT_CAROUSEL_PAUSE_S;
 
     memset(&s_calibration, 0, sizeof(s_calibration));
     for (int i = 0; i < 10; i++) {
@@ -138,6 +169,12 @@ static void set_defaults(void)
     }
     s_calibration.ato_zero_offset_adc = PARAM_CALIB_DEFAULT_ATO_ZERO_ADC;
     s_calibration.temp_offset_c = PARAM_CALIB_DEFAULT_TEMP_OFFSET_C;
+
+    s_ph.enabled      = PARAM_PH_DEFAULT_ENABLED;
+    s_ph.warn_low_ph  = PARAM_PH_DEFAULT_WARN_LOW;
+    s_ph.warn_high_ph = PARAM_PH_DEFAULT_WARN_HIGH;
+    s_ph.calib_min_ph = PARAM_PH_DEFAULT_CALIB_MIN;
+    s_ph.calib_max_ph = PARAM_PH_DEFAULT_CALIB_MAX;
 }
 
 static esp_err_t load_nvs_blob(const char *ns, void *blob, size_t sz)
@@ -161,6 +198,15 @@ static esp_err_t save_nvs_blob(const char *ns, const void *blob, size_t sz)
     if (err == ESP_OK) nvs_commit(h);
     nvs_close(h);
     return err;
+}
+
+static esp_err_t config_store_blob(const char *ns, const void *blob, size_t sz)
+{
+    esp_err_t re = save_nvs_blob(ns, blob, sz);
+    if (re == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
+    return re;
 }
 
 static esp_err_t schema_version_check(void)
@@ -207,6 +253,7 @@ esp_err_t config_manager_init(void)
     esp_err_t root_err = config_root_load(&s_root);
     if (root_err == ESP_OK && config_root_validate(&s_root)) {
         root_to_indiv();
+        config_sanitize_system();
         ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08"PRIX32", wizard=%d)",
                  s_root.crc32, s_system.wizard_completed);
         return ESP_OK;
@@ -225,6 +272,7 @@ esp_err_t config_manager_init(void)
         ESP_LOGW(TAG, "NVS load failed (%s), using defaults", esp_err_to_name(err));
         config_save_all();
     }
+    config_sanitize_system();
     indiv_to_root();
     config_root_save(&s_root);
     ESP_LOGI(TAG, "Config manager init OK (wizard=%d)", s_system.wizard_completed);
@@ -242,6 +290,7 @@ const antiflap_params_storage_t* config_get_antiflap(void) { return &s_antiflap;
 const selftest_params_storage_t* config_get_selftest(void) { return &s_selftest; }
 const system_params_storage_t* config_get_system(void) { return &s_system; }
 const calibration_params_storage_t* config_get_calibration(void) { return &s_calibration; }
+const ph_params_storage_t* config_get_ph(void) { return &s_ph; }
 
 esp_err_t config_set_thermal(const thermal_params_storage_t *p)
 {
@@ -250,7 +299,7 @@ esp_err_t config_set_thermal(const thermal_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal));
+    return config_store_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal));
 }
 
 esp_err_t config_set_ato(const ato_params_storage_t *p)
@@ -260,7 +309,7 @@ esp_err_t config_set_ato(const ato_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_ATO, &s_ato, sizeof(s_ato));
+    return config_store_blob(NVS_NS_ATO, &s_ato, sizeof(s_ato));
 }
 
 esp_err_t config_set_electric(const electric_params_storage_t *p)
@@ -270,7 +319,7 @@ esp_err_t config_set_electric(const electric_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_ELECTRIC, &s_electric, sizeof(s_electric));
+    return config_store_blob(NVS_NS_ELECTRIC, &s_electric, sizeof(s_electric));
 }
 
 esp_err_t config_set_plug_limits(const plug_limits_storage_t *p)
@@ -280,7 +329,7 @@ esp_err_t config_set_plug_limits(const plug_limits_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_PLUG, &s_plug_limits, sizeof(s_plug_limits));
+    return config_store_blob(NVS_NS_PLUG, &s_plug_limits, sizeof(s_plug_limits));
 }
 
 esp_err_t config_set_restart(const restart_params_storage_t *p)
@@ -290,7 +339,7 @@ esp_err_t config_set_restart(const restart_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_RESTART, &s_restart, sizeof(s_restart));
+    return config_store_blob(NVS_NS_RESTART, &s_restart, sizeof(s_restart));
 }
 
 esp_err_t config_set_feed(const feed_params_storage_t *p)
@@ -300,7 +349,7 @@ esp_err_t config_set_feed(const feed_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_FEED, &s_feed, sizeof(s_feed));
+    return config_store_blob(NVS_NS_FEED, &s_feed, sizeof(s_feed));
 }
 
 esp_err_t config_set_security(const security_params_storage_t *p)
@@ -310,7 +359,7 @@ esp_err_t config_set_security(const security_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_SECURITY, &s_security, sizeof(s_security));
+    return config_store_blob(NVS_NS_SECURITY, &s_security, sizeof(s_security));
 }
 
 esp_err_t config_set_antiflap(const antiflap_params_storage_t *p)
@@ -320,7 +369,7 @@ esp_err_t config_set_antiflap(const antiflap_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_ANTIFLAP, &s_antiflap, sizeof(s_antiflap));
+    return config_store_blob(NVS_NS_ANTIFLAP, &s_antiflap, sizeof(s_antiflap));
 }
 
 esp_err_t config_set_selftest(const selftest_params_storage_t *p)
@@ -330,7 +379,7 @@ esp_err_t config_set_selftest(const selftest_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
+    return config_store_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
 }
 
 esp_err_t config_set_system(const system_params_storage_t *p)
@@ -340,7 +389,7 @@ esp_err_t config_set_system(const system_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    return config_store_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
 esp_err_t config_set_calibration(const calibration_params_storage_t *p)
@@ -350,7 +399,17 @@ esp_err_t config_set_calibration(const calibration_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+    return config_store_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+}
+
+esp_err_t config_set_ph(const ph_params_storage_t *p)
+{
+    if (!p) return ESP_ERR_INVALID_ARG;
+    s_ph = *p;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
+    return config_store_blob(NVS_NS_PH, &s_ph, sizeof(s_ph));
 }
 
 esp_err_t config_load_all(void)
@@ -377,6 +436,8 @@ esp_err_t config_load_all(void)
     e = load_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
     if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
     e = load_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+    if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
+    e = load_nvs_blob(NVS_NS_PH, &s_ph, sizeof(s_ph));
     if (e != ESP_OK && e != ESP_ERR_NVS_NOT_FOUND) return e;
     return ESP_OK;
 }
@@ -408,7 +469,11 @@ esp_err_t config_save_all(void)
     e = save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
     if (e != ESP_OK) return e;
     e = save_nvs_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
-    return e;
+    if (e != ESP_OK) return e;
+    e = save_nvs_blob(NVS_NS_PH, &s_ph, sizeof(s_ph));
+    if (e != ESP_OK) return e;
+    event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    return ESP_OK;
 }
 
 esp_err_t config_reset_to_defaults(void)
@@ -454,3 +519,44 @@ void config_set_wizard_step(uint8_t step)
     save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
 }
 
+uint16_t config_get_carousel_interval_s(void)
+{
+    return s_system.carousel_interval_s;
+}
+
+esp_err_t config_set_carousel_interval_s(uint16_t interval_s)
+{
+    if (!carousel_interval_valid(interval_s)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_system.carousel_interval_s = interval_s;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
+    re = save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (re == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
+    return re;
+}
+
+uint16_t config_get_carousel_pause_s(void)
+{
+    return s_system.carousel_pause_s;
+}
+
+esp_err_t config_set_carousel_pause_s(uint16_t pause_s)
+{
+    if (!carousel_pause_valid(pause_s)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_system.carousel_pause_s = pause_s;
+    indiv_to_root();
+    esp_err_t re = config_root_save(&s_root);
+    if (re != ESP_OK) return re;
+    re = save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (re == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
+    return re;
+}

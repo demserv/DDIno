@@ -6,8 +6,9 @@
 #include "hardware_config.h"
 #include <string.h>
 
+/* @requirement RF-PLUG-009 Ordem de religamento: BOMBA (plug 4) primeiro. */
 static const uint8_t RELAY_ENERGIZE_ORDER[PLUG_COUNT_TOTAL] = {
-    4, 5, 1, 6, 2, 3, 7, 8, 9, 10
+    4, 1, 2, 5, 6, 3, 7, 8, 9, 10
 };
 
 void restart_fsm_init(restart_fsm_t *fsm, const restart_cfg_t *cfg)

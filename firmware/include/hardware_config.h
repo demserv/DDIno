@@ -19,6 +19,7 @@
 #define HW_I2C_ADDR_DS3231               (0x68U)
 #define HW_I2C_CLK_HZ                    (100000U)
 #define HW_I2C_TIMEOUT_MS                (100U)
+#define HW_I2C_MUTEX_TIMEOUT_MS          (100U)
 
 // --- Feature presence ---
 #define HW_FEATURE_RTC_DS3231_PRESENT    (1U)
@@ -31,6 +32,7 @@
 #define HW_RELAY_P03_P10_ACTIVE_LEVEL    (1U)
 #define HW_RELAY_SAFE_OFF_LEVEL          (0U)
 #define HW_RELAY_COUNT_MAX               (10U)
+#define HW_RELAY_P01_P02_STARTUP_DELAY_MS (5000U)
 #define HW_RELAY_MODULE_INPUT_VOLTAGE_V  (5U)
 #define HW_RELAY_MODULE_HAS_OPTO         (1U)
 #define HW_RELAY_MODULE_HAS_JD_VCC       (1U)
@@ -48,11 +50,20 @@
 #define HW_ATO_SIGNAL_MODE_DIGITAL_ON_OFF_ADC (1U)
 #define HW_ATO_SENSOR_SUPPLY_MV          (5000U)
 
+// --- pH sensor (baseline normativa — Adendo pH v3.11) ---
+// Faixa física do sensor (constante de hardware). Faixas de advertência/calibração
+// são parâmetros operacionais e vivem em param_catalog/ConfigRoot (RF-PH-002, RF-GLOBAL-005).
+#define HW_PH_SENSOR_SPAN                (14.0f)
+#define HW_ENERGY_DAILY_BUDGET_H         (8.0f)
+#define HW_ENERGY_MONTHLY_BUDGET_H       (720.0f)  /* 30 dias × 24 h (ALM-025 mensal) */
+
 // --- Keypad ---
 #define HW_AD_KEYPAD_SUPPLY_MV           (5000U)
 #define HW_AD_KEYPAD_ADC_CONDITIONED     (1U)
 #define HW_AD_KEYPAD_ADC_UP_THRESH_MIN   (100U)
 #define HW_AD_KEYPAD_ADC_UP_THRESH_MAX   (600U)
+#define HW_KEYPAD_MUTE_HOLD_MS           (5000U)
+#define HW_KEYPAD_HOME_DOUBLE_MS         (500U)
 
 // --- Environmental ---
 #define HW_AC_PROTOBOARD_FORBIDDEN       (1U)
@@ -95,12 +106,16 @@
 // --- WDT ---
 #define HW_WDT_TIMEOUT_MS                (2000U)
 #define HW_WDT_ADV_TIMEOUT_MS            (10000U)
+#define HW_WDT_RESET_MAX_24H             (3U)
 
 // --- SD card ---
 #define HW_SD_SPI_HOST                   (SPI2_HOST)
 #define HW_SD_MOUNT_POINT                "/sdcard"
 #define HW_SD_MAX_FILES                  (8U)
 #define HW_SD_ALLOC_UNIT                 (16384U)
+#define HW_SD_BACKUP_HOUR                (1U)
+#define HW_SD_BACKUP_MINUTE              (0U)
+#define HW_SD_BACKUP_RETAIN_COUNT        (5U)
 
 // --- HTTP ---
 #define HW_HTTP_PORT                     (80U)
@@ -142,6 +157,7 @@
 
 // --- Health check ---
 #define HW_HEALTH_CHECK_INTERVAL_S       (60U)
+#define HW_HEAP_MIN_BYTES                (32768U)
 
 // --- Heartbeat check cycle interval ---
 #define HW_HEARTBEAT_CHECK_CYCLE_INTERVAL (20U)
@@ -188,10 +204,25 @@
 // --- ATO FSM ---
 #define HW_ATO_DEBOUNCE_COUNT           (3U)
 #define HW_ATO_ADC_HYSTERESIS           (50U)
+/* @requirement RF-ATO-004/005 e ALM-027/038/039 (SRS §12.6/§12.7). Limiares
+ * DOCUMENTADOS (nunca ocultos na lógica) para deteccao de padrao anormal de
+ * refill, reservatorio vazio/bloqueio e nivel baixo persistente. */
+#define HW_ATO_REFILL_FREQ_WINDOW_S     (3600U)  /* janela p/ contagem de ciclos de refill  */
+#define HW_ATO_REFILL_FREQ_MAX          (6U)     /* max. ciclos na janela antes de ALM-038   */
+#define HW_ATO_EMPTY_DETECT_S           (120U)   /* bomba ativa sem variacao => ALM-039      */
+#define HW_ATO_EMPTY_MIN_RISE_ADC       (HW_ATO_ADC_HYSTERESIS) /* subida minima esperada    */
+#define HW_ATO_PERSIST_LOW_S            (1800U)  /* nivel baixo continuo => ALM-027 (DEGRADED)*/
 
 // --- Touch ---
 #define HW_TOUCH_DEBOUNCE_COUNT         (2U)
 #define HW_TOUCH_SPI_BUF_SIZE           (3U)
+
+// --- Electric trend pre-alarm (RF-ENERGY-010, ALM-057/058) ---
+/* @requirement RF-ENERGY-010 Limiares DOCUMENTADOS para o alerta antecipado de
+ * tendencia. A banda de pre-alarme e derivada dos limites configuraveis de
+ * proteccao (overvoltage/undervoltage/corrente total), garantindo parametrizacao. */
+#define HW_ELECTRIC_TREND_MARGIN_PCT     (0.05f)  /* pre-alarme quando a ~5% do limite */
+#define HW_ELECTRIC_TREND_TIME_S         (30U)    /* persistencia da tendencia p/ alertar */
 
 // --- Feed FSM ---
 #define HW_FEED_PUMP_MASK_DEFAULT        (0x0FU)

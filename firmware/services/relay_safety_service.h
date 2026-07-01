@@ -27,7 +27,4 @@ relay_apply_result_t relay_safety_compute(
     const relay_apply_request_t *req,
     bool *effective_on);
 
-esp_err_t relay_logical_on(uint8_t plug_id, bool critical_confirmed);
-esp_err_t relay_logical_off(uint8_t plug_id, bool critical_confirmed);
-
 #endif

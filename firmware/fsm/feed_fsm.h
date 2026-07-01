@@ -20,11 +20,13 @@ typedef struct {
     uint8_t feed_count_1h;
     uint64_t window_start_1h_ms;
     uint32_t pumps_off_mask;
+    uint32_t pre_feed_on_mask;
 } feed_fsm_t;
 
 void feed_fsm_init(feed_fsm_t *fsm, uint32_t duration_s, uint32_t cooldown_s);
 bool feed_fsm_start(feed_fsm_t *fsm, uint64_t now_ms);
-void feed_fsm_stop(feed_fsm_t *fsm);
+void feed_fsm_stop(feed_fsm_t *fsm, uint64_t now_ms);
+void feed_fsm_abort(feed_fsm_t *fsm);
 void feed_fsm_update(feed_fsm_t *fsm, uint64_t now_ms);
 feed_state_t feed_fsm_get_state(const feed_fsm_t *fsm);
 uint32_t feed_fsm_remaining_s(const feed_fsm_t *fsm, uint64_t now_ms);
