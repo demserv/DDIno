@@ -58,7 +58,8 @@ bool config_root_validate(const config_root_t *root)
     size_t len = sizeof(config_root_t);
     uint32_t computed = calc_crc32((const uint8_t *)&tmp, len);
     if (stored != computed) {
-        ESP_LOGW(TAG, "CRC mismatch: stored=0x%08X computed=0x%08X", stored, computed);
+        ESP_LOGW(TAG, "CRC mismatch: stored=0x%08lX computed=0x%08lX",
+                 (unsigned long)stored, (unsigned long)computed);
         return false;
     }
     if (root->schema_version[0] != CONFIG_ROOT_SCHEMA_VERSION[0]) {
@@ -105,7 +106,7 @@ esp_err_t config_root_load(config_root_t *root)
         ESP_LOGW(TAG, "ConfigRoot CRC/version invalid");
         return ESP_ERR_INVALID_CRC;
     }
-    ESP_LOGI(TAG, "ConfigRoot loaded OK (CRC=0x%08X)", root->crc32);
+    ESP_LOGI(TAG, "ConfigRoot loaded OK (CRC=0x%08lX)", (unsigned long)root->crc32);
     return ESP_OK;
 }
 
@@ -116,7 +117,7 @@ esp_err_t config_root_save(const config_root_t *root)
     config_root_compute_crc(&writable);
     esp_err_t err = root_nvs_write(&writable);
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "ConfigRoot saved OK (CRC=0x%08X)", writable.crc32);
+        ESP_LOGI(TAG, "ConfigRoot saved OK (CRC=0x%08lX)", (unsigned long)writable.crc32);
     }
     return err;
 }

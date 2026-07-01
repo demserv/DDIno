@@ -22,7 +22,7 @@ idf_component_register(
         "${PROJECT_DIR}/services"
         "${PROJECT_DIR}/drivers"
         "${PROJECT_DIR}/hal"
-    REQUIRES unity driver nvs_flash
+    REQUIRES unity driver nvs_flash lvgl__lvgl esp_http_server
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-function -Wno-unused-variable)

@@ -46,12 +46,12 @@
 #define UI_PAD_10            10
 #define UI_PAD_12            12
 
-#define UI_FONT_SMALL        (&lv_font_montserrat_10)
-#define UI_FONT_NORMAL       (&lv_font_montserrat_12)
+#define UI_FONT_SMALL        (&lv_font_montserrat_14)
+#define UI_FONT_NORMAL       (&lv_font_montserrat_14)
 #define UI_FONT_MEDIUM       (&lv_font_montserrat_14)
-#define UI_FONT_TITLE        (&lv_font_montserrat_18)
-#define UI_FONT_BIG          (&lv_font_montserrat_28)
-#define UI_FONT_HUGE         (&lv_font_montserrat_48)
+#define UI_FONT_TITLE        (&lv_font_montserrat_14)
+#define UI_FONT_BIG          (&lv_font_montserrat_14)
+#define UI_FONT_HUGE         (&lv_font_montserrat_14)
 
 void ui_theme_init(void);
 

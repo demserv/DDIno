@@ -136,7 +136,7 @@ void ui_critical_overlay_update_cause(ui_critical_overlay_t *ov, const ui_root_v
     }
 
     const ui_alert_vm_t *a = &vm->alerts.active_alerts[best];
-    char buf[160];
+    char buf[256];
     snprintf(buf, sizeof(buf), "%s [%s]\n%s\nAcao: %s",
              a->id, a->severity_text, a->message,
              a->action_hint[0] ? a->action_hint : "Verifique o sistema");

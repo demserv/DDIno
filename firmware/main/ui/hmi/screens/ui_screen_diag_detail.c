@@ -2,7 +2,7 @@
 #include "ui_screen_diag_detail.h"
 #include "../ui_theme.h"
 #include "../ui_screen_manager.h"
-#include "services/self_test.h"
+#include "self_test.h"
 #include <stdio.h>
 #include <string.h>
 

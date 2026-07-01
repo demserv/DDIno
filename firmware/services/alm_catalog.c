@@ -4,6 +4,7 @@
 // (sem auto-clear para alertas que exigem ACK).
 #include "alm_catalog.h"
 #include "alm_ids.h"
+#include <stddef.h>
 
 #define SEV_INFO   ALERT_SEVERITY_INFO
 #define SEV_WARN   ALERT_SEVERITY_WARNING

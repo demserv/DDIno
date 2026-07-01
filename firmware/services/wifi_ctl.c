@@ -9,7 +9,7 @@
 
 static const char *TAG = "wifi_ctl";
 static bool s_initialized = false;
-static wifi_ctl_mode_t s_mode = WIFI_MODE_NONE;
+static wifi_ctl_mode_t s_mode = WIFI_CTL_MODE_NONE;
 static esp_netif_t *s_netif_sta = NULL;
 static esp_netif_t *s_netif_ap = NULL;
 
@@ -35,7 +35,7 @@ esp_err_t wifi_ctl_deinit(void)
     esp_wifi_stop();
     esp_wifi_deinit();
     s_initialized = false;
-    s_mode = WIFI_MODE_NONE;
+    s_mode = WIFI_CTL_MODE_NONE;
     return ESP_OK;
 }
 
@@ -43,9 +43,9 @@ esp_err_t wifi_ctl_set_mode(wifi_ctl_mode_t mode)
 {
     wifi_mode_t wm;
     switch (mode) {
-        case WIFI_MODE_STA:   wm = WIFI_MODE_STA; break;
-        case WIFI_MODE_AP:    wm = WIFI_MODE_AP; break;
-        case WIFI_MODE_APSTA: wm = WIFI_MODE_APSTA; break;
+        case WIFI_CTL_MODE_STA:   wm = WIFI_MODE_STA; break;
+        case WIFI_CTL_MODE_AP:    wm = WIFI_MODE_AP; break;
+        case WIFI_CTL_MODE_APSTA: wm = WIFI_MODE_APSTA; break;
         default:              wm = WIFI_MODE_NULL; break;
     }
     esp_err_t err = esp_wifi_set_mode(wm);

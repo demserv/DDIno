@@ -24,7 +24,7 @@ typedef struct {
 
 typedef struct {
     uint32_t              count;
-    safeoff_record_entry_t entries[SAFOFF_RECORD_MAX_ENTRIES];
+    safeoff_record_entry_t entries[SAFEOFF_RECORD_MAX_ENTRIES];
 } safeoff_record_t;
 
 esp_err_t safeoff_record_init(void);

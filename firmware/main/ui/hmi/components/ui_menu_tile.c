@@ -27,9 +27,9 @@ void ui_menu_tile_create(ui_menu_tile_t *tile, lv_obj_t *parent, int x, int y, c
     lv_obj_align(tile->text_label, LV_ALIGN_BOTTOM_MID, 0, -8);
 }
 
-void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, void *user_data)
+void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, const void *user_data)
 {
-    lv_obj_add_event_cb(tile->root, cb, LV_EVENT_CLICKED, user_data);
+    lv_obj_add_event_cb(tile->root, cb, LV_EVENT_CLICKED, (void *)user_data);
 }
 
 void ui_menu_tile_set_focus(ui_menu_tile_t *tile, bool focused)

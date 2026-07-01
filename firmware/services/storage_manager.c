@@ -11,6 +11,8 @@
 
 #include "nvs.h"
 
+esp_err_t storage_manager_erase_ns(const char *ns);
+
 static const char *TAG = "storage_mgr";
 
 static const char *NS_NAMES[STORAGE_NS_COUNT] = {
@@ -84,9 +86,9 @@ esp_err_t storage_commit(storage_namespace_t ns)
 esp_err_t storage_close(storage_namespace_t ns)
 {
     if (!s_open[ns]) return ESP_OK;
-    esp_err_t err = nvs_close(s_handles[ns]);
+    nvs_close(s_handles[ns]);
     s_open[ns] = false;
-    return err;
+    return ESP_OK;
 }
 
 esp_err_t storage_set_u32(storage_namespace_t ns, const char *key, uint32_t value)

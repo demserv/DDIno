@@ -90,14 +90,14 @@ void driver_ad_keypad_gesture_poll(void)
     s_enter_pressed = enter_now;
 }
 
-bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+void ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     (void)drv;
     uint32_t now = esp_timer_get_time() / 1000;
     if (now - last_key_time < HW_I2C_TIMEOUT_MS) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     uint16_t adc_value;
@@ -105,14 +105,14 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     if (ret != ESP_OK) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     int key = map_adc_to_lvgl_key(adc_value);
     if (key == 0 || key == last_key) {
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     last_key = key;
@@ -123,14 +123,12 @@ bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         if (s_special_cb) s_special_cb(key);
         data->state = LV_INDEV_STATE_REL;
         data->key = 0;
-        return false;
+        return;
     }
 
     data->state = LV_INDEV_STATE_PR;
     data->key = key;
     ui_screen_manager_on_user_interaction();
-
-    return false;
 }
 
 esp_err_t driver_ad_keypad_lvgl_init(void)

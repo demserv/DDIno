@@ -25,25 +25,26 @@ esp_err_t sensor_ctl_init(void)
 esp_err_t sensor_ctl_read(sensor_ctl_type_t type, float *out)
 {
     if (!out) return ESP_ERR_INVALID_ARG;
-    int ret = -1;
     switch (type) {
         case SENSOR_TYPE_TEMPERATURE:
-            ret = ds18b20_read_temperature(out);
-            break;
+            if (!ds18b20_read(out)) {
+                s_errors[type]++;
+                return ESP_FAIL;
+            }
+            return ESP_OK;
         case SENSOR_TYPE_CURRENT:
-            ret = acs712_read_current_a(out);
-            break;
-        case SENSOR_TYPE_POWER:
-            ret = pzem_read_power_w(out);
-            break;
+        case SENSOR_TYPE_POWER: {
+            pzem_data_t data = {0};
+            if (pzem_read_all(&data) != ESP_OK || !data.valid) {
+                s_errors[type]++;
+                return ESP_FAIL;
+            }
+            *out = (type == SENSOR_TYPE_CURRENT) ? data.current_a : data.power_w;
+            return ESP_OK;
+        }
         default:
             return ESP_ERR_NOT_SUPPORTED;
     }
-    if (ret != 0) {
-        s_errors[type]++;
-        return ESP_FAIL;
-    }
-    return ESP_OK;
 }
 
 esp_err_t sensor_ctl_read_all(sensor_ctl_snapshot_t *snap)

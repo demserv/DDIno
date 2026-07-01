@@ -14,7 +14,7 @@ typedef struct {
 typedef void (*ui_menu_tile_cb_t)(lv_event_t *e);
 
 void ui_menu_tile_create(ui_menu_tile_t *tile, lv_obj_t *parent, int x, int y, const char *icon, const char *text);
-void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, void *user_data);
+void ui_menu_tile_set_callback(ui_menu_tile_t *tile, ui_menu_tile_cb_t cb, const void *user_data);
 void ui_menu_tile_set_focus(ui_menu_tile_t *tile, bool focused);
 
 #endif

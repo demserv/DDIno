@@ -6,17 +6,11 @@
 #include <stdbool.h>
 #include <time.h>
 #include "esp_err.h"
+#include "system_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef enum {
-    TIME_SOURCE_NONE = 0,
-    TIME_SOURCE_RTC,
-    TIME_SOURCE_NTP,
-    TIME_SOURCE_USER
-} time_source_t;
 
 esp_err_t time_manager_init(void);
 esp_err_t time_get(time_t *out_unix_ts);

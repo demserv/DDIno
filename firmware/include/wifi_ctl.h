@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -11,10 +12,10 @@ extern "C" {
 #endif
 
 typedef enum {
-    WIFI_MODE_NONE = 0,
-    WIFI_MODE_STA,
-    WIFI_MODE_AP,
-    WIFI_MODE_APSTA
+    WIFI_CTL_MODE_NONE = 0,
+    WIFI_CTL_MODE_STA,
+    WIFI_CTL_MODE_AP,
+    WIFI_CTL_MODE_APSTA
 } wifi_ctl_mode_t;
 
 typedef struct {

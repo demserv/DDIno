@@ -9,9 +9,9 @@
 #include "command_validator.h"
 #include "global_state.h"
 #include "system_types.h"
-#include "services/alert_manager.h"
-#include "services/safe_state_ack.h"
-#include "services/audit_log.h"
+#include "alert_manager.h"
+#include "safe_state_ack.h"
+#include "audit_log.h"
 #include "driver_buzzer_led.h"
 #include "ui_app.h"
 

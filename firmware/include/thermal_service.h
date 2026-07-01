@@ -3,6 +3,7 @@
 #define FIRMWARE_INCLUDE_THERMAL_SERVICE_H
 
 #include "esp_err.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

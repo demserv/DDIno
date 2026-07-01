@@ -46,13 +46,13 @@ static int stable_y = -1;
 static bool stable_pressed = false;
 static int debounce_count = 0;
 
-bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+void ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     if (gpio_get_level(PIN_TOUCH_IRQ_GPIO) != 0) {
         prev_pressed = false;
         debounce_count = 0;
         data->state = LV_INDEV_STATE_REL;
-        return false;
+        return;
     }
 
     uint16_t raw_x = xpt2046_read_raw(0x90);
@@ -62,7 +62,7 @@ bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         prev_pressed = false;
         debounce_count = 0;
         data->state = LV_INDEV_STATE_REL;
-        return false;
+        return;
     }
 
     int new_x = (int)((TOUCH_ADC_MAX - raw_x) * 480 / TOUCH_ADC_RANGE);
@@ -93,8 +93,6 @@ bool ui_touch_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     } else {
         data->state = LV_INDEV_STATE_REL;
     }
-
-    return false;
 }
 
 esp_err_t driver_xpt2046_init(void)

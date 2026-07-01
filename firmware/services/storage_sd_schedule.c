@@ -3,7 +3,7 @@
 #include "services/storage_sd.h"
 #include "services/config_manager.h"
 #include "services/plug_manager.h"
-#include "services/health_matrix.h"
+#include "health_matrix.h"
 #include "drivers/driver_ph_sensor.h"
 #include "drivers/driver_pzem.h"
 #include "wifi_ctl.h"
@@ -99,7 +99,7 @@ static void rotate_backups(void)
         if (strncmp(entry->d_name, SD_BACKUP_PREFIX, strlen(SD_BACKUP_PREFIX)) != 0) continue;
         if (!strstr(entry->d_name, SD_BACKUP_SUFFIX)) continue;
 
-        char full[128];
+        char full[320];
         snprintf(full, sizeof(full), "%s/%s", SD_BACKUP_DIR, entry->d_name);
         struct stat st;
         if (stat(full, &st) != 0) continue;
@@ -115,7 +115,7 @@ static void rotate_backups(void)
         for (int i = 1; i < count; i++) {
             if (mtimes[i] < mtimes[oldest]) oldest = i;
         }
-        char full[128];
+        char full[320];
         snprintf(full, sizeof(full), "%s/%s", SD_BACKUP_DIR, names[oldest]);
         remove(full);
         ESP_LOGI(TAG, "Backup rotacionado (removido): %s", names[oldest]);

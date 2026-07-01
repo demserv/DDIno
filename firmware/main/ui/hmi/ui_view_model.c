@@ -1,6 +1,7 @@
 // @requirement RF-GLOBAL-005 ViewModel centralizado — UI consome dados reais do sistema
 #include "ui_view_model.h"
 
+#include "esp_system.h"
 #include "ui_screen_manager.h"
 #include "global_state.h"
 #include "alert_manager.h"
@@ -16,7 +17,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
-#include "services/storage_sd.h"
+#include "storage_sd.h"
 #include "hardware_config.h"
 #include <time.h>
 #include <string.h>

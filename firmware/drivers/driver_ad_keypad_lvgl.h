@@ -17,6 +17,6 @@ void driver_ad_keypad_set_special_cb(keypad_special_cb_t cb);
 void driver_ad_keypad_gesture_poll(void);
 
 esp_err_t driver_ad_keypad_lvgl_init(void);
-bool ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
+void ui_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
 
 #endif

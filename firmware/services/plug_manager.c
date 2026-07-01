@@ -43,6 +43,8 @@ static uint8_t s_bypass_sample_count[PLUG_COUNT_TOTAL] = {0};
 static bool s_feed_hold_active = false;
 static bool s_feed_hold_state[PLUG_COUNT_TOTAL] = {0};
 
+static bool plug_startup_delay_active(plug_id_t id);
+
 /* @requirement RF-PLUG-001 Rota única de acionamento: o plug_manager é o serviço
  * autorizado de atuação (a jusante do command_validator). Toda comutação passa
  * pela camada de abstração; para relés críticos a confirmação é armada aqui pois

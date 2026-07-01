@@ -5,8 +5,8 @@
 #include "../ui_events.h"
 #include "../components/ui_menu_tile.h"
 #include "../ui_screen_manager.h"
-#include "services/config_manager.h"
-#include "services/audit_log.h"
+#include "config_manager.h"
+#include "audit_log.h"
 
 static ui_menu_tile_t sys_tiles[4];
 static lv_obj_t *s_mute_roller = NULL;

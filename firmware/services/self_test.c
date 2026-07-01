@@ -16,6 +16,7 @@
 #include "driver_relay.h"
 #include "storage_sd.h"
 #include "driver_ds18b20.h"
+#include "driver_mcp23017.h"
 #include "driver_ili9488.h"
 #include "driver_xpt2046.h"
 #include "esp_heap_caps.h"
@@ -23,6 +24,8 @@
 #include "services/wdt_stats.h"
 #include "driver_ds3231.h"
 #include <stdio.h>
+
+extern bool driver_ili9488_is_ok(void);
 
 static const char *TAG = "self_test";
 

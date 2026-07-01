@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "hardware_config.h"
 
 #include "api_auth.h"
 #include "api_rate_limit.h"

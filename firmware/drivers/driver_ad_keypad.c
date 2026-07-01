@@ -3,6 +3,7 @@
 #include "driver_ad_keypad.h"
 
 #include "esp_log.h"
+#include "hardware_config.h"
 
 #include "driver_mcp3208.h"
 #include "pin_map.h"

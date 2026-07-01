@@ -6,9 +6,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "services/watchdog_guard.h"
-#include "services/wdt_advanced.h"
-#include "services/wifi_ctl.h"
+#include "watchdog_guard.h"
+#include "wdt_advanced.h"
+#include "wifi_ctl.h"
 #include "task_manager.h"
 #include "web/api_rest.h"
 

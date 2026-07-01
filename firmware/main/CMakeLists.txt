@@ -155,7 +155,21 @@ set(MAIN_INCLUDE_DIRS
 idf_component_register(
     SRCS ${MAIN_SRCS}
     INCLUDE_DIRS ${MAIN_INCLUDE_DIRS}
-    REQUIRES esp_adc
+    REQUIRES
+        driver
+        esp_adc
+        esp_timer
+        esp_event
+        esp_netif
+        esp_wifi
+        esp_http_server
+        nvs_flash
+        json
+        mbedtls
+        fatfs
+        sdmmc
+        spiffs
+        lvgl__lvgl
 )
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror -Wno-error=format-truncation)

@@ -13,7 +13,7 @@
 
 typedef struct {
     bool wifi_ok;
-    char datetime_text[24];
+    char datetime_text[32];
     bool feed_mode_active;
     uint32_t feed_remaining_s;
     bool mute_active;   /* @requirement RF-UI-MUTE-001 Indicação persistente de MUTE */
@@ -77,7 +77,7 @@ typedef struct {
     char id[12];
     ui_alert_severity_t severity;
     char severity_text[16];
-    char message[80];
+    char message[128];
     char timestamp[20];
     bool acked;
     bool ack_required;
@@ -113,7 +113,7 @@ typedef struct {
     ui_health_state_t io;
     uint32_t heap_free_kb;
     int32_t sd_free_mb;
-    char fw_version[16];
+    char fw_version[32];
     ui_system_state_t system_state;
 } ui_diagnostics_vm_t;
 

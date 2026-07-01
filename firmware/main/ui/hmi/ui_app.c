@@ -11,7 +11,7 @@
 #include "components/ui_inline_hint.h"
 #include "ui_screen_manager.h"
 #include "driver_ad_keypad_lvgl.h"
-#include "services/config_manager.h"
+#include "config_manager.h"
 
 #include "lvgl.h"
 

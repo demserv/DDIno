@@ -1,8 +1,8 @@
 #include "ui_preset_picker.h"
 #include "ui_theme.h"
-#include "services/plug_manager.h"
-#include "services/plug_preset_catalog.h"
-#include "services/audit_log.h"
+#include "plug_manager.h"
+#include "plug_preset_catalog.h"
+#include "audit_log.h"
 #include <stdio.h>
 #include <string.h>
 

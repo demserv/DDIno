@@ -83,7 +83,7 @@ esp_err_t thermal_service_force_safe_off(const char *reason)
 {
     global_state_t *gs = global_state_get_write_ptr();
     if (!gs) return ESP_ERR_INVALID_STATE;
-    uint64_t now_s = (uint64_t)(esp_timer_get_time() / USEC_PER_SEC);
+    uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
     ESP_LOGW(TAG, "Force SAFE_OFF: %s", reason ? reason : "unspecified");
     return global_state_enter_safeoff(gs, SAFEOFF_REASON_THERMAL_CRITICAL,
                                       "ALM-026", reason ? reason : "thermal_service",

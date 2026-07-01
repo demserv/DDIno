@@ -216,8 +216,8 @@ esp_err_t config_manager_init(void)
     esp_err_t root_err = config_root_load(&s_root);
     if (root_err == ESP_OK && config_root_validate(&s_root)) {
         root_to_indiv();
-        ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08X, wizard=%d)",
-                 s_root.crc32, s_system.wizard_completed);
+        ESP_LOGI(TAG, "ConfigRoot loaded from NVS (CRC=0x%08lX, wizard=%d)",
+                 (unsigned long)s_root.crc32, s_system.wizard_completed);
         load_mute_duration();
         return ESP_OK;
     }
