@@ -82,6 +82,14 @@ static void indiv_to_root(void)
     s_root.ph          = s_ph;
 }
 
+static esp_err_t config_publish_after(esp_err_t err)
+{
+    if (err == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
+    return err;
+}
+
 static bool carousel_interval_valid(uint16_t s)
 {
     return s == 0 || s == 15 || s == 30 || s == 60;
@@ -135,6 +143,14 @@ static void set_defaults(void)
 
     s_plug_limits.min_on_time_s       = PARAM_PLUG_DEFAULT_MIN_ON_S;
     s_plug_limits.min_off_time_s      = PARAM_PLUG_DEFAULT_MIN_OFF_S;
+    for (int i = 0; i < 10; i++) {
+        s_plug_limits.max_energy_wh_day[i] = (i + 1 >= 3)
+            ? PARAM_PLUG_DEFAULT_MAX_ENERGY_WH_DAY : 0.0f;
+    }
+    for (int i = 0; i < 10; i++) {
+        s_plug_limits.max_energy_wh_day[i] = (i + 1 >= 3)
+            ? PARAM_PLUG_DEFAULT_MAX_ENERGY_WH_DAY : 0.0f;
+    }
 
     s_restart.tempo_espera_religamento_s      = PARAM_RESTART_DEFAULT_ESPERA_S;
     s_restart.intervalo_religamento_s         = PARAM_RESTART_DEFAULT_INTERVALO_S;
@@ -299,7 +315,7 @@ esp_err_t config_set_thermal(const thermal_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal));
+    return config_publish_after(config_store_blob(NVS_NS_THERMAL, &s_thermal, sizeof(s_thermal)));
 }
 
 esp_err_t config_set_ato(const ato_params_storage_t *p)
@@ -309,7 +325,7 @@ esp_err_t config_set_ato(const ato_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_ATO, &s_ato, sizeof(s_ato));
+    return config_publish_after(config_store_blob(NVS_NS_ATO, &s_ato, sizeof(s_ato)));
 }
 
 esp_err_t config_set_electric(const electric_params_storage_t *p)
@@ -319,7 +335,7 @@ esp_err_t config_set_electric(const electric_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_ELECTRIC, &s_electric, sizeof(s_electric));
+    return config_publish_after(config_store_blob(NVS_NS_ELECTRIC, &s_electric, sizeof(s_electric)));
 }
 
 esp_err_t config_set_plug_limits(const plug_limits_storage_t *p)
@@ -329,7 +345,7 @@ esp_err_t config_set_plug_limits(const plug_limits_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_PLUG, &s_plug_limits, sizeof(s_plug_limits));
+    return config_publish_after(config_store_blob(NVS_NS_PLUG, &s_plug_limits, sizeof(s_plug_limits)));
 }
 
 esp_err_t config_set_restart(const restart_params_storage_t *p)
@@ -339,7 +355,7 @@ esp_err_t config_set_restart(const restart_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_RESTART, &s_restart, sizeof(s_restart));
+    return config_publish_after(config_store_blob(NVS_NS_RESTART, &s_restart, sizeof(s_restart)));
 }
 
 esp_err_t config_set_feed(const feed_params_storage_t *p)
@@ -349,7 +365,7 @@ esp_err_t config_set_feed(const feed_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_FEED, &s_feed, sizeof(s_feed));
+    return config_publish_after(config_store_blob(NVS_NS_FEED, &s_feed, sizeof(s_feed)));
 }
 
 esp_err_t config_set_security(const security_params_storage_t *p)
@@ -359,7 +375,7 @@ esp_err_t config_set_security(const security_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_SECURITY, &s_security, sizeof(s_security));
+    return config_publish_after(config_store_blob(NVS_NS_SECURITY, &s_security, sizeof(s_security)));
 }
 
 esp_err_t config_set_antiflap(const antiflap_params_storage_t *p)
@@ -369,7 +385,7 @@ esp_err_t config_set_antiflap(const antiflap_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_ANTIFLAP, &s_antiflap, sizeof(s_antiflap));
+    return config_publish_after(config_store_blob(NVS_NS_ANTIFLAP, &s_antiflap, sizeof(s_antiflap)));
 }
 
 esp_err_t config_set_selftest(const selftest_params_storage_t *p)
@@ -379,7 +395,7 @@ esp_err_t config_set_selftest(const selftest_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest));
+    return config_publish_after(config_store_blob(NVS_NS_SELFTEST, &s_selftest, sizeof(s_selftest)));
 }
 
 esp_err_t config_set_system(const system_params_storage_t *p)
@@ -389,7 +405,7 @@ esp_err_t config_set_system(const system_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    return config_publish_after(config_store_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system)));
 }
 
 esp_err_t config_set_calibration(const calibration_params_storage_t *p)
@@ -399,7 +415,7 @@ esp_err_t config_set_calibration(const calibration_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration));
+    return config_publish_after(config_store_blob(NVS_NS_CALIB, &s_calibration, sizeof(s_calibration)));
 }
 
 esp_err_t config_set_ph(const ph_params_storage_t *p)
@@ -409,7 +425,7 @@ esp_err_t config_set_ph(const ph_params_storage_t *p)
     indiv_to_root();
     esp_err_t re = config_root_save(&s_root);
     if (re != ESP_OK) return re;
-    return config_store_blob(NVS_NS_PH, &s_ph, sizeof(s_ph));
+    return config_publish_after(config_store_blob(NVS_NS_PH, &s_ph, sizeof(s_ph)));
 }
 
 esp_err_t config_load_all(void)
@@ -495,7 +511,9 @@ void config_set_wizard_completed(bool val)
     s_system.wizard_completed = val;
     indiv_to_root();
     config_root_save(&s_root);
-    save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system)) == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
 }
 
 void config_set_monitor_only(bool val)
@@ -503,7 +521,9 @@ void config_set_monitor_only(bool val)
     s_system.monitor_only_mode = val;
     indiv_to_root();
     config_root_save(&s_root);
-    save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system)) == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
 }
 
 uint8_t config_get_wizard_step(void)
@@ -516,7 +536,9 @@ void config_set_wizard_step(uint8_t step)
     s_system.wizard_step = step;
     indiv_to_root();
     config_root_save(&s_root);
-    save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system));
+    if (save_nvs_blob(NVS_NS_SYSTEM, &s_system, sizeof(s_system)) == ESP_OK) {
+        event_bus_publish(EVENT_ID_CONFIG_CHANGED, NULL);
+    }
 }
 
 uint16_t config_get_carousel_interval_s(void)

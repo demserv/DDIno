@@ -29,6 +29,8 @@ typedef enum {
 } ui_mute_duration_t;
 
 void ui_events_emit(ui_event_t event);
+void ui_events_set_plug_action_target(uint8_t plug_id);
+void ui_events_request_plug_action(uint8_t plug_id);
 void ui_events_unblock_plug(uint8_t plug_id);
 void ui_events_toggle_plug(uint8_t plug_id);
 void ui_events_clear_ato_blocked(void);

@@ -168,7 +168,14 @@ void ui_screen_system_update(ui_root_vm_t *vm)
     uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
     if (maintenance_mode_is_active()) {
         uint32_t rem = maintenance_mode_remaining_s(now_s);
-        snprintf(buf, sizeof(buf), "Manutencao ATIVA — restam %lu min", (unsigned long)(rem / 60U));
+        if (maintenance_mode_is_expiring_soon(now_s)) {
+            snprintf(buf, sizeof(buf),
+                     "Manutencao EXPIRA EM BREVE — restam %lu min",
+                     (unsigned long)((rem + 59U) / 60U));
+        } else {
+            snprintf(buf, sizeof(buf), "Manutencao ATIVA — restam %lu min",
+                     (unsigned long)(rem / 60U));
+        }
     } else {
         snprintf(buf, sizeof(buf), "Manutencao inativa — automacoes normais");
     }

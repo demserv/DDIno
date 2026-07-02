@@ -20,6 +20,8 @@ typedef struct {
     ui_system_state_t system_state;
     uint16_t alert_count;
     bool maintenance_mode;
+    bool maintenance_expiring_soon;
+    uint32_t maintenance_remaining_s;
     bool mute_active;
     bool wizard_incomplete;
     bool nvs_ok;

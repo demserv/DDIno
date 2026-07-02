@@ -333,9 +333,10 @@ void alm_monitor_tick(uint64_t now_s)
 
     /* @requirement RF-PH-002/003/004 (Adendo baseline pH v3.11) pH é telemetria:
      * fora da faixa de calibração configurável gera ALM-049 (canônico — SRS §49).
-     * NÃO usa ALM-038/039 (pertencem ao ATO) e NÃO força SAFE_OFF. */
+     * Faixa de advertência (warn_low/warn_high) gera log SD sem SAFE_OFF. */
     {
         static uint64_t s_last_ph_check = 0;
+        static bool s_ph_warn_active = false;
         if (now_s - s_last_ph_check >= 30) {
             s_last_ph_check = now_s;
             const ph_params_storage_t *php = config_get_ph();
@@ -343,11 +344,32 @@ void alm_monitor_tick(uint64_t now_s)
             bool ph_valid = false;
             if (php && php->enabled &&
                 ph_sensor_read(&ph, &ph_valid) == ESP_OK && ph_valid) {
-                if (ph < php->calib_min_ph || ph > php->calib_max_ph) {
+                bool out_calib = (ph < php->calib_min_ph || ph > php->calib_max_ph);
+                bool out_warn = (ph < php->warn_low_ph || ph > php->warn_high_ph);
+                if (out_calib) {
                     raise_alm(ALM_049, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
                               "pH fora da faixa calibrada — recalibrar sensor", "Recalibrar sensor", true, now_s);
                 } else if (health_get(SUB_SENSOR_VOLTAGE) != HEALTH_FAILED) {
                     clear_alm(ALM_049, true);
+                }
+                if (!out_calib && out_warn) {
+                    if (!s_ph_warn_active) {
+                        char line[SD_LOG_LINE_MAX_LEN];
+                        snprintf(line, sizeof(line),
+                                 "{\"ts\":%llu,\"event\":\"ph_warn\",\"ph\":%.2f,"
+                                 "\"warn_low\":%.2f,\"warn_high\":%.2f}",
+                                 (unsigned long long)now_s, (double)ph,
+                                 (double)php->warn_low_ph, (double)php->warn_high_ph);
+                        storage_sd_write_log(SD_LOG_TYPE_ALERT, line);
+                        s_ph_warn_active = true;
+                    }
+                } else if (s_ph_warn_active) {
+                    char line[SD_LOG_LINE_MAX_LEN];
+                    snprintf(line, sizeof(line),
+                             "{\"ts\":%llu,\"event\":\"ph_warn_clear\",\"ph\":%.2f}",
+                             (unsigned long long)now_s, (double)ph);
+                    storage_sd_write_log(SD_LOG_TYPE_ALERT, line);
+                    s_ph_warn_active = false;
                 }
             }
         }
@@ -448,19 +470,37 @@ void alm_monitor_tick(uint64_t now_s)
 
     /* ALM-050/051: dono único = electric_fsm + safeoff_alm_map (sem duplicar aqui). */
 
-    /* ALM-058: Consumo total acima de 90% do limite */
+    /* ALM-058: Tendência de corrente total (pré-alarme WARNING). */
     {
-        static uint64_t s_last_total_cur_check = 0;
-        if (now_s - s_last_total_cur_check >= 10) {
-            s_last_total_cur_check = now_s;
+        static uint64_t s_last_cur_trend_check = 0;
+        static float s_prev_current_a = 0.0f;
+        static uint64_t s_cur_trend_since_s = 0;
+        if (now_s - s_last_cur_trend_check >= 10) {
+            s_last_cur_trend_check = now_s;
             if (g_pzem.valid) {
                 const electric_params_storage_t *ep = config_get_electric();
-                float threshold = ep->total_current_limit_a * 0.9f;
-                if (g_pzem.current_a > threshold && threshold > 0.0f) {
-                    raise_alm(ALM_058, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
-                              "Consumo total elevado", "Monitorar consumo total", false, now_s);
+                float limit = ep->total_current_limit_a;
+                const float m = HW_ELECTRIC_TREND_MARGIN_PCT;
+                bool rising = (s_prev_current_a > 0.01f) &&
+                              (g_pzem.current_a > s_prev_current_a * 1.02f);
+                bool near_limit = (limit > 0.0f) &&
+                                  (g_pzem.current_a >= limit * (1.0f - m)) &&
+                                  (g_pzem.current_a < limit);
+                if (rising && near_limit) {
+                    if (s_cur_trend_since_s == 0) {
+                        s_cur_trend_since_s = now_s;
+                    }
                 } else {
-                    clear_alm(ALM_058, g_pzem.current_a <= threshold || threshold <= 0.0f);
+                    s_cur_trend_since_s = 0;
+                }
+                s_prev_current_a = g_pzem.current_a;
+                bool trend_active = (s_cur_trend_since_s != 0) &&
+                                    (now_s - s_cur_trend_since_s >= HW_ELECTRIC_TREND_TIME_S);
+                if (trend_active) {
+                    raise_alm(ALM_058, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_PROCESS,
+                              "Tendencia de corrente total elevada", "Monitorar consumo", false, now_s);
+                } else {
+                    clear_alm(ALM_058, !trend_active);
                 }
             }
         }
@@ -533,8 +573,10 @@ void alm_monitor_tick(uint64_t now_s)
         static bool s_was_maintenance = false;
         bool maint_now = gs->maintenance_mode;
         if (!s_was_maintenance && maint_now) {
-            raise_alm(ALM_064, ALERT_SEVERITY_INFO, ALERT_CATEGORY_SYSTEM,
+            raise_alm(ALM_064, ALERT_SEVERITY_WARNING, ALERT_CATEGORY_SYSTEM,
                       "Modo de manutencao ativo", "Finalizar ou revisar manutencao", false, now_s);
+        } else if (s_was_maintenance && !maint_now) {
+            clear_alm(ALM_064, true);
         }
         s_was_maintenance = maint_now;
     }

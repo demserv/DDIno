@@ -45,6 +45,7 @@ typedef struct {
 typedef struct {
     uint32_t min_on_time_s;
     uint32_t min_off_time_s;
+    float    max_energy_wh_day[10];
 } plug_limits_storage_t;
 
 typedef struct {

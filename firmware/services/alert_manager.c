@@ -7,6 +7,9 @@
 
 #include "alm_ids.h"
 #include "alm_catalog.h"
+#include "storage_sd.h"
+#include "esp_timer.h"
+#include <stdio.h>
 
 static alert_slot_t s_slots[ALERT_SLOTS_MAX];
 
@@ -38,6 +41,17 @@ static int find_slot(int16_t alm_id)
     return -1;
 }
 
+static int find_slot_for_plug(int16_t alm_id, uint16_t related_plug)
+{
+    for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
+        if (s_slots[i].active && s_slots[i].alm_id == alm_id &&
+            s_slots[i].related_plug_id == related_plug) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static int find_free_slot(void)
 {
     for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
@@ -46,6 +60,19 @@ static int find_free_slot(void)
         }
     }
     return -1;
+}
+
+static void alert_log_sd(const char *verb, int16_t alm_id, uint16_t related_plug,
+                         const char *msg)
+{
+    char line[SD_LOG_LINE_MAX_LEN];
+    char code[16];
+    uint64_t ts = esp_timer_get_time() / 1000000ULL;
+    snprintf(code, sizeof(code), "ALM-%03d", (int)alm_id);
+    snprintf(line, sizeof(line),
+             "{\"ts\":%llu,\"event\":\"%s\",\"alm\":\"%s\",\"plug\":%u,\"msg\":\"%.96s\"}",
+             (unsigned long long)ts, verb, code, (unsigned)related_plug, msg ? msg : "");
+    storage_sd_write_log(SD_LOG_TYPE_ALERT, line);
 }
 
 void alert_manager_init(void)
@@ -67,12 +94,17 @@ bool alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_catego
                                const char *msg, float val, const char *hint,
                                uint16_t related_plug, bool ack_req, bool state_associated, uint64_t ts)
 {
-    int idx = find_slot(alm_id);
+    int idx = (related_plug != 0)
+                  ? find_slot_for_plug(alm_id, related_plug)
+                  : find_slot(alm_id);
     if (idx >= 0) {
         /* @requirement RF-ALERT-002/005 Silence suprime apenas som/repetição sonora
          * (camada do buzzer); o alerta continua ativo e atualizado, nunca é descartado. */
         s_slots[idx].last_seen_ts = ts;
         s_slots[idx].value = val;
+        if (related_plug != 0) {
+            s_slots[idx].related_plug_id = related_plug;
+        }
         return true;
     }
 
@@ -100,6 +132,7 @@ bool alert_manager_raise_full(int16_t alm_id, alert_severity_t sev, alert_catego
         strncpy(slot->action_hint, hint, sizeof(slot->action_hint) - 1);
         slot->action_hint[sizeof(slot->action_hint) - 1] = '\0';
     }
+    alert_log_sd("raise", alm_id, related_plug, slot->message);
     return true;
 }
 
@@ -134,12 +167,44 @@ bool alert_manager_is_active(int16_t alm_id)
     return (find_slot(alm_id) >= 0);
 }
 
+bool alert_manager_is_active_for_plug(int16_t alm_id, uint16_t related_plug)
+{
+    return (find_slot_for_plug(alm_id, related_plug) >= 0);
+}
+
+const alert_slot_t* alert_manager_get_slot(int16_t alm_id)
+{
+    int idx = find_slot(alm_id);
+    if (idx < 0) return NULL;
+    return &s_slots[idx];
+}
+
+const alert_slot_t *alert_manager_get_slot_for_plug(int16_t alm_id, uint16_t related_plug)
+{
+    int idx = find_slot_for_plug(alm_id, related_plug);
+    if (idx < 0) return NULL;
+    return &s_slots[idx];
+}
+
 void alert_manager_clear(int16_t alm_id)
 {
     int idx = find_slot(alm_id);
     if (idx >= 0) {
+        alert_log_sd("clear", alm_id, s_slots[idx].related_plug_id, s_slots[idx].message);
         history_push(&s_slots[idx]);
-        alert_manager_ext_reset_ack_stage(alm_id);
+        alert_manager_ext_reset_ack_stage_instance(alm_id, s_slots[idx].related_plug_id);
+        memset(&s_slots[idx], 0, sizeof(alert_slot_t));
+        s_slots[idx].alm_id = -1;
+    }
+}
+
+void alert_manager_clear_for_plug(int16_t alm_id, uint16_t related_plug)
+{
+    int idx = find_slot_for_plug(alm_id, related_plug);
+    if (idx >= 0) {
+        alert_log_sd("clear", alm_id, related_plug, s_slots[idx].message);
+        history_push(&s_slots[idx]);
+        alert_manager_ext_reset_ack_stage_instance(alm_id, related_plug);
         memset(&s_slots[idx], 0, sizeof(alert_slot_t));
         s_slots[idx].alm_id = -1;
     }
@@ -154,6 +219,19 @@ void alert_manager_try_auto_clear(int16_t alm_id, bool condition_ok)
     const alm_meta_t *meta = alm_catalog_get(alm_id);
     if (meta && meta->auto_clear) {
         alert_manager_clear(alm_id);
+    }
+}
+
+void alert_manager_try_auto_clear_for_plug(int16_t alm_id, uint16_t related_plug,
+                                           bool condition_ok)
+{
+    if (!condition_ok) return;
+    const alert_slot_t *slot = alert_manager_get_slot_for_plug(alm_id, related_plug);
+    if (!slot || !slot->active) return;
+    if (slot->ack_req && !slot->acked) return;
+    const alm_meta_t *meta = alm_catalog_get(alm_id);
+    if (meta && meta->auto_clear) {
+        alert_manager_clear_for_plug(alm_id, related_plug);
     }
 }
 
@@ -210,13 +288,6 @@ uint16_t alert_manager_critical_count(void)
     return c;
 }
 
-const alert_slot_t* alert_manager_get_slot(int16_t alm_id)
-{
-    int idx = find_slot(alm_id);
-    if (idx < 0) return NULL;
-    return &s_slots[idx];
-}
-
 void alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t max)
 {
     /* @requirement RF-ALERT-002/005 Todos os alertas ativos permanecem visíveis,
@@ -232,6 +303,30 @@ void alert_manager_get_active_slots(alert_slot_t *out, uint16_t *count, uint16_t
     *count = written;
 }
 
+bool alert_manager_ack_instance(int16_t alm_id, uint16_t related_plug, uint64_t ts)
+{
+    int idx = (related_plug != 0)
+                  ? find_slot_for_plug(alm_id, related_plug)
+                  : find_slot(alm_id);
+    if (idx < 0) return false;
+    s_slots[idx].acked = true;
+    s_slots[idx].ack_timestamp = ts;
+    s_slots[idx].last_seen_ts = ts;
+    return true;
+}
+
+bool alert_manager_ack_with_policy_instance(int16_t alm_id, uint16_t related_plug, uint64_t ts)
+{
+    const alert_slot_t *slot = (related_plug != 0)
+                                   ? alert_manager_get_slot_for_plug(alm_id, related_plug)
+                                   : alert_manager_get_slot(alm_id);
+    if (!slot || !slot->active) return false;
+    if (slot->severity == ALERT_SEVERITY_CRITICAL) {
+        return alert_manager_ext_ack_critical_instance(alm_id, related_plug, ts);
+    }
+    return alert_manager_ack_instance(alm_id, related_plug, ts);
+}
+
 void alert_manager_get_history_slots(alert_slot_t *out, uint16_t *count, uint16_t max)
 {
     uint16_t written = 0;
@@ -243,9 +338,28 @@ void alert_manager_get_history_slots(alert_slot_t *out, uint16_t *count, uint16_
 
 void alert_manager_set_silenced(int16_t alm_id, uint64_t until_ts)
 {
-    int idx = find_slot(alm_id);
+    for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
+        if (s_slots[i].active && s_slots[i].alm_id == alm_id) {
+            s_slots[i].silenced_until = until_ts;
+        }
+    }
+}
+
+void alert_manager_set_silenced_for_plug(int16_t alm_id, uint16_t related_plug,
+                                        uint64_t until_ts)
+{
+    int idx = find_slot_for_plug(alm_id, related_plug);
     if (idx >= 0) {
         s_slots[idx].silenced_until = until_ts;
+    }
+}
+
+void alert_manager_set_silenced_all_active(uint64_t until_ts)
+{
+    for (int i = 0; i < ALERT_SLOTS_MAX; i++) {
+        if (s_slots[i].active) {
+            s_slots[i].silenced_until = until_ts;
+        }
     }
 }
 
@@ -256,14 +370,23 @@ bool alert_manager_is_silenced(int16_t alm_id, uint64_t now_ts)
     return slot_is_silenced(&s_slots[idx], now_ts);
 }
 
+bool alert_manager_is_slot_silenced(const alert_slot_t *slot, uint64_t now_ts)
+{
+    if (!slot || !slot->active) return false;
+    return slot_is_silenced(slot, now_ts);
+}
+
 #define ACK_STATE_SLOTS_MAX 16
 
 static alert_ack_state_t s_ack_states[ACK_STATE_SLOTS_MAX];
 
-static int find_ack_state(int16_t alm_id)
+static int find_ack_state(int16_t alm_id, uint16_t related_plug)
 {
     for (int i = 0; i < ACK_STATE_SLOTS_MAX; i++) {
-        if (s_ack_states[i].alm_id == alm_id) return i;
+        if (s_ack_states[i].alm_id == alm_id &&
+            s_ack_states[i].related_plug_id == related_plug) {
+            return i;
+        }
     }
     return -1;
 }
@@ -276,19 +399,22 @@ static int find_free_ack_state(void)
     return -1;
 }
 
-bool alert_manager_ext_ack_critical(int16_t alm_id, uint64_t ts)
+bool alert_manager_ext_ack_critical_instance(int16_t alm_id, uint16_t related_plug, uint64_t ts)
 {
-    const alert_slot_t *slot = alert_manager_get_slot(alm_id);
+    const alert_slot_t *slot = (related_plug != 0)
+                                   ? alert_manager_get_slot_for_plug(alm_id, related_plug)
+                                   : alert_manager_get_slot(alm_id);
     if (!slot || !slot->active) return false;
     if (slot->severity != ALERT_SEVERITY_CRITICAL) {
-        return alert_manager_ack(alm_id, ts);
+        return alert_manager_ack_instance(alm_id, related_plug, ts);
     }
 
-    int idx = find_ack_state(alm_id);
+    int idx = find_ack_state(alm_id, related_plug);
     if (idx < 0) {
         idx = find_free_ack_state();
         if (idx < 0) return false;
         s_ack_states[idx].alm_id = alm_id;
+        s_ack_states[idx].related_plug_id = related_plug;
         s_ack_states[idx].ack_stage = ACK_STAGE_NONE;
         s_ack_states[idx].requires_double_ack = true;
     }
@@ -301,15 +427,20 @@ bool alert_manager_ext_ack_critical(int16_t alm_id, uint64_t ts)
 
     if (s_ack_states[idx].ack_stage == ACK_STAGE_FIRST) {
         s_ack_states[idx].ack_stage = ACK_STAGE_CONFIRMED;
-        return alert_manager_ack(alm_id, ts);
+        return alert_manager_ack_instance(alm_id, related_plug, ts);
     }
 
     return false;
 }
 
+bool alert_manager_ext_ack_critical(int16_t alm_id, uint64_t ts)
+{
+    return alert_manager_ext_ack_critical_instance(alm_id, 0, ts);
+}
+
 uint8_t alert_manager_ext_get_ack_stage(int16_t alm_id)
 {
-    int idx = find_ack_state(alm_id);
+    int idx = find_ack_state(alm_id, 0);
     if (idx < 0) return ACK_STAGE_NONE;
     return s_ack_states[idx].ack_stage;
 }
@@ -323,12 +454,17 @@ bool alert_manager_ext_is_critical_and_pending(int16_t alm_id)
     return (stage != ACK_STAGE_CONFIRMED);
 }
 
-void alert_manager_ext_reset_ack_stage(int16_t alm_id)
+void alert_manager_ext_reset_ack_stage_instance(int16_t alm_id, uint16_t related_plug)
 {
-    int idx = find_ack_state(alm_id);
+    int idx = find_ack_state(alm_id, related_plug);
     if (idx >= 0) {
         memset(&s_ack_states[idx], 0, sizeof(alert_ack_state_t));
     }
+}
+
+void alert_manager_ext_reset_ack_stage(int16_t alm_id)
+{
+    alert_manager_ext_reset_ack_stage_instance(alm_id, 0);
 }
 
 bool alert_manager_ext_double_ack_required(int16_t alm_id)

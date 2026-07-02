@@ -7,6 +7,7 @@
 #include "hardware_config.h"
 #include "alert_manager.h"
 #include "alm_ids.h"
+#include "sec_policy.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -238,7 +239,9 @@ bool api_auth_has_password(void)
 
 esp_err_t api_auth_set_password(const char *password)
 {
-    if (!password || strlen(password) < 4) return ESP_ERR_INVALID_ARG;
+    if (!password || !sec_policy_validate_password(password, strlen(password))) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(AUTH_NVS_NS, NVS_READWRITE, &nvs);

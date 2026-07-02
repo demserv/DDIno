@@ -19,6 +19,7 @@ esp_err_t plug_manager_toggle_ex(plug_id_t id, bool on, uint64_t now_ms);
 esp_err_t plug_manager_relocate(plug_id_t src_id, plug_id_t dst_id);
 bool plug_manager_is_relocated(plug_id_t id);
 void plug_manager_set_plug_current(plug_id_t id, float current_a);
+esp_err_t plug_manager_set_max_energy_wh_day(plug_id_t id, float wh_day);
 uint8_t plug_manager_active_count(void);
 plug_model_t *plug_manager_get(plug_id_t id);
 void plug_manager_apply_safe_off(void);

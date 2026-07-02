@@ -12,5 +12,8 @@ esp_err_t maintenance_mode_activate(uint32_t duration_s);
 esp_err_t maintenance_mode_deactivate(void);
 void      maintenance_mode_tick(uint64_t now_s);
 uint32_t  maintenance_mode_remaining_s(uint64_t now_s);
+bool      maintenance_mode_is_expiring_soon(uint64_t now_s);
+
+#define MAINT_PRE_EXPIRY_NOTIFY_S 300U
 
 #endif

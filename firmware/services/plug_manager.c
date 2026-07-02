@@ -77,7 +77,7 @@ static esp_err_t plug_actuate(plug_id_t id, bool on, bool is_manual)
                                  msg, 0.0f, "Verificar plugue e carga",
                                  (uint16_t)id, true, true, now_s);
     } else if (err == ESP_OK && on) {
-        alert_manager_clear(ALM_056);
+        alert_manager_clear_for_plug((int16_t)ALM_056, (uint16_t)id);
     }
     return err;
 }
@@ -117,6 +117,9 @@ void plug_manager_reload_limits(void)
     for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
         s_plugs[i].min_on_time_s = pl->min_on_time_s;
         s_plugs[i].min_off_time_s = pl->min_off_time_s;
+        if (pl->max_energy_wh_day[i] > 0.0f && (i + 1) >= PLUG_ID_P03) {
+            s_plugs[i].max_energy_wh_day = pl->max_energy_wh_day[i];
+        }
         if (ep) {
             s_plugs[i].current_limit_a = ep->per_plug_current_limit_a;
         }
@@ -366,14 +369,16 @@ void plug_manager_tick(uint64_t now_s, system_state_t sys_state, bool feed_activ
         // RF-PLUG-013: max_energy_wh_day monitoring
         /* @requirement SRS §49 ALM-054 = "Consumo diário excedido no plugue" (WARNING). */
         if (p->max_energy_wh_day > 0 && p->energy_wh_today > p->max_energy_wh_day) {
-            if (!alert_manager_is_active((int16_t)ALM_054)) {
+            if (!alert_manager_is_active_for_plug((int16_t)ALM_054, (uint16_t)p->id)) {
                 char msg[64];
                 snprintf(msg, sizeof(msg), "Daily energy limit exceeded for %s", p->name);
                 alert_manager_raise_full((int16_t)ALM_054, ALERT_SEVERITY_WARNING,
                     ALERT_CATEGORY_PROCESS, msg, p->energy_wh_today,
                     "Reduzir uso ou revisar limite", (uint16_t)p->id,
-                    false, false, now_s * MS_PER_SEC);
+                    false, false, now_s);
             }
+        } else if (p->max_energy_wh_day > 0) {
+            alert_manager_try_auto_clear_for_plug((int16_t)ALM_054, (uint16_t)p->id, true);
         }
     }
 }
@@ -628,3 +633,18 @@ void plug_manager_set_plug_current(plug_id_t id, float current_a)
     s_plugs[id - 1].current_a = current_a;
 }
 
+esp_err_t plug_manager_set_max_energy_wh_day(plug_id_t id, float wh_day)
+{
+    if (id < PLUG_ID_P03 || id > PLUG_COUNT_TOTAL) return ESP_ERR_INVALID_ARG;
+    if (wh_day < 0.0f) return ESP_ERR_INVALID_ARG;
+    plug_model_t *p = plug_manager_get(id);
+    if (!p) return ESP_ERR_NOT_FOUND;
+    p->max_energy_wh_day = wh_day;
+    plug_limits_storage_t pl = *config_get_plug_limits();
+    pl.max_energy_wh_day[id - 1] = wh_day;
+    esp_err_t err = config_set_plug_limits(&pl);
+    if (err == ESP_OK) {
+        plug_manager_reload_limits();
+    }
+    return err;
+}

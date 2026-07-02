@@ -148,8 +148,16 @@ void ui_topbar_update(ui_topbar_t *bar, const ui_topbar_vm_t *vm)
     }
 
     if (vm->maintenance_mode) {
-        lv_label_set_text(bar->badge_maint_label, "MNT");
-        lv_obj_set_style_text_color(bar->badge_maint_label, UI_COLOR_WARN, 0);
+        if (vm->maintenance_expiring_soon && vm->maintenance_remaining_s > 0) {
+            char buf[12];
+            uint32_t min = (vm->maintenance_remaining_s + 59U) / 60U;
+            snprintf(buf, sizeof(buf), "MNT%lum", (unsigned long)min);
+            lv_label_set_text(bar->badge_maint_label, buf);
+            lv_obj_set_style_text_color(bar->badge_maint_label, UI_COLOR_CRITICAL, 0);
+        } else {
+            lv_label_set_text(bar->badge_maint_label, "MNT");
+            lv_obj_set_style_text_color(bar->badge_maint_label, UI_COLOR_WARN, 0);
+        }
     } else {
         lv_label_set_text(bar->badge_maint_label, "");
     }

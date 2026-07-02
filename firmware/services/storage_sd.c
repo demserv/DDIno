@@ -11,7 +11,6 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "global_state.h"
-#include "conf_ctl.h"
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -30,6 +29,7 @@ static const char *TAG = "storage_sd";
 static bool s_mounted = false;
 
 static char s_ram_fallback_buf[SD_RAM_FALLBACK_COUNT][SD_LOG_LINE_MAX_LEN];
+static sd_log_type_t s_ram_fallback_type[SD_RAM_FALLBACK_COUNT];
 static uint32_t s_ram_fallback_head = 0;
 static uint32_t s_ram_fallback_count = 0;
 
@@ -209,6 +209,7 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
         uint32_t idx = s_ram_fallback_head % SD_RAM_FALLBACK_COUNT;
         strncpy(s_ram_fallback_buf[idx], line, SD_LOG_LINE_MAX_LEN - 1);
         s_ram_fallback_buf[idx][SD_LOG_LINE_MAX_LEN - 1] = '\0';
+        s_ram_fallback_type[idx] = type;
         s_ram_fallback_head++;
         if (s_ram_fallback_count < SD_RAM_FALLBACK_COUNT) {
             s_ram_fallback_count++;
@@ -222,11 +223,7 @@ esp_err_t storage_sd_write_log(sd_log_type_t type, const char *line)
     char path[96];
     snprintf(path, sizeof(path), "%s/log.txt", full_dir);
 
-    conf_ctl_config_t ctl;
-    size_t max_kb = 512;
-    if (conf_ctl_load(&ctl) == ESP_OK) {
-        max_kb = ctl.log.max_file_size_kb;
-    }
+    size_t max_kb = HW_SD_LOG_MAX_FILE_KB;
     rotate_log_if_needed(path, max_kb);
 
     char tmp_path[100];
@@ -268,7 +265,7 @@ void storage_sd_flush_ram_fallback(void)
     for (uint32_t i = 0; i < s_ram_fallback_count; i++) {
         uint32_t idx = (start + i) % SD_RAM_FALLBACK_COUNT;
         if (s_ram_fallback_buf[idx][0] == '\0') continue;
-        storage_sd_write_log(SD_LOG_TYPE_EVENT, s_ram_fallback_buf[idx]);
+        storage_sd_write_log(s_ram_fallback_type[idx], s_ram_fallback_buf[idx]);
         s_ram_fallback_buf[idx][0] = '\0';
     }
     s_ram_fallback_head = 0;

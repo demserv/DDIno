@@ -17,7 +17,7 @@
 | Segurança lógica | `safety_controller.c`, `command_validator.c`, `plug_manager.c` | SAFE_OFF/EMERGENCY, bloqueio de comandos, proteções elétricas em software |
 | Rastreabilidade | Tags `@requirement`, RTM, docs de auditoria | Evidência arquivo:função por RF crítico |
 
-**Peso sugerido para nota global (sem testes/hardware):**
+**Peso para nota global (somente software):**
 
 | Domínio | Peso |
 |---------|------|
@@ -27,51 +27,64 @@
 | API / Web / persistência | 15% |
 | UI / HMI / UX funcional | 15% |
 
+**Método de auditoria:** reauditoria **domínio a domínio**, evidência **função a função** (L3: código ligado + caller de produção).
+
+**Dual gate de sign-off:**
+- Cada um dos **14 domínios** ≥ **9,5/10**
+- Cada um dos **5 buckets** ponderados ≥ **95%**
+
 ---
 
-## 2. O que está **fora** do cálculo de ≥ 95%
+## 2. O que **nunca** entra no cálculo de ≥ 95%
 
-Decisão explícita do solicitante: **não penalizar** o score de compliance por itens abaixo.
+Decisão explícita do Owner: estes itens **não aumentam nem reduzem** o placar de compliance de software.
 
-| Categoria | Motivo | Quando entra |
-|-----------|--------|--------------|
-| **Montagem / bancada / flash / smoke test** | Hardware só será montado após software ≥ 95% SRS | Pós sign-off de software |
-| **Testes Unity / `idf.py test` / CI de testes** | Escopo de QA separado; não bloqueia meta de software | Opcional, após ≥ 95% |
-| **Diretório `test/`** | Suítes unitárias — úteis, mas **não** contam no placar | Manutenção contínua |
-| **E2E em placa real** | Validação física (relés, sensores, SD, touch) | Após montagem |
-| **Build reproduzível em CI limpo** | Evidência desejável, mas **não** reduz score de RF | Paralelo ao fechamento de gaps |
-| **Frameworks de terceiros** | `managed_components/`, Unity, LVGL vendor | Apenas referência de versão |
+| Categoria | Tratamento |
+|-----------|------------|
+| **Smoke manual / flash / bancada / E2E físico** | **Fora do placar.** Só após sign-off software ≥95%. |
+| **Testes Unity / `idf.py test` / CI de testes / `test/`** | **Fora do placar.** QA opcional pós-sign-off. |
+| **Build reproduzível em CI** | Evidência paralela; **não** altera score. |
+| **Frameworks de terceiros** | Referência de versão apenas (`managed_components/`, LVGL, Unity vendor). |
+
+Auditorias **não** podem:
+- Penalizar por ausência de smoke ou testes automatizados
+- Exigir smoke ou testes como pré-requisito para calcular a nota de software
+- Tratar “falta de smoke” como gap de RF
 
 ---
 
 ## 3. Sequência de gate (ordem obrigatória)
 
 ```
-1. Fechar gaps P0–P4 de software (auditoria + RTM)
-2. Reauditoria honesta → cada domínio ≥ 9,5/10 (≥ 95% ponderado)
-3. Sign-off de software (este documento + AUDITORIA_COMPLIANCE_2026-07-01.md)
-4. Só então: montagem de hardware + flash + smoke/E2E físico
-5. Opcional: ampliar cobertura com Unity/CI (não retroage o score de software)
+1. Fechar gaps de software (auditoria domínio a domínio + RTM)
+2. Reauditoria L3 → 14 domínios ≥ 9,5/10 E buckets ≥ 95%
+3. Sign-off de software (COMPLIANCE_SCOPE + REAUDITORIA_*_FINAL.md)
+4. Montagem de hardware
+5. Flash + smoke manual + E2E físico (validação operacional — fora do placar)
+6. Opcional: Unity/CI (fora do placar)
 ```
 
 ---
 
-## 4. Artefatos oficiais de compliance de software
+## 4. Artefatos oficiais
 
 | Artefato | Papel |
 |----------|-------|
 | `docs/COMPLIANCE_SCOPE.md` | **Este documento** — política de escopo |
-| `docs/AUDITORIA_COMPLIANCE_2026-07-01.md` | Placar honesto por domínio + plano P0–P4 |
-| `docs/RTM_DELTA_COMPLIANCE_2026-07-01.md` | Delta implementado e deferidos |
-| `docs/PLANO_ACAO_COMPLIANCE_95.md` | Plano de ação (Fases A–B = software; C–D = pós-95%) |
+| `docs/REAUDITORIA_COMPLIANCE_2026-07-01-FINAL.md` | Placar pós H1–H3 (domínio a domínio) |
+| `docs/AUDITORIA_COMPLIANCE_2026-07-01.md` | Baseline histórico + plano P0–P4 |
+| `docs/RTM_DELTA_COMPLIANCE_2026-07-01.md` | Delta implementado |
 
-Relatórios legados (`COMPLIANCE_REPORT.md`, `COMPLIANCE_FINAL_REPORT.md`, seção 10 de
-`AUDITORIA_COMPLIANCE_RIGOR_2026-06-30.md`) **não** substituem a reauditoria 2026-07-01
-e podem superestimar itens não cabeados.
+Relatórios legados (`COMPLIANCE_REPORT.md`, seção 10 revogada de `AUDITORIA_COMPLIANCE_RIGOR_2026-06-30.md`) **não** substituem a reauditoria FINAL.
 
 ---
 
-## 5. Próximo passo pós-reauditoria
+## 5. Estado atual (pós H1–H3)
 
-Reauditoria concluída: **~69%** software (`REAUDITORIA_COMPLIANCE_2026-07-01.md`).
-Executar Fases R1→R3 em `PLANO_ACAO_COMPLIANCE_95.md` para fechar ~26 pp até ≥95%.
+| Métrica | Valor |
+|---------|:-----:|
+| Global ponderado | **~90%** |
+| Domínios ≥ 9,5 | **0 / 14** |
+| Veredito software | **REPROVADO** (gap ~5 pp) |
+
+Próximo passo **somente software:** fechar P1 em `REAUDITORIA_COMPLIANCE_2026-07-01-FINAL.md` §5 e reauditar domínios afetados.

@@ -21,12 +21,71 @@
 #include "profile_manager.h"
 #include "plug_manager.h"
 #include "esp_system.h"
+#include "components/ui_confirm_dialog.h"
+#include "components/ui_inline_hint.h"
 
 void app_ato_clear_blocked(void);
 
 extern global_state_t g_gs;
 extern bool g_feed_request;
 extern bool g_feed_exit_request;
+
+static ui_confirm_dialog_t s_plug_confirm;
+static ui_inline_hint_t s_plug_hint;
+static bool s_plug_confirm_ready = false;
+static uint8_t s_pending_plug_id = 0;
+static bool s_pending_plug_on = false;
+static uint8_t s_plug_action_id = 0;
+
+static void plug_confirm_ok_cb(lv_event_t *e);
+static void plug_confirm_cancel_cb(lv_event_t *e);
+
+static void plug_confirm_init(void)
+{
+    if (s_plug_confirm_ready) return;
+    ui_confirm_dialog_create(&s_plug_confirm, lv_layer_top(),
+                             "Confirmar acao em plugue critico P01/P02?");
+    ui_confirm_dialog_set_confirm_cb(&s_plug_confirm, plug_confirm_ok_cb);
+    ui_confirm_dialog_set_cancel_cb(&s_plug_confirm, plug_confirm_cancel_cb);
+    ui_inline_hint_create(&s_plug_hint, lv_layer_top());
+    s_plug_confirm_ready = true;
+}
+
+static void plug_toggle_apply(uint8_t plug_id, bool want_on)
+{
+    esp_err_t err = plug_manager_toggle((plug_id_t)plug_id, want_on);
+    if (err == ESP_OK) {
+        char msg[48];
+        snprintf(msg, sizeof(msg), "Plug P%02u toggled %s", (unsigned)plug_id, want_on ? "ON" : "OFF");
+        audit_log_event(AUDIT_COMMAND, msg);
+        ui_app_refresh_now();
+    }
+}
+
+static void plug_confirm_ok_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_confirm_dialog_show(&s_plug_confirm, false);
+    if (s_pending_plug_id >= 1 && s_pending_plug_id <= 10) {
+        plug_toggle_apply(s_pending_plug_id, s_pending_plug_on);
+    }
+    s_pending_plug_id = 0;
+}
+
+static void plug_confirm_cancel_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_confirm_dialog_show(&s_plug_confirm, false);
+    s_pending_plug_id = 0;
+}
+
+static void plug_toggle_denied_hint(const char *reason)
+{
+    plug_confirm_init();
+    if (reason && reason[0]) {
+        ui_inline_hint_show(&s_plug_hint, reason, 2500);
+    }
+}
 
 /* @requirement RF-UI-MUTE-001 Duração do MUTE selecionável (5/10/15 min ou até-ACK).
  * "Até-ACK" é representado por uma duração muito longa (limpa no ACK do alerta). */
@@ -86,15 +145,16 @@ void ui_events_emit(ui_event_t event)
         }
 
         case UI_EVENT_REQUEST_ACK_ALERT: {
-            /* @requirement RF-ALERT-004 ACK em massa: alertas CRÍTICOS exigem duplo-ACK
-             * (dois eventos), os demais são confirmados num único ACK. */
+            /* @requirement RF-ALERT-004 ACK em massa por instância ativa. */
             cmd_validation_t cv = command_validator_can_ack_alert(&g_gs, 0);
             if (!cv.allowed) return;
             uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
-            for (int16_t id = 1; id <= 65; id++) {
-                if (!alert_manager_is_active(id)) continue;
-                alert_manager_ack_with_policy(id, now_s);
-                safe_state_ack_on_alert_ack(id, now_s);
+            alert_slot_t slots[ALERT_SLOTS_MAX];
+            uint16_t count = 0;
+            alert_manager_get_active_slots(slots, &count, ALERT_SLOTS_MAX);
+            for (uint16_t i = 0; i < count; i++) {
+                alert_manager_ack_with_policy_instance(slots[i].alm_id, slots[i].related_plug_id, now_s);
+                safe_state_ack_on_alert_ack(slots[i].alm_id, now_s);
             }
             audit_log_event(AUDIT_COMMAND, "ACK alerts via UI (criticos exigem 2o ACK)");
             ui_app_refresh_now();
@@ -106,11 +166,7 @@ void ui_events_emit(ui_event_t event)
             {
                 uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
                 uint64_t until = now_s + (uint64_t)(mute_duration_to_ms(s_mute_duration) / 1000U);
-                for (int16_t id = 1; id <= 65; id++) {
-                    if (alert_manager_is_active(id)) {
-                        alert_manager_set_silenced(id, until);
-                    }
-                }
+                alert_manager_set_silenced_all_active(until);
             }
             audit_log_event(AUDIT_COMMAND, "MUTE activated via UI");
             break;
@@ -137,7 +193,10 @@ void ui_events_emit(ui_event_t event)
         case UI_EVENT_REQUEST_PLUG_ACTION:
             if (critical) return;
             if (g_gs.monitor_only_mode) return;
-            /* A atuação efetiva é feita pela tela via plug_manager (rota única). */
+            if (s_plug_action_id >= 1 && s_plug_action_id <= 10) {
+                ui_events_toggle_plug(s_plug_action_id);
+                s_plug_action_id = 0;
+            }
             break;
 
         case UI_EVENT_REQUEST_FACTORY_RESET: {
@@ -198,26 +257,44 @@ void ui_events_unblock_plug(uint8_t plug_id)
     }
 }
 
+void ui_events_set_plug_action_target(uint8_t plug_id)
+{
+    s_plug_action_id = plug_id;
+}
+
+void ui_events_request_plug_action(uint8_t plug_id)
+{
+    ui_events_set_plug_action_target(plug_id);
+    ui_events_emit(UI_EVENT_REQUEST_PLUG_ACTION);
+}
+
 void ui_events_toggle_plug(uint8_t plug_id)
 {
     if (plug_id < 1 || plug_id > 10) return;
     if (g_gs.system_state >= SYSTEM_STATE_SAFE_OFF) return;
-    if (g_gs.monitor_only_mode) return;
 
     plug_model_t *pm = plug_manager_get((plug_id_t)plug_id);
     if (!pm) return;
     bool want_on = (pm->effective_state != PLUG_EFFECTIVE_STATE_ON);
 
-    cmd_validation_t cv = command_validator_can_set_mode(&g_gs, plug_id);
-    if (!cv.allowed) return;
-
-    esp_err_t err = plug_manager_toggle((plug_id_t)plug_id, want_on);
-    if (err == ESP_OK) {
-        char msg[48];
-        snprintf(msg, sizeof(msg), "Plug P%02u toggled %s", (unsigned)plug_id, want_on ? "ON" : "OFF");
-        audit_log_event(AUDIT_COMMAND, msg);
-        ui_app_refresh_now();
+    cmd_validation_t cv = command_validator_can_toggle_plug(&g_gs, plug_id, want_on);
+    if (!cv.allowed) {
+        plug_toggle_denied_hint(cv.error_code ? cv.error_code : "Acao negada");
+        return;
     }
+
+    if (cv.requires_double_confirmation) {
+        plug_confirm_init();
+        s_pending_plug_id = plug_id;
+        s_pending_plug_on = want_on;
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Confirmar %s de P%02u?", want_on ? "ligar" : "desligar", (unsigned)plug_id);
+        lv_label_set_text(s_plug_confirm.message_label, msg);
+        ui_confirm_dialog_show(&s_plug_confirm, true);
+        return;
+    }
+
+    plug_toggle_apply(plug_id, want_on);
 }
 
 void ui_events_clear_ato_blocked(void)

@@ -98,6 +98,12 @@ static cJSON *root_to_json(const config_root_t *root)
     cJSON *pl = cJSON_CreateObject();
     cJSON_AddNumberToObject(pl, "min_on_time_s", (double)root->plug_limits.min_on_time_s);
     cJSON_AddNumberToObject(pl, "min_off_time_s", (double)root->plug_limits.min_off_time_s);
+    cJSON *pl_energy = cJSON_CreateArray();
+    for (int i = 0; i < 10; i++) {
+        cJSON_AddItemToArray(pl_energy,
+                             cJSON_CreateNumber((double)root->plug_limits.max_energy_wh_day[i]));
+    }
+    cJSON_AddItemToObject(pl, "max_energy_wh_day", pl_energy);
     cJSON_AddItemToObject(o, "plug_limits", pl);
     cJSON *feed = cJSON_CreateObject();
     cJSON_AddNumberToObject(feed, "feed_duration_min", (double)root->feed.feed_duration_min);
@@ -249,6 +255,17 @@ static bool json_to_root(cJSON *json, config_root_t *root, const config_root_t *
     if (cJSON_IsObject(pl)) {
         parse_number_u32(pl, "min_on_time_s", &root->plug_limits.min_on_time_s);
         parse_number_u32(pl, "min_off_time_s", &root->plug_limits.min_off_time_s);
+        cJSON *energy_arr = cJSON_GetObjectItem(pl, "max_energy_wh_day");
+        if (cJSON_IsArray(energy_arr)) {
+            int n = cJSON_GetArraySize(energy_arr);
+            if (n > 10) n = 10;
+            for (int i = 0; i < n; i++) {
+                cJSON *item = cJSON_GetArrayItem(energy_arr, i);
+                if (cJSON_IsNumber(item)) {
+                    root->plug_limits.max_energy_wh_day[i] = (float)item->valuedouble;
+                }
+            }
+        }
     }
 
     cJSON *feed = cJSON_GetObjectItem(json, "feed");

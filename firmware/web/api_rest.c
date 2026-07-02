@@ -24,7 +24,9 @@
 #include "driver_ds18b20.h"
 #include "driver_ds3231.h"
 #include "driver_mcp3208.h"
+#include "driver_ph_sensor.h"
 #include "driver_pzem.h"
+#include "config_manager.h"
 #include "driver_relay.h"
 #include "fsm/feed_fsm.h"
 #include "fsm/restart_fsm.h"
@@ -49,6 +51,7 @@
 #include "services/maintenance_mode.h"
 #include "profile_manager.h"
 #include "system_types.h"
+#include "alm_catalog.h"
 #include "lwip/sockets.h"
 #include <time.h>
 
@@ -100,17 +103,99 @@ static esp_err_t send_json_resp(httpd_req_t *req, cJSON *json, const char *statu
     return ret;
 }
 
-static esp_err_t send_error(httpd_req_t *req, const char *err, int code, int http_code, const char *http_str)
+static const char *canonical_error_name(const char *token, canonical_error_code_t code)
 {
+    if (token && token[0]) {
+        if (strcmp(token, "SAFE_MODE_ACTIVE") == 0) return "STATE_NOT_ALLOWED";
+        if (strcmp(token, "MONITOR_ONLY_ACTIVE") == 0) return "MONITOR_ONLY_ACTIVE";
+        if (strcmp(token, "WIZARD_NOT_COMPLETED") == 0) return "STATE_NOT_ALLOWED";
+        if (strcmp(token, "double_confirmation_required") == 0) return "VALIDATION_ERROR";
+        if (strcmp(token, "auth_required") == 0) return "AUTH_REQUIRED";
+        if (strcmp(token, "rate_limited") == 0) return "RATE_LIMITED";
+        if (strcmp(token, "maintenance_required") == 0) return "STATE_NOT_ALLOWED";
+        return token;
+    }
+    switch (code) {
+        case ERR_AUTH_REQUIRED: return "AUTH_REQUIRED";
+        case ERR_AUTH_INVALID: return "AUTH_INVALID";
+        case ERR_AUTH_FORBIDDEN: return "AUTH_FORBIDDEN";
+        case ERR_STATE_NOT_ALLOWED: return "STATE_NOT_ALLOWED";
+        case ERR_PLUG_BLOCKED: return "PLUG_BLOCKED";
+        case ERR_VALIDATION_ERROR: return "VALIDATION_ERROR";
+        case ERR_CONFIG_INVALID: return "CONFIG_INVALID";
+        case ERR_SCHEMA_INCOMPATIBLE: return "SCHEMA_INCOMPATIBLE";
+        case ERR_STORAGE_UNAVAILABLE: return "STORAGE_UNAVAILABLE";
+        case ERR_HARDWARE_UNAVAILABLE: return "HARDWARE_UNAVAILABLE";
+        case ERR_SAFE_MODE_ACTIVE: return "STATE_NOT_ALLOWED";
+        case ERR_MONITOR_ONLY_ACTIVE: return "MONITOR_ONLY_ACTIVE";
+        case ERR_RATE_LIMITED: return "RATE_LIMITED";
+        default: return "INTERNAL_ERROR";
+    }
+}
+
+static esp_err_t send_error_with_ctx(httpd_req_t *req, const char *err_token, int code,
+                                     const char *http_str, int plug_id, int system_state,
+                                     bool has_blocked, bool blocked)
+{
+    const char *canonical = canonical_error_name(err_token, (canonical_error_code_t)code);
     cJSON *json = cJSON_CreateObject();
-    cJSON *detail = cJSON_CreateObject();
-    cJSON_AddStringToObject(json, "error", err ? err : "unknown");
-    cJSON_AddNumberToObject(json, "code", code);
-    cJSON_AddNumberToObject(detail, "code", code);
-    cJSON_AddStringToObject(detail, "message", err ? err : "unknown");
-    cJSON_AddItemToObject(json, "error_detail", detail);
-    (void)http_code;
+    cJSON *err_obj = cJSON_CreateObject();
+    cJSON *details = cJSON_CreateObject();
+    cJSON_AddStringToObject(err_obj, "code", canonical);
+    cJSON_AddStringToObject(err_obj, "message", err_token ? err_token : canonical);
+    cJSON_AddNumberToObject(details, "enum_code", code);
+    if (plug_id >= 1 && plug_id <= 10) {
+        cJSON_AddNumberToObject(details, "plug_id", plug_id);
+    }
+    if (system_state >= 0 && system_state < SYSTEM_STATE_COUNT) {
+        cJSON_AddNumberToObject(details, "system_state", system_state);
+    }
+    if (has_blocked) {
+        cJSON_AddBoolToObject(details, "blocked", blocked);
+    }
+    cJSON_AddItemToObject(err_obj, "details", details);
+    cJSON_AddItemToObject(json, "error", err_obj);
     return send_json_resp(req, json, http_str);
+}
+
+static esp_err_t send_error(httpd_req_t *req, const char *err_token, int code, int http_code, const char *http_str)
+{
+    (void)http_code;
+    return send_error_with_ctx(req, err_token, code, http_str, -1, -1, false, false);
+}
+
+static esp_err_t send_cmd_validation_error(httpd_req_t *req, const cmd_validation_t *cv,
+                                           uint8_t plug_id)
+{
+    const char *msg = (cv && cv->error_code) ? cv->error_code : "forbidden";
+    bool has_blocked = false;
+    bool blocked = false;
+    if (plug_id >= 1 && plug_id <= 10) {
+        plug_model_t *pm = plug_manager_get((plug_id_t)plug_id);
+        if (pm) {
+            has_blocked = true;
+            blocked = pm->blocked;
+        }
+    }
+    int sys_state = (int)g_gs.system_state;
+    if (strcmp(msg, "PLUG_BLOCKED") == 0) {
+        return send_error_with_ctx(req, msg, ERR_PLUG_BLOCKED, "409 Conflict",
+                                   (int)plug_id, sys_state, has_blocked, blocked);
+    }
+    if (strcmp(msg, "MONITOR_ONLY_ACTIVE") == 0) {
+        return send_error_with_ctx(req, msg, ERR_MONITOR_ONLY_ACTIVE, "409 Conflict",
+                                   (int)plug_id, sys_state, has_blocked, blocked);
+    }
+    if (strcmp(msg, "SAFE_MODE_ACTIVE") == 0) {
+        return send_error_with_ctx(req, msg, ERR_SAFE_MODE_ACTIVE, "409 Conflict",
+                                   (int)plug_id, sys_state, has_blocked, blocked);
+    }
+    if (strcmp(msg, "WIZARD_NOT_COMPLETED") == 0) {
+        return send_error_with_ctx(req, msg, ERR_VALIDATION_ERROR, "400 Bad Request",
+                                   (int)plug_id, sys_state, has_blocked, blocked);
+    }
+    return send_error_with_ctx(req, msg, ERR_VALIDATION_ERROR, "403 Forbidden",
+                               (int)plug_id, sys_state, has_blocked, blocked);
 }
 
 static bool auth_middleware(httpd_req_t *req)
@@ -157,29 +242,25 @@ static bool rate_limit_middleware(httpd_req_t *req)
 static bool is_auth_path(const char *uri)
 {
     return (strcmp(uri, "/api/v1/auth/login") == 0) ||
-           (strcmp(uri, "/api/v1/auth/logout") == 0) ||
-           (strcmp(uri, "/api/v1/wizard") == 0);
+           (strcmp(uri, "/api/v1/auth/logout") == 0);
 }
 
-static bool is_read_get_path(const char *uri)
+static bool is_setup_exempt(httpd_req_t *req)
 {
-    return (strcmp(uri, "/api/v1/state") == 0) ||
-           (strcmp(uri, "/api/v1/status") == 0) ||
-           (strcmp(uri, "/api/v1/health") == 0) ||
-           (strcmp(uri, "/api/v1/alerts") == 0) ||
-           (strcmp(uri, "/api/v1/sensors") == 0) ||
-           (strcmp(uri, "/api/v1/energy") == 0) ||
-           (strcmp(uri, "/api/v1/plugs") == 0);
+    if (strcmp(req->uri, "/api/v1/wizard") == 0 && !g_gs.wizard_completed) {
+        return true;
+    }
+    return false;
 }
 
 static esp_err_t auth_guard(httpd_req_t *req)
 {
-    if (is_auth_path(req->uri)) return ESP_OK;
+    if (is_auth_path(req->uri) || is_setup_exempt(req)) return ESP_OK;
 
     const security_params_storage_t *sec = config_get_security();
     bool need_auth = true;
-    if (req->method == HTTP_GET && is_read_get_path(req->uri) &&
-        sec && !sec->read_requires_auth) {
+    /* @requirement P1-API-01 read_requires_auth uniforme em todos os GETs */
+    if (req->method == HTTP_GET && sec && !sec->read_requires_auth) {
         need_auth = false;
     }
 
@@ -505,6 +586,8 @@ static esp_err_t plugs_handler(httpd_req_t *req)
         cJSON_AddNumberToObject(p, "current_a", (double)cur);
         cJSON_AddNumberToObject(p, "power_w", pm ? (double)pm->power_w : 0);
         cJSON_AddNumberToObject(p, "energy_wh_today", pm ? (double)pm->energy_wh_today : 0);
+        cJSON_AddNumberToObject(p, "max_energy_wh_day", pm ? (double)pm->max_energy_wh_day : 0);
+        cJSON_AddBoolToObject(p, "blocked", pm ? pm->blocked : false);
         cJSON_AddItemToArray(arr, p);
     }
     cJSON *resp = cJSON_CreateObject();
@@ -539,8 +622,7 @@ static esp_err_t plug_set_handler(httpd_req_t *req)
 
     cmd_validation_t cv = command_validator_can_toggle_plug(&g_gs, (uint8_t)plug_id, target_state);
     if (!cv.allowed) {
-        return send_error(req, cv.error_code ? cv.error_code : "forbidden",
-                          ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+        return send_cmd_validation_error(req, &cv, (uint8_t)plug_id);
     }
 
     /* @requirement RF-PLUG-011 Dupla confirmação obrigatória para relé crítico. */
@@ -647,9 +729,26 @@ static esp_err_t sensors_handler(httpd_req_t *req)
     AUTH_GUARD();
     cJSON *json = cJSON_CreateObject();
     float temp = 25.0f;
-    ds18b20_read(&temp);
+    bool temp_ok = (ds18b20_read(&temp) == ESP_OK);
     cJSON_AddNumberToObject(json, "temp_c", (double)temp);
-    cJSON_AddBoolToObject(json, "temp_valid", true);
+    cJSON_AddBoolToObject(json, "temp_valid", temp_ok);
+
+    const ph_params_storage_t *php = config_get_ph();
+    float ph = 0.0f;
+    bool ph_valid = false;
+    if (php && php->enabled && ph_sensor_read(&ph, &ph_valid) == ESP_OK) {
+        cJSON_AddNumberToObject(json, "ph", (double)ph);
+        cJSON_AddBoolToObject(json, "ph_valid", ph_valid);
+        if (ph_valid) {
+            cJSON_AddBoolToObject(json, "ph_warn",
+                                  ph < php->warn_low_ph || ph > php->warn_high_ph);
+            cJSON_AddBoolToObject(json, "ph_calib_ok",
+                                  ph >= php->calib_min_ph && ph <= php->calib_max_ph);
+        }
+    } else {
+        cJSON_AddBoolToObject(json, "ph_valid", false);
+    }
+
     uint16_t ato_adc = 0;
     mcp3208_read_channel(PIN_ADC2_CS_GPIO, MCP3208_CH_ATO, &ato_adc);
     cJSON_AddNumberToObject(json, "ato_level_adc", ato_adc);
@@ -685,23 +784,51 @@ static void format_alm_code(int16_t id, char *buf, size_t len)
     snprintf(buf, len, "ALM-%03d", (int)id);
 }
 
+static bool parse_alert_token(const char *token, int16_t *alm_id)
+{
+    if (!token || !alm_id) return false;
+    if (strncmp(token, "ALM-", 4) == 0) {
+        int n = 0;
+        if (sscanf(token, "ALM-%d", &n) == 1 && n >= 1 && n <= 65) {
+            *alm_id = (int16_t)n;
+            return true;
+        }
+        return false;
+    }
+    unsigned n = 0;
+    if (sscanf(token, "%u", &n) == 1 && n >= 1 && n <= 65) {
+        *alm_id = (int16_t)n;
+        return true;
+    }
+    return false;
+}
+
 static esp_err_t alerts_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
     uint64_t now_s = esp_timer_get_time() / USEC_PER_SEC;
     cJSON *arr = cJSON_CreateArray();
-    for (int16_t id = 1; id <= 65; id++) {
-        const alert_slot_t *aslot = alert_manager_get_slot(id);
-        if (!aslot || !aslot->active) continue;
+    alert_slot_t slots[ALERT_SLOTS_MAX];
+    uint16_t slot_count = 0;
+    alert_manager_get_active_slots(slots, &slot_count, ALERT_SLOTS_MAX);
+    for (uint16_t si = 0; si < slot_count; si++) {
+        const alert_slot_t *aslot = &slots[si];
+        int16_t id = aslot->alm_id;
         cJSON *a = cJSON_CreateObject();
         char code[16];
         format_alm_code(id, code, sizeof(code));
+        cJSON_AddStringToObject(a, "id", code);
+        cJSON_AddNumberToObject(a, "alert_id", (double)id);
         cJSON_AddStringToObject(a, "alm_code", code);
-        cJSON_AddNumberToObject(a, "id", id);
         cJSON_AddStringToObject(a, "severity", alert_severity_str(aslot->severity));
         cJSON_AddStringToObject(a, "category", alert_category_str(aslot->category));
         cJSON_AddStringToObject(a, "message", aslot->message);
+        cJSON_AddBoolToObject(a, "ack_req", aslot->ack_req);
         cJSON_AddBoolToObject(a, "ack_required", aslot->ack_req);
+        {
+            const alm_meta_t *meta = alm_catalog_get(id);
+            cJSON_AddBoolToObject(a, "auto_clear", meta ? meta->auto_clear : false);
+        }
         cJSON_AddNumberToObject(a, "value", (double)aslot->value);
         cJSON_AddNumberToObject(a, "related_plug_id", (double)aslot->related_plug_id);
         cJSON_AddBoolToObject(a, "state_associated", aslot->state_associated);
@@ -713,7 +840,7 @@ static esp_err_t alerts_handler(httpd_req_t *req)
             cJSON_AddStringToObject(a, "timestamp", ts);
         }
         cJSON_AddBoolToObject(a, "acked", aslot->acked);
-        cJSON_AddBoolToObject(a, "silenced", alert_manager_is_silenced(id, now_s));
+        cJSON_AddBoolToObject(a, "silenced", alert_manager_is_slot_silenced(aslot, now_s));
         cJSON_AddStringToObject(a, "action_hint", aslot->action_hint);
         cJSON_AddItemToArray(arr, a);
     }
@@ -728,6 +855,7 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     AUTH_GUARD();
     char *body = read_body(req);
     uint16_t specific_id = 0;
+    uint16_t related_plug = 0;
     bool do_silence = false;
     uint32_t silence_s = 300;
     if (body) {
@@ -736,6 +864,18 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
             cJSON *id_item = cJSON_GetObjectItem(json, "alert_id");
             if (cJSON_IsNumber(id_item)) {
                 specific_id = (uint16_t)id_item->valueint;
+            } else if (cJSON_IsString(id_item)) {
+                int16_t parsed = 0;
+                if (parse_alert_token(id_item->valuestring, &parsed)) {
+                    specific_id = (uint16_t)parsed;
+                }
+            }
+            cJSON *plug_item = cJSON_GetObjectItem(json, "plug_id");
+            cJSON *rel_item = cJSON_GetObjectItem(json, "related_plug_id");
+            if (cJSON_IsNumber(plug_item) && plug_item->valueint >= 1 && plug_item->valueint <= 10) {
+                related_plug = (uint16_t)plug_item->valueint;
+            } else if (cJSON_IsNumber(rel_item) && rel_item->valueint >= 1 && rel_item->valueint <= 10) {
+                related_plug = (uint16_t)rel_item->valueint;
             }
             cJSON *action = cJSON_GetObjectItem(json, "action");
             if (cJSON_IsString(action) && strcmp(action->valuestring, "silence") == 0) {
@@ -756,17 +896,18 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
         uint64_t until = now + (uint64_t)silence_s;
         int silenced = 0;
         if (specific_id > 0) {
-            if (alert_manager_is_active(specific_id)) {
+            if (related_plug > 0) {
+                if (alert_manager_is_active_for_plug((int16_t)specific_id, related_plug)) {
+                    alert_manager_set_silenced_for_plug((int16_t)specific_id, related_plug, until);
+                    silenced = 1;
+                }
+            } else if (alert_manager_is_active((int16_t)specific_id)) {
                 alert_manager_set_silenced((int16_t)specific_id, until);
                 silenced = 1;
             }
         } else {
-            for (int16_t id = 1; id <= 65; id++) {
-                if (alert_manager_is_active(id)) {
-                    alert_manager_set_silenced(id, until);
-                    silenced++;
-                }
-            }
+            alert_manager_set_silenced_all_active(until);
+            silenced = (int)alert_manager_active_count();
         }
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddStringToObject(resp, "status", "silenced");
@@ -781,19 +922,26 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
 
     int acked = 0;
     if (specific_id > 0) {
-        if (alert_manager_is_active(specific_id)) {
-            if (alert_manager_ack_with_policy(specific_id, now)) {
+        bool active = (related_plug != 0)
+                          ? alert_manager_is_active_for_plug((int16_t)specific_id, related_plug)
+                          : alert_manager_is_active((int16_t)specific_id);
+        if (active) {
+            bool ok = (related_plug != 0)
+                          ? alert_manager_ack_with_policy_instance((int16_t)specific_id, related_plug, now)
+                          : alert_manager_ack_with_policy((int16_t)specific_id, now);
+            if (ok) {
                 acked++;
                 safe_state_ack_on_alert_ack((int16_t)specific_id, now);
             }
         }
     } else {
-        for (int16_t id = 1; id <= 65; id++) {
-            if (alert_manager_is_active(id)) {
-                if (alert_manager_ack_with_policy(id, now)) {
-                    acked++;
-                    safe_state_ack_on_alert_ack(id, now);
-                }
+        alert_slot_t slots[ALERT_SLOTS_MAX];
+        uint16_t count = 0;
+        alert_manager_get_active_slots(slots, &count, ALERT_SLOTS_MAX);
+        for (uint16_t i = 0; i < count; i++) {
+            if (alert_manager_ack_with_policy_instance(slots[i].alm_id, slots[i].related_plug_id, now)) {
+                acked++;
+                safe_state_ack_on_alert_ack(slots[i].alm_id, now);
             }
         }
     }
@@ -801,6 +949,9 @@ static esp_err_t alert_ack_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "acked", acked);
     if (specific_id > 0 && alert_manager_ext_is_critical_and_pending(specific_id)) {
         cJSON_AddStringToObject(json, "ack_stage", "first_pending_confirm");
+    }
+    if (specific_id > 0 && related_plug > 0) {
+        cJSON_AddNumberToObject(json, "related_plug_id", (double)related_plug);
     }
     if (specific_id > 0) {
         audit_log_event(AUDIT_COMMAND, "alert ACK via API");
@@ -828,6 +979,7 @@ static esp_err_t command_handler(httpd_req_t *req)
     cmd_validation_t res = { .allowed = false, .requires_double_confirmation = false, .error_code = "unknown_cmd" };
     const char *status_msg = "command_accepted";
     int acked_count = -1;
+    uint8_t cmd_plug_id = 0;
 
     if (strcmp(cmd, "toggle_plug") == 0) {
         cJSON *plug_item = cJSON_GetObjectItem(json, "plug_id");
@@ -836,6 +988,7 @@ static esp_err_t command_handler(httpd_req_t *req)
         bool confirmed = cJSON_IsTrue(confirm_item);
         if (cJSON_IsNumber(plug_item) && cJSON_IsBool(state_item)) {
             uint8_t plug_id = (uint8_t)plug_item->valueint;
+            cmd_plug_id = plug_id;
             bool desired_on = cJSON_IsTrue(state_item);
             res = command_validator_can_toggle_plug(&g_gs, plug_id, desired_on);
             if (res.allowed) {
@@ -891,7 +1044,7 @@ static esp_err_t command_handler(httpd_req_t *req)
 
     cJSON_Delete(json);
     if (!res.allowed) {
-        return send_error(req, res.error_code ? res.error_code : "forbidden", ERR_VALIDATION_ERROR, 403, "403 Forbidden");
+        return send_cmd_validation_error(req, &res, cmd_plug_id);
     }
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "status", status_msg);
@@ -905,9 +1058,11 @@ static esp_err_t command_handler(httpd_req_t *req)
 static esp_err_t config_get_handler(httpd_req_t *req)
 {
     AUTH_GUARD();
-    cJSON *json = cJSON_CreateObject();
-    cJSON_AddBoolToObject(json, "wizard_completed", g_gs.wizard_completed);
-    cJSON_AddBoolToObject(json, "monitor_only_mode", g_gs.monitor_only_mode);
+    cJSON *json = NULL;
+    if (config_export_to_json(&json) != ESP_OK || !json) {
+        return send_error(req, "export_failed", ERR_INTERNAL_ERROR, 500, "500 Internal Server Error");
+    }
+    cJSON_AddStringToObject(json, "config_schema_version", g_gs.config_schema_version);
     cJSON_AddNumberToObject(json, "safeoff_reason", g_gs.safeoff_reason);
     cJSON_AddStringToObject(json, "safeoff_source_alm", g_gs.safeoff_source_alm);
     return send_json_resp(req, json, "200 OK");
@@ -1340,18 +1495,16 @@ static esp_err_t auth_password_handler(httpd_req_t *req)
 
 static esp_err_t wizard_handler(httpd_req_t *req)
 {
+    if (g_gs.wizard_completed) {
+        AUTH_GUARD();
+    }
+
     if (req->method == HTTP_GET) {
         cJSON *json = cJSON_CreateObject();
         cJSON_AddBoolToObject(json, "wizard_completed", g_gs.wizard_completed);
         cJSON_AddBoolToObject(json, "password_set", api_auth_has_password());
         cJSON_AddNumberToObject(json, "wizard_step", g_gs.wizard_step);
         return send_json_resp(req, json, "200 OK");
-    }
-
-    /* @requirement RF-WEB-006 O wizard só é aberto no setup inicial. Após concluído,
-     * qualquer escrita de configuração via /wizard exige autenticação. */
-    if (g_gs.wizard_completed) {
-        AUTH_GUARD();
     }
 
     char *body = read_body(req);
@@ -1658,6 +1811,7 @@ static esp_err_t maintenance_api_handler(httpd_req_t *req)
     if (req->method == HTTP_GET) {
         cJSON *json = cJSON_CreateObject();
         cJSON_AddBoolToObject(json, "active", maintenance_mode_is_active());
+        cJSON_AddBoolToObject(json, "enabled", maintenance_mode_is_active());
         cJSON_AddNumberToObject(json, "remaining_s",
             (double)maintenance_mode_remaining_s((uint64_t)(esp_timer_get_time() / USEC_PER_SEC)));
         return send_json_resp(req, json, "200 OK");
@@ -1669,9 +1823,15 @@ static esp_err_t maintenance_api_handler(httpd_req_t *req)
         cJSON *json = cJSON_Parse(body);
         if (json) {
             cJSON *en = cJSON_GetObjectItem(json, "enable");
+            if (!cJSON_IsBool(en)) en = cJSON_GetObjectItem(json, "enabled");
             if (cJSON_IsBool(en)) enable = cJSON_IsTrue(en);
             cJSON *dur = cJSON_GetObjectItem(json, "duration_s");
-            if (cJSON_IsNumber(dur)) duration_s = (uint32_t)dur->valuedouble;
+            if (!cJSON_IsNumber(dur)) {
+                cJSON *dur_min = cJSON_GetObjectItem(json, "duration_min");
+                if (cJSON_IsNumber(dur_min)) duration_s = (uint32_t)(dur_min->valuedouble * 60.0);
+            } else {
+                duration_s = (uint32_t)dur->valuedouble;
+            }
             cJSON_Delete(json);
         }
         free(body);
@@ -1699,8 +1859,10 @@ static esp_err_t plug_by_id_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "id", (double)plug_id);
     cJSON_AddStringToObject(json, "name", pm->name);
     cJSON_AddBoolToObject(json, "on", pm->effective_state == PLUG_EFFECTIVE_STATE_ON);
-    cJSON_AddBoolToObject(json, "blocked", pm->blocked_by_safe_state);
+    cJSON_AddBoolToObject(json, "blocked", pm->blocked);
+    cJSON_AddBoolToObject(json, "blocked_by_safe_state", pm->blocked_by_safe_state);
     cJSON_AddNumberToObject(json, "current_a", (double)pm->current_a);
+    cJSON_AddNumberToObject(json, "max_energy_wh_day", (double)pm->max_energy_wh_day);
     return send_json_resp(req, json, "200 OK");
 }
 
@@ -1767,6 +1929,143 @@ static esp_err_t profiles_rename_handler(httpd_req_t *req)
     return send_json_resp(req, resp, "200 OK");
 }
 
+static bool parse_alert_ack_uri(const char *uri, char *token, size_t token_len)
+{
+    const char *prefix = "/api/v1/alerts/";
+    if (!uri || !token || token_len == 0) return false;
+    size_t prefix_len = strlen(prefix);
+    if (strncmp(uri, prefix, prefix_len) != 0) return false;
+    const char *start = uri + prefix_len;
+    const char *end = strstr(start, "/ack");
+    if (!end || end <= start) return false;
+    size_t len = (size_t)(end - start);
+    if (len == 0 || len >= token_len) return false;
+    memcpy(token, start, len);
+    token[len] = '\0';
+    return true;
+}
+
+static esp_err_t alert_ack_path_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    char token[32];
+    if (!parse_alert_ack_uri(req->uri, token, sizeof(token))) {
+        return send_error(req, "invalid_alert_id", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    int16_t alert_id = 0;
+    if (!parse_alert_token(token, &alert_id)) {
+        return send_error(req, "invalid_alert_id", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    uint16_t related_plug = 0;
+    char *body = read_body(req);
+    if (body) {
+        cJSON *json = cJSON_Parse(body);
+        if (json) {
+            cJSON *plug_item = cJSON_GetObjectItem(json, "plug_id");
+            cJSON *rel_item = cJSON_GetObjectItem(json, "related_plug_id");
+            if (cJSON_IsNumber(plug_item) && plug_item->valueint >= 1 && plug_item->valueint <= 10) {
+                related_plug = (uint16_t)plug_item->valueint;
+            } else if (cJSON_IsNumber(rel_item) && rel_item->valueint >= 1 && rel_item->valueint <= 10) {
+                related_plug = (uint16_t)rel_item->valueint;
+            }
+            cJSON_Delete(json);
+        }
+        free(body);
+    }
+
+    uint64_t now = esp_timer_get_time() / USEC_PER_SEC;
+    cmd_validation_t cv = command_validator_can_ack_alert(&g_gs, (uint16_t)alert_id);
+    if (!cv.allowed) {
+        return send_error(req, cv.error_code, ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
+
+    int acked = 0;
+    bool active = (related_plug != 0)
+                      ? alert_manager_is_active_for_plug(alert_id, related_plug)
+                      : alert_manager_is_active(alert_id);
+    if (active) {
+        bool ok = (related_plug != 0)
+                      ? alert_manager_ack_with_policy_instance(alert_id, related_plug, now)
+                      : alert_manager_ack_with_policy(alert_id, now);
+        if (ok) {
+            acked = 1;
+            safe_state_ack_on_alert_ack(alert_id, now);
+        }
+    }
+    audit_log_event(AUDIT_COMMAND, "alert ACK via API path");
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, "acked", acked);
+    if (related_plug != 0) {
+        cJSON_AddNumberToObject(json, "related_plug_id", (double)related_plug);
+    }
+    return send_json_resp(req, json, "200 OK");
+}
+
+static esp_err_t plug_post_by_id_handler(httpd_req_t *req)
+{
+    AUTH_GUARD();
+    unsigned plug_id = 0;
+    if (sscanf(req->uri, "/api/v1/plugs/%u", &plug_id) != 1 || plug_id < 1 || plug_id > 10) {
+        return send_error(req, "invalid_plug_id", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+    }
+
+    char *body = read_body(req);
+    bool target_state = false;
+    bool confirmed = false;
+    float max_energy_wh_day = -1.0f;
+    if (body) {
+        cJSON *json = cJSON_Parse(body);
+        if (json) {
+            cJSON *state_item = cJSON_GetObjectItem(json, "state");
+            cJSON *mode_item = cJSON_GetObjectItem(json, "mode");
+            if (cJSON_IsBool(state_item)) target_state = cJSON_IsTrue(state_item);
+            else if (cJSON_IsNumber(mode_item)) target_state = (mode_item->valueint != 0);
+            cJSON *confirm_item = cJSON_GetObjectItem(json, "confirm");
+            confirmed = cJSON_IsTrue(confirm_item);
+            cJSON *energy_item = cJSON_GetObjectItem(json, "max_energy_wh_day");
+            if (cJSON_IsNumber(energy_item)) {
+                max_energy_wh_day = (float)energy_item->valuedouble;
+            }
+            cJSON_Delete(json);
+        }
+        free(body);
+    }
+
+    if (max_energy_wh_day >= 0.0f) {
+        esp_err_t eerr = plug_manager_set_max_energy_wh_day((plug_id_t)plug_id, max_energy_wh_day);
+        if (eerr != ESP_OK) {
+            return send_error(req, "invalid_energy_limit", ERR_VALIDATION_ERROR, 400, "400 Bad Request");
+        }
+        audit_log_event(AUDIT_CONFIG_CHANGE, "max_energy_wh_day via API path");
+        cJSON *resp = cJSON_CreateObject();
+        cJSON_AddNumberToObject(resp, "id", (double)plug_id);
+        cJSON_AddNumberToObject(resp, "max_energy_wh_day", (double)max_energy_wh_day);
+        return send_json_resp(req, resp, "200 OK");
+    }
+
+    cmd_validation_t cv = command_validator_can_toggle_plug(&g_gs, (uint8_t)plug_id, target_state);
+    if (!cv.allowed) {
+        return send_cmd_validation_error(req, &cv, (uint8_t)plug_id);
+    }
+    if (cv.requires_double_confirmation && !confirmed) {
+        return send_error(req, "double_confirmation_required",
+                          ERR_VALIDATION_ERROR, 409, "409 Conflict");
+    }
+
+    esp_err_t err = plug_manager_toggle((plug_id_t)plug_id, target_state);
+    if (err != ESP_OK) {
+        return send_error(req, "plug_denied", ERR_SAFE_MODE_ACTIVE, 403, "403 Forbidden");
+    }
+
+    audit_log_event(AUDIT_COMMAND, target_state ? "plug ON via API path" : "plug OFF via API path");
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddNumberToObject(resp, "id", (double)plug_id);
+    cJSON_AddBoolToObject(resp, "state", target_state);
+    return send_json_resp(req, resp, "200 OK");
+}
+
 static esp_err_t cors_options_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "204 No Content");
@@ -1796,6 +2095,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/energy",        .method = HTTP_GET,  .handler = energy_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/alerts",        .method = HTTP_GET,  .handler = alerts_handler,        .user_ctx = NULL },
     { .uri = "/api/v1/alerts",        .method = HTTP_POST, .handler = alert_ack_handler,     .user_ctx = NULL },
+    { .uri = "/api/v1/alerts/*/ack",  .method = HTTP_POST, .handler = alert_ack_path_handler, .user_ctx = NULL },
     { .uri = "/api/v1/ato/clear",     .method = HTTP_POST, .handler = ato_clear_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/config",        .method = HTTP_GET,  .handler = config_get_handler,         .user_ctx = NULL },
     { .uri = "/api/v1/config",        .method = HTTP_POST, .handler = config_set_handler,         .user_ctx = NULL },
@@ -1808,6 +2108,7 @@ static httpd_uri_t g_uris[] = {
     { .uri = "/api/v1/profiles",      .method = HTTP_GET,  .handler = profiles_list_handler,    .user_ctx = NULL },
     { .uri = "/api/v1/profiles/rename", .method = HTTP_POST, .handler = profiles_rename_handler, .user_ctx = NULL },
     { .uri = "/api/v1/plugs/*",       .method = HTTP_GET,  .handler = plug_by_id_handler,       .user_ctx = NULL },
+    { .uri = "/api/v1/plugs/*",       .method = HTTP_POST, .handler = plug_post_by_id_handler,  .user_ctx = NULL },
     { .uri = "/api/v1/config/monitor", .method = HTTP_POST, .handler = config_monitor_handler,     .user_ctx = NULL },
     { .uri = "/api/v1/command",       .method = HTTP_POST, .handler = command_handler,       .user_ctx = NULL },
     { .uri = "/api/v1/calibrate",     .method = HTTP_GET,  .handler = calibrate_handler,     .user_ctx = NULL },
@@ -1847,6 +2148,8 @@ esp_err_t api_rest_init(void)
         "/api/v1/config", "/api/v1/config/export", "/api/v1/config/import", "/api/v1/config/monitor",
         "/api/v1/command", "/api/v1/calibrate", "/api/v1/feed", "/api/v1/system", "/api/v1/log",
         "/api/v1/wizard", "/api/v1/reset",
+        "/api/v1/maintenance", "/api/v1/export", "/api/v1/import",
+        "/api/v1/ato/clear", "/api/v1/profiles", "/api/v1/profiles/rename",
         "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password", "/api/v1/auth/recovery"
     };
     for (size_t i = 0; i < sizeof(cors_paths) / sizeof(cors_paths[0]); i++) {

@@ -23,7 +23,6 @@
 #include "driver_relay.h"
 #include "driver_mcp3208.h"
 #include "driver_acs712.h"
-#include "driver_ad_keypad.h"
 #include "driver_pzem.h"
 #include "core/safety_controller.h"
 #include "command_validator.h"
@@ -40,6 +39,7 @@
 #include "electric_log.h"
 #include "profile_manager.h"
 #include "config_manager.h"
+#include "config_root.h"
 #include "task_manager.h"
 #include "wdt_advanced.h"
 #include "fsm/thermal_fsm.h"
@@ -68,9 +68,6 @@
 #include "event_bus.h"
 #include "health_matrix.h"
 #include "wifi_ctl.h"
-#include "sensor_ctl.h"
-#include "disp_ctl.h"
-#include "log_ctl.h"
 #include "storage_facade.h"
 #include "thermal_service.h"
 #include "ato_service.h"
@@ -81,6 +78,7 @@
 #include "watchdog_guard.h"
 #include "alm_monitor.h"
 #include "maintenance_mode.h"
+#include "alm_ids.h"
 
 extern void task_ui_fn(void *pv);
 extern void task_web_fn(void *pv);
@@ -107,18 +105,26 @@ static uint64_t s_emergency_resolved_at_ms;
 static int16_t s_last_tout_alm = 0;
 static int16_t s_last_aout_alm = 0;
 static int16_t s_last_eout_alm = 0;
+static bool s_config_invalid_at_boot = false;
 
-static void fsm_alm_sync(int16_t cur, int16_t *last, bool allow_raise, uint64_t now_s)
+static bool boot_config_root_valid(void)
 {
-    if (*last != 0 && (cur == 0 || !allow_raise || *last != cur)) {
+    config_root_t root;
+    if (config_root_load(&root) != ESP_OK) return false;
+    return config_root_validate(&root);
+}
+
+static void fsm_alm_sync(int16_t cur, int16_t *last, uint64_t now_s)
+{
+    /* @requirement RF-FSM-THERMAL-001 Telemetria: ALMs das FSMs permanecem visíveis
+     * mesmo em SAFE_OFF/EMERGENCY (sem suprimir raise/clear por force_safe_off). */
+    if (*last != 0 && (cur == 0 || *last != cur)) {
         alert_manager_try_auto_clear(*last, true);
         *last = 0;
     }
-    if (cur != 0 && allow_raise) {
-        if (*last != cur) {
-            alert_manager_raise(cur, true, now_s);
-            *last = cur;
-        }
+    if (cur != 0 && *last != cur) {
+        alert_manager_raise(cur, true, now_s);
+        *last = cur;
     }
 }
 
@@ -314,8 +320,11 @@ static bool safeoff_cause_is_resolved(void)
             return circuit_breaker_is_available(CB_BUS_I2C);
         case SAFEOFF_REASON_WDT_RECOVERY:
             return wdt_stats_get_resets_24h() <= HW_WDT_RESET_MAX_24H;
-        case SAFEOFF_REASON_CONFIG_INVALID:
-            return g_gs.config_schema_version[0] != '\0';
+        case SAFEOFF_REASON_CONFIG_INVALID: {
+            config_root_t root;
+            if (config_root_load(&root) != ESP_OK) return false;
+            return config_root_validate(&root);
+        }
         case SAFEOFF_REASON_MANUAL_CRITICAL:
         case SAFEOFF_REASON_FSM_INVALID:
             return false;
@@ -326,7 +335,24 @@ static bool safeoff_cause_is_resolved(void)
     }
 }
 
-static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
+static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms,
+                                const float *plug_currents, float per_plug_limit_a);
+static void handle_emergency_exit(uint64_t now_s, uint64_t now_ms);
+
+static void map_emergency_to_safeoff(const char *source_alm,
+                                     safeoff_reason_t *reason, const char **alm_out)
+{
+    if (source_alm && strcmp(source_alm, "ALM-029") == 0) {
+        *reason = SAFEOFF_REASON_WDT_RECOVERY;
+        *alm_out = "ALM-003";
+    } else {
+        *reason = SAFEOFF_REASON_THERMAL_EXTREME;
+        *alm_out = "ALM-028";
+    }
+}
+
+static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms,
+                                const float *plug_currents, float per_plug_limit_a)
 {
     safety_inputs_t sin;
     memset(&sin, 0, sizeof(sin));
@@ -366,7 +392,25 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
     }
 
     if (g_gs.restart_in_progress) {
-        restart_fsm_update(&g_restart_fsm, now_ms);
+        if (!restart_fsm_update(&g_restart_fsm, now_ms, plug_currents, per_plug_limit_a)) {
+            ESP_LOGW(TAG, "RESTART: falha na monitoracao eletrica -> abort");
+            g_gs.restart_in_progress = false;
+            plug_manager_set_restart_mask(0);
+            relay_all_off();
+            restart_fsm_abort(&g_restart_fsm);
+            uint16_t fault_plug = 0;
+            for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
+                if (plug_currents[i] > per_plug_limit_a) {
+                    fault_plug = (uint16_t)(i + 1);
+                    break;
+                }
+            }
+            alert_manager_raise_full((int16_t)ALM_056, ALERT_SEVERITY_HIGH, ALERT_CATEGORY_PROCESS,
+                                     "Falha na monitoracao eletrica do religamento", 0.0f,
+                                     "Verificar cargas e correntes", fault_plug, true, true, now_s);
+            audit_log_event(AUDIT_SAFE_OFF, "Restart aborted - overcurrent in monitoring");
+            return;
+        }
         plug_manager_set_restart_mask(restart_fsm_energized_mask(&g_restart_fsm));
         return;
     }
@@ -379,7 +423,7 @@ static void handle_safeoff_exit(uint64_t now_s, uint64_t now_ms)
             uint16_t blocked = 0;
             for (int i = 0; i < PLUG_COUNT_TOTAL; i++) {
                 plug_model_t *p = plug_manager_get((plug_id_t)(i + 1));
-                if (p && p->blocked) blocked |= (uint16_t)(1U << (i + 1));
+                if (p && p->blocked) blocked |= (uint16_t)(1U << i);
             }
             restart_fsm_set_blocked_mask(&g_restart_fsm, blocked);
         }
@@ -408,12 +452,14 @@ static void handle_emergency_exit(uint64_t now_s, uint64_t now_ms)
     fill_emergency_stabilization(&sin, emerg_resolved, now_ms);
 
     if (safety_controller_can_exit_emergency(&g_gs, &sin, now_s)) {
-        ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF");
+        safeoff_reason_t reason;
+        const char *alm_tag;
+        map_emergency_to_safeoff(g_gs.safeoff_source_alm, &reason, &alm_tag);
+        ESP_LOGW(TAG, "EMERGENCY exit conditions met -> SAFE_OFF (%s)", alm_tag);
         s_safeoff_resolved_at_ms = 0;
         thermal_fsm_clear_over_temp_latch(&s_thermal_fsm);
         (void)safeoff_record_resolve_latest(now_s);
-        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_THERMAL_EXTREME,
-                                   "ALM-028", "emergency_exit", now_s);
+        global_state_enter_safeoff(&g_gs, reason, alm_tag, "emergency_exit", now_s);
     }
 }
 
@@ -675,7 +721,9 @@ static void check_hw_alert(uint64_t now_s)
         g_gs.hw_alert_alm_id = ALM_013;
         snprintf(g_gs.hw_alert_msg, sizeof(g_gs.hw_alert_msg),
                  "Sensor de temperatura sem comunicacao. Toque para continuar.");
-        audit_log_event(AUDIT_SAFE_OFF, "Temp sensor fail -> alerta critico (hw_alert)");
+        audit_log_event(AUDIT_SAFE_OFF, "Temp sensor fail -> hw_alert overlay");
+    } else if (g_gs.hw_alert_pending && g_gs.hw_alert_alm_id == ALM_013 && !thermal_sensor_fault) {
+        g_gs.hw_alert_pending = false;
     }
 }
 
@@ -705,7 +753,7 @@ static void update_safety_outputs(const float *plug_currents, const thermal_outp
                                        || eout->state == ELECTRIC_STATE_UNDERVOLTAGE
                                        || eout->state == ELECTRIC_STATE_SENSOR_FAIL));
     sin.degraded_condition = (thermal_degraded || ato_degraded || electric_degraded);
-    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.pzem_ok);
+    sin.all_sensors_valid = (g_gs.temp_ok && g_gs.ato_ok && g_gs.pzem_ok);
     sin.selftest_passed = g_gs.selftest_passed;
     sin.emergency_resolved = !sin.emergency_condition;
     sin.safeoff_cause_resolved = !sin.safeoff_condition;
@@ -788,6 +836,8 @@ static void update_connectivity_and_time(uint64_t now_s)
                 cdn_energy_tick(tm_info.tm_year + 1900, tm_info.tm_mon + 1, tm_info.tm_mday);
             }
         }
+    } else {
+        cdn_energy_tick_uptime(now_s);
     }
 
     if (s_last_time_tick_s == 0) {
@@ -830,7 +880,7 @@ static void task_safety_core_fn(void *pv)
                         /* @requirement RF-WDT-RECOVERY-001 Travamento de task crítica:
                          * SAFE_OFF + relés OFF imediatos + observation_mode + ALM-043. */
                         ESP_LOGE(TAG, "Task %d critica sem heartbeat -> SAFE_OFF", i);
-                        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_WDT_RECOVERY,
+                        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_FSM_INVALID,
                                                    "ALM-043", "task_hang", now_s);
                         plug_manager_apply_safe_off();
                         g_gs.observation_mode = true;
@@ -870,15 +920,23 @@ static void task_safety_core_fn(void *pv)
         if (g_gs.system_state == SYSTEM_STATE_EMERGENCY) {
             handle_emergency_exit(now_s, now_ms);
         }
-        if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
-            handle_safeoff_exit(now_s, now_ms);
-        }
 
         float temp_c = HW_TEMP_DEFAULT_C;
         int32_t ato_level = HW_ATO_DEFAULT_ADC;
         float plug_currents[HW_RELAY_COUNT_MAX] = {0};
 
         read_sensors(&temp_c, &ato_level);
+        update_plug_currents(plug_currents);
+
+        if (g_gs.system_state == SYSTEM_STATE_SAFE_OFF) {
+            handle_safeoff_exit(now_s, now_ms, plug_currents,
+                                (float)s_ecfg.per_plug_current_limit_a);
+        }
+
+        if (!g_gs.wizard_completed) {
+            vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
+            continue;
+        }
 
         thermal_input_t tin = {
             .sample_valid = g_gs.temp_ok,
@@ -891,15 +949,9 @@ static void task_safety_core_fn(void *pv)
             .now_ms = now_ms
         };
 
-        if (!g_gs.wizard_completed) {
-            vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_SAFETY_CORE));
-            continue;
-        }
-
         thermal_fsm_update(&s_thermal_fsm, &tin);
         ato_fsm_update(&s_ato_fsm, &ain);
 
-        update_plug_currents(plug_currents);
         read_pzem();
 
         electric_input_t ein;
@@ -946,16 +998,14 @@ static void task_safety_core_fn(void *pv)
         check_hw_alert(now_s);
 
         /* @requirement RF-FSM-THERMAL-001 / RF-FSM-ATO-001 ALMs das FSMs com clear simétrico. */
-        fsm_alm_sync(tout ? (int16_t)tout->suggested_alm : 0, &s_last_tout_alm,
-                     tout && !tout->force_safe_off && !tout->force_emergency, now_s);
-        fsm_alm_sync(aout ? (int16_t)aout->suggested_alm : 0, &s_last_aout_alm, true, now_s);
+        fsm_alm_sync(tout ? (int16_t)tout->suggested_alm : 0, &s_last_tout_alm, now_s);
+        fsm_alm_sync(aout ? (int16_t)aout->suggested_alm : 0, &s_last_aout_alm, now_s);
         {
             int16_t e_alm = 0;
-            if (eout && eout->suggested_alm != 0 && eout->suggested_alm != ALM_053
-                && !eout->force_safe_off) {
+            if (eout && eout->suggested_alm != 0 && eout->suggested_alm != ALM_053) {
                 e_alm = (int16_t)eout->suggested_alm;
             }
-            fsm_alm_sync(e_alm, &s_last_eout_alm, true, now_s);
+            fsm_alm_sync(e_alm, &s_last_eout_alm, now_s);
         }
 
         if (eout && eout->state == ELECTRIC_STATE_SHORT_CIRCUIT && eout->shorted_plug_id > 0) {
@@ -973,14 +1023,15 @@ static void task_safety_core_fn(void *pv)
             alert_manager_check_ack_timeout(now_s, ack_to);
         }
 
-        /* @requirement RF-ALERT-006 Buzzer automático (respeita silence por ALM). */
+        /* @requirement RF-ALERT-006 Buzzer automático (respeita silence por instância). */
         if (g_gs.critical_alerts_count > 0) {
             bool any_unsilenced = false;
-            for (int16_t id = 1; id <= 65; id++) {
-                if (!alert_manager_is_active(id)) continue;
-                const alert_slot_t *sl = alert_manager_get_slot(id);
-                if (sl && sl->severity >= ALERT_SEVERITY_CRITICAL
-                    && !alert_manager_is_silenced(id, now_s)) {
+            alert_slot_t buzz_slots[ALERT_SLOTS_MAX];
+            uint16_t buzz_count = 0;
+            alert_manager_get_active_slots(buzz_slots, &buzz_count, ALERT_SLOTS_MAX);
+            for (uint16_t bi = 0; bi < buzz_count; bi++) {
+                if (buzz_slots[bi].severity >= ALERT_SEVERITY_CRITICAL &&
+                    !alert_manager_is_slot_silenced(&buzz_slots[bi], now_s)) {
                     any_unsilenced = true;
                     break;
                 }
@@ -1168,6 +1219,10 @@ void app_main(void)
     ESP_LOGI(TAG, "Reset reason: %d", (int)esp_reset_reason());
 
     ESP_ERROR_CHECK(config_manager_init());
+    if (!boot_config_root_valid()) {
+        s_config_invalid_at_boot = true;
+        ESP_LOGE(TAG, "ConfigRoot invalido apos init — SAFE_OFF antes das tasks");
+    }
     maintenance_mode_init();
     init_global_state();
     safety_controller_init(&g_gs);
@@ -1206,7 +1261,6 @@ void app_main(void)
         }
         ESP_LOGI(TAG, "Calibracao: offsets ACS712 aplicados da NVS");
     }
-    ad_keypad_init(NULL);
     esp_err_t pzem_err = pzem_init();
     if (pzem_err != ESP_OK) {
         ESP_LOGW(TAG, "PZEM init falhou: %s", esp_err_to_name(pzem_err));
@@ -1315,9 +1369,6 @@ void app_main(void)
 
     ESP_ERROR_CHECK(storage_facade_init());
 
-    log_ctl_init();
-    disp_ctl_init();
-    sensor_ctl_init();
     wifi_ctl_init();
 
     thermal_service_init();
@@ -1396,6 +1447,19 @@ void app_main(void)
     }
 
     reset_handler_init();
+
+    if (s_config_invalid_at_boot) {
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / USEC_PER_SEC);
+        ESP_LOGE(TAG, "CONFIG INVALIDA -> SAFE_OFF + ALM-061");
+        global_state_enter_safeoff(&g_gs, SAFEOFF_REASON_CONFIG_INVALID, "ALM-061",
+                                   "config_invalid_boot", now_s);
+        plug_manager_apply_safe_off();
+        alert_manager_raise_full(ALM_061, ALERT_SEVERITY_CRITICAL, ALERT_CATEGORY_SYSTEM,
+                                 "Configuracao invalida na inicializacao", 0.0f,
+                                 "Restaurar config ou importar backup valido",
+                                 0, true, false, now_s);
+        audit_log_event(AUDIT_CONFIG_CHANGE, "Config invalid at boot -> SAFE_OFF (ALM-061)");
+    }
 
     ESP_LOGI(TAG, "FASE 7 - Lancando tasks via task_manager");
 

@@ -15,6 +15,7 @@
 #include "ato_service.h"
 #include "maintenance_mode.h"
 #include "cdn_energy.h"
+#include "esp_timer.h"
 #include <time.h>
 #include <string.h>
 
@@ -115,6 +116,11 @@ void ui_view_model_update_from_system(ui_root_vm_t *vm)
     vm->topbar.system_state = (ui_system_state_t)g_gs.system_state;
     vm->topbar.alert_count = g_gs.active_alerts_count;
     vm->topbar.maintenance_mode = g_gs.maintenance_mode;
+    {
+        uint64_t now_s = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+        vm->topbar.maintenance_remaining_s = maintenance_mode_remaining_s(now_s);
+        vm->topbar.maintenance_expiring_soon = maintenance_mode_is_expiring_soon(now_s);
+    }
     vm->topbar.mute_active = buzzer_is_muted();
     vm->topbar.wizard_incomplete = !g_gs.wizard_completed;
     vm->topbar.nvs_ok = !alert_manager_is_active(ALM_061);
